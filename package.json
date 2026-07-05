@@ -1,7 +1,7 @@
 {
   "name": "fridge-list",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,7 +17,10 @@
   },
   "devDependencies": {
     "@tanstack/router-plugin": "^1.168.19",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^6.0.3",
     "vite": "^8.0.0"
   }
 }

@@ -1,23 +1,47 @@
 import { useEffect, useState } from 'react'
+import type { ReceiptItem } from '../types'
 
-export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }) {
+export interface ReceiptReviewData {
+  store_name: string | null
+  items: ReceiptItem[]
+  total: number | null
+  imageBlob: Blob | null
+  source_url?: string | null
+  queuePosition?: { index: number; total: number } | null
+}
+
+interface ReceiptReviewModalProps {
+  data: ReceiptReviewData
+  queueLabel?: string | null
+  onClose: () => void
+  onSave: (result: {
+    store_name: string | null
+    items: ReceiptItem[]
+    total: number | null
+    source_url: string | null
+  }) => Promise<unknown>
+}
+
+export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }: ReceiptReviewModalProps) {
   const isPdfBlob = data.imageBlob?.type === 'application/pdf'
-  const [previewUrl] = useState(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
+  const [previewUrl] = useState<string | null>(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
   const [storeName, setStoreName] = useState(data.store_name || '')
   const [items, setItems] = useState(
     (data.items || []).map((i) => ({ name: i.name, price: i.price, quantity: i.quantity || 1 }))
   )
-  const [total, setTotal] = useState(data.total ?? '')
+  const [total, setTotal] = useState<string | number>(data.total ?? '')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl])
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
-  const updateItem = (index, field, value) => {
+  const updateItem = (index: number, field: 'name' | 'price' | 'quantity', value: string | number) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
   }
 
-  const removeItem = (index) => {
+  const removeItem = (index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 

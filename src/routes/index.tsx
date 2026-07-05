@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   addGroceryItem,
@@ -8,21 +8,24 @@ import {
   findStockItemByName,
   saveItemDetails,
   setBought
-} from '../firebase.js'
-import { OTHER_CATEGORY_NAME } from '../categories.js'
-import { useCategories } from '../useCategories.js'
-import { useCollapsedSections } from '../useCollapsedSections.js'
-import { formatDateTime } from '../formatDateTime.js'
-import { useAuth } from '../AuthContext.jsx'
-import { useGroceriesFeed } from '../GroceriesFeedContext.jsx'
-import ItemDetailModal from '../ItemDetailModal.jsx'
-import GroceryItemModal from '../GroceryItemModal.jsx'
-import RestockPrompt from '../RestockPrompt.jsx'
+} from '../lib/firebase'
+import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { useCategories } from '../hooks/useCategories'
+import { useCollapsedSections } from '../hooks/useCollapsedSections'
+import { formatDateTime } from '../lib/formatDateTime'
+import { useAuth } from '../hooks/AuthContext'
+import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import ItemDetailModal from '../components/ItemDetailModal'
+import GroceryItemModal from '../components/GroceryItemModal'
+import RestockPrompt from '../components/RestockPrompt'
+import type { GroceryItem, StockItem } from '../types'
 
 const PERMANENT_LIST = null
 
 export const Route = createFileRoute('/')({
-  validateSearch: (search) => ({ list: typeof search.list === 'string' ? search.list : undefined }),
+  validateSearch: (search: Record<string, unknown>): { list?: string } => ({
+    list: typeof search.list === 'string' ? search.list : undefined
+  }),
   component: ShoppingListPage
 })
 
@@ -33,19 +36,19 @@ function ShoppingListPage() {
 
   const { user, canEdit, onSignIn } = useAuth()
   const { entries: allEntries } = useGroceriesFeed()
-  const [selectedEntry, setSelectedEntry] = useState(null)
-  const [restockMatch, setRestockMatch] = useState(null)
+  const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
+  const [restockMatch, setRestockMatch] = useState<StockItem | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
 
-  const customListNames = new Set(allEntries.map((e) => e.list_name).filter(Boolean))
+  const customListNames = new Set(allEntries.map((e) => e.list_name).filter(Boolean) as string[])
   if (activeList) customListNames.add(activeList)
   const sortedCustomLists = [...customListNames].sort((a, b) => a.localeCompare(b, 'he'))
 
   const visibleEntries = allEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
 
-  const grouped = {}
+  const grouped: Record<string, GroceryItem[]> = {}
   visibleEntries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
@@ -61,7 +64,7 @@ function ShoppingListPage() {
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
   const isEmpty = visibleCategories.length === 0
 
-  const handleToggleBought = (entry) => {
+  const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
     setBought(entry.key, newBought, user)
     if (newBought) {
@@ -73,7 +76,7 @@ function ShoppingListPage() {
     }
   }
 
-  const handleItemClick = (entry) => {
+  const handleItemClick = (entry: GroceryItem) => {
     if (!canEdit) return
     handleToggleBought(entry)
   }
@@ -146,7 +149,7 @@ function ShoppingListPage() {
       ) : (
         <div className="flat-list">
           {visibleCategories.map(({ name, color, icon }) => (
-            <div className="flat-section" key={name} style={{ '--accent': color }}>
+            <div className="flat-section" key={name} style={{ '--accent': color } as CSSProperties}>
               <h2 className="flat-section-header" onClick={() => toggle(name)}>
                 <span className="cat-icon">{icon}</span>
                 {name}

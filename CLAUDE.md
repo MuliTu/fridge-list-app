@@ -111,12 +111,12 @@ Firebase Realtime Database (n8n-vocal-2-db, europe-west1)
                         app UI, on top of the permanent hardcoded ADMIN_EMAILS owner(s)
 
 React app (fridge-list-app/) — live display, runs on a tablet browser and on phones
-   Tab switcher in App.jsx: "רשימת קניות" (shopping list) / "מלאי" (stock,
-   StockView.jsx) / "קבלות" (receipts, ReceiptsView.jsx).
+   Tab switcher (real routes, `src/routes/`): "רשימת קניות" (shopping list, `index.tsx`)
+   / "מלאי" (stock, `stock.tsx`) / "קבלות" (receipts, `receipts.tsx`).
    Listens to /groceries (and /stock or /receipts, on their respective tabs) via
    onValue() realtime listener — no auth required to view any of them.
    Groups by category (editable set, live from /categories — see Categories module below).
-   Checkbox per item writes back bought:true/false via setBought() in src/firebase.js —
+   Checkbox per item writes back bought:true/false via setBought() in src/lib/firebase.ts —
    disabled unless signed in with an allowed Google account (see Auth below).
    Toast banner + highlight animation when new items arrive.
    Tapping an item opens ItemDetailModal: shows note/image/created/modified metadata to
@@ -131,14 +131,15 @@ Deliberately **not** a full app gate — the tablet display must stay glanceable
 login friction, matching the original "low-stakes family list" tradeoff. Instead:
 
 - **Viewing the list requires no auth at all** — `groceriesRef` / `onValue` in
-  `src/firebase.js` are unconditional. Realtime Database rules are unchanged (still the
+  `src/lib/firebase.ts` are unconditional. Realtime Database rules are unchanged (still the
   open rules below) specifically so n8n's unauthenticated REST writes keep working.
 - **Editing (bought toggle, note, image, delete) requires Google sign-in** AND the
-  signed-in email must be in `ADMIN_EMAILS` (`src/firebase.js`) — currently just
+  signed-in email must be in `ADMIN_EMAILS` (`src/lib/firebase.ts`) — currently just
   `muli.turiel@gmail.com`. To add a second household member (e.g. a spouse), just add
   their Google email to that array; no other change needed.
-- `src/AuthGate.jsx` wraps `App` and always renders it, passing `user`, `canEdit`,
-  `onSignIn`, `onSignOut`, `authError` down. There is no more "sign-in wall" screen.
+- `src/hooks/AuthContext.tsx` (`AuthProvider`/`useAuth`) provides `user`, `canEdit`,
+  `onSignIn`, `onSignOut`, `authError` via React context to every route. There is no
+  "sign-in wall" screen — viewing never requires auth.
 - **Uses `signInWithPopup`, not `signInWithRedirect`.** Redirect was tried first and
   hung indefinitely with no error and no navigation — confirmed via network trace that
   it stalls loading Firebase Auth's cross-origin `__/auth/iframe` on `authDomain`
@@ -154,7 +155,7 @@ login friction, matching the original "low-stakes family list" tradeoff. Instead
   account credentials — see Blaze/Storage note below for why that was never set up).
   `localhost` is on the list by default; **`fridge-list-app.vercel.app` needs to be
   added manually** after the Vercel deploy, and again for any future custom domain.
-- Images upload to **Firebase Storage** (`src/firebase.js` `saveItemDetails`), resized
+- Images upload to **Firebase Storage** (`src/lib/firebase.ts` `saveItemDetails`), resized
   client-side to ~1280px/JPEG q0.75 via canvas before upload. This requires the Firebase
   project to be on the **Blaze plan** with Storage enabled (Spark/free plan can't use
   Storage at all) — a manual Console step, not something done from this codebase.
@@ -207,17 +208,17 @@ over a fully separate lists/collections model, to keep this small and reversible
 - Since Siri/n8n has no concept of "current list" (the Shortcut only ever sends
   `{ text }`), it always writes untagged items to the permanent list. **Custom lists
   can only be populated from the web app itself** — a "+" FAB
-  (`src/GroceryItemModal.jsx`) appears only while viewing a non-permanent list.
-- Deleting a custom list (`deleteGroceryList` in `src/firebase.js`) is a bulk,
+  (`src/components/GroceryItemModal.tsx`) appears only while viewing a non-permanent list.
+- Deleting a custom list (`deleteGroceryList` in `src/lib/firebase.ts`) is a bulk,
   destructive action — it removes every item tagged with that `list_name` in one
   atomic multi-path Firebase `update()`, behind a confirm dialog that states the item
   count. There's no undo.
 
 ## Collapsible category sections (`useCollapsedSections`)
 
-`src/useCollapsedSections.js` is a small shared hook (one `localStorage` key,
-`collapsedCategories`) used independently by both `src/App.jsx` (shopping list) and
-`src/StockView.jsx` (stock) — collapsing a category collapses it by name on **both**
+`src/hooks/useCollapsedSections.ts` is a small shared hook (one `localStorage` key,
+`collapsedCategories`) used independently by both `src/routes/index.tsx` (shopping
+list) and `src/routes/stock.tsx` (stock) — collapsing a category collapses it by name on **both**
 tabs on that device. This is a client-only UI preference, not household data: it's
 never written to Firebase, so collapsing something on the tablet has no effect on
 anyone's phone. Default is everything expanded, so the tablet's glanceable
@@ -246,11 +247,11 @@ comparison — all parked, not built) versus what was kept (this).
 }
 ```
 
-Flow: canEdit-only "+" upload button (`src/ReceiptsView.jsx`) → photo resized
-client-side (reusing `resizeImage`, now exported from `src/firebase.js` for both this
+Flow: canEdit-only "+" upload button (`src/routes/receipts.tsx`) → photo resized
+client-side (reusing `resizeImage`, now exported from `src/lib/firebase.ts` for both this
 and the existing grocery-item-photo flow) → `scanReceipt()` POSTs the base64 JPEG to
 `/api/scan-receipt` (see Architecture above and Security note below — **not** the n8n
-URL directly) → result opens in `src/ReceiptReviewModal.jsx`, a mandatory edit screen
+URL directly) → result opens in `src/components/ReceiptReviewModal.tsx`, a mandatory edit screen
 showing the original photo alongside every extracted line (name/price/quantity, all
 editable, rows addable and removable) — **nothing reaches Firebase until the user
 explicitly confirms**. This was the single strongest requirement from Session 4 (Idan,
@@ -313,7 +314,7 @@ like this. The generic fallback (strip tags, hand the raw page to Gemini) is a
 reasonable best-effort for other sites, but only actually tested against Shufersal's
 specific structure.
 
-Price history / diff: `src/ReceiptsView.jsx` builds an in-memory map of every item name
+Price history / diff: `src/routes/receipts.tsx` builds an in-memory map of every item name
 (normalized) → its price across all past receipts, computed client-side from the
 already-subscribed `/receipts` data (no extra Firebase reads). Each line item shows a
 ▲/▼ delta against its most recent *prior* price. Matching is exact-name,
@@ -346,21 +347,21 @@ auto-push, shared auth model, threshold semantics, etc).
 UI: a tab switcher in `src/Layout.jsx` (real routes now, see "Frontend app" below)
 toggles between "רשימת קניות" (`src/routes/index.jsx`) and "מלאי"
 (`src/routes/stock.jsx`), grouped by category like the shopping list.
-Quantity is changed via +/- stepper buttons (`adjustStockQuantity` in `src/firebase.js`,
+Quantity is changed via +/- stepper buttons (`adjustStockQuantity` in `src/lib/firebase.ts`,
 clamped at 0 client-side — not a Firebase transaction, so concurrent taps from two
 phones are last-write-wins, an accepted tradeoff for a small household, same as
 `bought` already is). Items at/below threshold get a visual low-stock highlight and a
 manual "🛒 לרשימה" button (`addStockItemToShoppingList`) that pushes a new entry into
 `/groceries` — deliberately not automatic, to avoid fighting with n8n's Siri
 dedup/reactivation logic on `/groceries` (see Architecture above). Adding/editing/
-deleting stock items (`src/StockItemModal.jsx`, one modal for both add and edit — edit
+deleting stock items (`src/components/StockItemModal.tsx`, one modal for both add and edit — edit
 mode is triggered by passing an existing `item`) and adjusting quantity all require
 `canEdit`, same as editing the shopping list — viewing `/stock` is open to everyone,
 consistent with the rest of the app's auth model (see Auth above).
 
 Each stock item shows a small caption under its name with who last touched it and
 when — `עודכן: <date> · <email>`, sourced straight from `updated_at`/`updated_by`
-(`formatDateTime` shared with `ItemDetailModal.jsx` via `src/formatDateTime.js`). There
+(`formatDateTime` shared with `ItemDetailModal.tsx` via `src/lib/formatDateTime.ts`). There
 is no separate "created" stamp for stock items (unlike groceries' `added_at`) — the
 first write's `updated_at`/`updated_by` doubles as creation info, which is enough since
 nothing here distinguishes "who added" from "who last edited."
@@ -370,8 +371,8 @@ nothing here distinguishes "who added" from "who last edited."
 below) — this is a manual Console step, do it before relying on the stock tab against
 the real database.
 
-**Restock-on-checkout** (`src/RestockPrompt.jsx`, wired in `src/App.jsx`
-`handleToggleBought`): checking a shopping-list item off (bought `false → true` only,
+**Restock-on-checkout** (`src/components/RestockPrompt.tsx`, wired in
+`src/routes/index.tsx`'s `handleToggleBought`): checking a shopping-list item off (bought `false → true` only,
 not the un-check direction) triggers `findStockItemByName` — a one-off `get()` lookup
 against `/stock` matching on trimmed/lowercased `name` (same normalization limits as
 the existing shopping-list dedup: "עגבניות" vs "עגבניה" won't match, a pre-existing
@@ -391,7 +392,7 @@ out of sync with reality.
 - Firebase databaseURL: `https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app`
 - Gemini model: `models/gemini-2.5-flash`, credential name "Google Gemini(PaLM) Api account"
 
-## Categories module (`/categories/{key}`, `src/useCategories.js`)
+## Categories module (`/categories/{key}`, `src/hooks/useCategories.ts`)
 
 Categories used to be hardcoded in three places (n8n's Gemini prompt, n8n's
 `VALID_CATEGORIES` array, and a static `CATEGORIES` array in the React app) — that's
@@ -408,19 +409,19 @@ touched by this change (see Known gaps).
 }
 ```
 
-`src/categories.js` no longer holds the canonical list — it only holds
+`src/lib/categories.ts` no longer holds the canonical list — it only holds
 `DEFAULT_CATEGORIES` (the original 17, now with an `icon` per category) and
 `OTHER_CATEGORY_NAME` (`'אחר'`, the hardcoded fallback string used throughout the app).
-`src/useCategories.js` is the hook every consumer (`App.jsx`, `StockView.jsx`,
-`StockItemModal.jsx`, `GroceryItemModal.jsx`) now calls instead of importing a static
+`src/hooks/useCategories.ts` is the hook every consumer (`routes/index.tsx`,
+`routes/stock.tsx`, `StockItemModal.tsx`, `GroceryItemModal.tsx`) now calls instead of importing a static
 array — it subscribes to `/categories` live and, on mount, calls
 `seedCategoriesIfEmpty()`, which is **defensive**: it only writes `DEFAULT_CATEGORIES`
 if the path is currently empty, so it can never clobber real edits after the first run.
 
-`"אחר"` is `protected: true` and the CRUD UI (`src/CategoriesModal.jsx`) won't let you
+`"אחר"` is `protected: true` and the CRUD UI (`src/components/CategoriesModal.tsx`) won't let you
 rename or delete it, because the fallback logic hardcodes that literal string
 (`categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME`) in
-`App.jsx` and `StockView.jsx`. Deleting any *other* category needs no migration step —
+`routes/index.tsx` and `routes/stock.tsx`. Deleting any *other* category needs no migration step —
 items still tagged with a deleted category's name just fall into "אחר" automatically
 via that same existing fallback.
 
@@ -431,11 +432,11 @@ was the long-planned next step (see Known gaps) but is a real change to the *liv
 flow and wasn't done alongside this — if you add/rename/delete a category in the app,
 Siri won't know about it until n8n is rewired too.
 
-## Editor invites (`/admins/{key}`, "shared list" / `src/AdminsModal.jsx`)
+## Editor invites (`/admins/{key}`, "shared list" / `src/components/AdminsModal.tsx`)
 
-`ADMIN_EMAILS` in `src/firebase.js` remains the permanent, hardcoded owner list — it
+`ADMIN_EMAILS` in `src/lib/firebase.ts` remains the permanent, hardcoded owner list — it
 can't be edited from the UI, only from source. On top of it, `canEdit` now also checks
-a live `/admins` path: any email added there via `src/AdminsModal.jsx` (a small
+a live `/admins` path: any email added there via `src/components/AdminsModal.tsx` (a small
 "שיתוף עריכה" panel, opened from a header icon button, admin-only) can sign in with
 that Google account and get full edit rights, same as an owner.
 
@@ -520,42 +521,57 @@ technically still write directly via REST, same as before this session's changes
 ## Frontend app (fridge-list-app/)
 
 **TanStack Start** (React + TanStack Router, file-based routing, Vite/Nitro under the
-hood) — still talks directly to Firebase from the browser exactly as before; TanStack
-Start's SSR only renders the static shell (header/theme), since `/groceries`, `/stock`,
+hood), **TypeScript throughout** (`.tsx`/`.ts`, `strict: false` + `strictNullChecks:
+true` — the latter is required by TanStack Router's own types, see `tsconfig.json`).
+Still talks directly to Firebase from the browser exactly as before; TanStack Start's
+SSR only renders the static shell (header/theme), since `/groceries`, `/stock`,
 `/receipts`, `/categories`, `/admins` are realtime `onValue` push subscriptions, not
 one-shot fetches, so they deliberately aren't wired through server loaders. Migrated
-from a plain Vite SPA in v2.0.0 — see `CHANGELOG.md` for what changed structurally.
+from a plain Vite SPA in v2.0.0, restructured + converted to TS in v2.2.0 — see
+`CHANGELOG.md` for what changed structurally.
 
 ```
 npm install
 npm run dev      # http://localhost:5173
 npm run build     # outputs dist/client + dist/server
+npx tsc --noEmit  # type check
 ```
 
-Route tree lives in `src/routes/` (file-based):
-- `src/routes/__root.jsx` — document shell (`<html lang="he" dir="rtl">`, fonts, title,
-  `App.css`), wraps everything in `AuthProvider` (`src/AuthContext.jsx`, same
-  Google-popup sign-in logic that used to live in the now-removed `AuthGate.jsx`) and
-  `Layout` (`src/Layout.jsx` — header, tabs-as-`<Link>`s, settings menu, and the
-  shared `GroceriesFeedProvider` from `src/GroceriesFeedContext.jsx`, which mounts the
-  single `/groceries` subscription that drives the new-item toast and the status line —
-  both stay visible across all three tabs, matching the original single-component
-  behavior).
-- `src/routes/index.jsx` (`/`), `src/routes/stock.jsx` (`/stock`),
-  `src/routes/receipts.jsx` (`/receipts`) — the three tabs, now real routes instead of
-  `useState` tab-switching. The custom/temporary list picker on `/` is a `?list=`
-  search param (`Route.useSearch()`/`Route.useNavigate()`) instead of local state, so a
-  custom list is now a shareable/refreshable URL.
-- `src/routes/api/scan-receipt.jsx`, `src/routes/api/scan-receipt-url.jsx` — the two
-  receipt-scanning proxies, now TanStack Start server routes
-  (`server.handlers.POST`, Web-standard `Request`/`Response`) instead of Vercel
-  serverless functions + a hand-rolled Vite dev-server proxy plugin. Same request/
-  response JSON shape as before, so `src/firebase.js`'s `scanReceipt`/
-  `scanReceiptFromUrl` needed no changes. `vite.config.js` no longer needs the old
-  `devApiPlugin` middleware — TanStack Start's dev server serves these natively, in
-  dev and prod alike.
-- `src/routeTree.gen.ts` is generated by the TanStack Router Vite plugin — never edit
-  it by hand.
+Folder structure:
+- `src/routes/` — file-based route tree (must stay at exactly this path, TanStack
+  Router convention). `__root.tsx` is the document shell (`<html lang="he" dir="rtl">`,
+  fonts, title, `App.css`); `index.tsx` (`/`), `stock.tsx` (`/stock`), `receipts.tsx`
+  (`/receipts`) are the three tabs; `api/scan-receipt.tsx` + `api/scan-receipt-url.tsx`
+  are the receipt-scanning server routes (`server.handlers.POST`, Web-standard
+  `Request`/`Response`) — TanStack Start's dev server serves these natively, no separate
+  proxy plugin needed. `src/routeTree.gen.ts` is generated by the router's Vite plugin —
+  never edit it by hand, and don't be alarmed by verbose `page reload
+  src/routeTree.gen.ts` dev-server log lines; it's a known cosmetic watcher quirk in
+  some environments, doesn't affect the app (confirmed via direct browser checks) or
+  the production build.
+- `src/components/` — shared UI: the modals (`ItemDetailModal`, `GroceryItemModal`,
+  `StockItemModal`, `ReceiptReviewModal`, `CategoriesModal`, `AdminsModal`,
+  `RestockPrompt`) and `Layout` (header, tabs-as-`<Link>`s, settings menu, mounts
+  `GroceriesFeedProvider`).
+- `src/hooks/` — `AuthContext` (`useAuth`, Google-popup sign-in), `GroceriesFeedContext`
+  (`useGroceriesFeed`, the single shared `/groceries` subscription driving the new-item
+  toast + status line visible across all three tabs), `useCategories`,
+  `useCollapsedSections`.
+- `src/lib/` — `firebase.ts` (all Firebase reads/writes), `formatDateTime.ts`,
+  `categories.ts` (default categories + protected-"אחר" constant).
+- `src/types.ts` — shared interfaces (`GroceryItem`, `StockItem`, `Category`, `Receipt`,
+  `ReceiptItem`, `AuthUser`) reused across lib/hooks/components/routes.
+
+The custom/temporary list picker on `/` is a `?list=` search param
+(`Route.useSearch()`/`Route.useNavigate()`) instead of local state, so a custom list is
+a shareable/refreshable URL.
+
+**Local-dev auth bypass** (`.env.local`, gitignored, never pushed): set
+`VITE_DEV_AUTH_BYPASS=true` + `VITE_DEV_AUTH_EMAIL`/`VITE_DEV_AUTH_NAME` to skip the
+real Google popup and sign in as a fake user client-side (see `src/hooks/
+AuthContext.tsx`) — useful for exercising `canEdit`-gated flows without a real account.
+Only active when `import.meta.env.DEV` is true, so it can never affect a production
+build regardless of what's in the env file.
 
 Important: this **must** be served over http(s), not opened as a `file://` URL — the
 Firebase SDK is loaded as an ES module, which browsers block on `file://`.

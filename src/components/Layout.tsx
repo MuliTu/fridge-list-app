@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useAuth } from './AuthContext.jsx'
-import { GroceriesFeedProvider, useGroceriesFeed } from './GroceriesFeedContext.jsx'
-import CategoriesModal from './CategoriesModal.jsx'
-import AdminsModal from './AdminsModal.jsx'
-import { useCategories } from './useCategories.js'
+import { useAuth } from '../hooks/AuthContext'
+import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import CategoriesModal from './CategoriesModal'
+import AdminsModal from './AdminsModal'
+import { useCategories } from '../hooks/useCategories'
 
-export default function Layout({ children }) {
+export default function Layout({ children }: { children: ReactNode }) {
   return (
     <GroceriesFeedProvider>
       <LayoutContent>{children}</LayoutContent>
@@ -14,7 +14,7 @@ export default function Layout({ children }) {
   )
 }
 
-function LayoutContent({ children }) {
+function LayoutContent({ children }: { children: ReactNode }) {
   const { user, canEdit, onSignIn, onSignOut, authError } = useAuth()
   const { status, toast } = useGroceriesFeed()
   const [showMenu, setShowMenu] = useState(false)

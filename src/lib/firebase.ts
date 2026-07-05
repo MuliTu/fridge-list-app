@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, onValue, get, push, set, update, remove } from 'firebase/database'
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories.js'
+import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
+import type { AuthUser, ReceiptItem, StockItem } from '../types'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAcwoGM2xPNBF372qI9kqVsp72kUG-Errs',
@@ -21,25 +22,26 @@ const auth = getAuth(app)
 const storage = getStorage(app)
 const googleProvider = new GoogleAuthProvider()
 
-export const ADMIN_EMAILS = ['muli.turiel@gmail.com']
+export const ADMIN_EMAILS: string[] = ['muli.turiel@gmail.com']
 
 export const groceriesRef = ref(db, 'groceries')
 export { onValue }
 
 export const signIn = () => signInWithPopup(auth, googleProvider)
 export const signOutUser = () => signOut(auth)
-export const onAuthChange = (cb) => onAuthStateChanged(auth, cb)
+export const onAuthChange = (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb)
 
-const touchModified = (key, fields, user) =>
+const touchModified = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
   update(ref(db, `groceries/${key}`), {
     ...fields,
     modified_at: new Date().toISOString(),
     modified_by: user?.email || null
   })
 
-export const setBought = (key, bought, user) => touchModified(key, { bought }, user)
+export const setBought = (key: string, bought: boolean, user?: AuthUser | null) =>
+  touchModified(key, { bought }, user)
 
-export const resizeImage = (file, maxDim = 1280, quality = 0.75) =>
+export const resizeImage = (file: File | Blob, maxDim = 1280, quality = 0.75): Promise<Blob> =>
   new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
@@ -47,7 +49,7 @@ export const resizeImage = (file, maxDim = 1280, quality = 0.75) =>
       const canvas = document.createElement('canvas')
       canvas.width = img.width * scale
       canvas.height = img.height * scale
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d')!
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('image encode failed'))), 'image/jpeg', quality)
       URL.revokeObjectURL(img.src)
@@ -56,7 +58,7 @@ export const resizeImage = (file, maxDim = 1280, quality = 0.75) =>
     img.src = URL.createObjectURL(file)
   })
 
-const blobToBase64 = (blob) =>
+const blobToBase64 = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result).split(',')[1])
@@ -64,8 +66,12 @@ const blobToBase64 = (blob) =>
     reader.readAsDataURL(blob)
   })
 
-export const saveItemDetails = async (key, { note, imageFile }, user) => {
-  const fields = { note: note ?? null }
+export const saveItemDetails = async (
+  key: string,
+  { note, imageFile }: { note?: string | null; imageFile?: File | null },
+  user?: AuthUser | null
+) => {
+  const fields: Record<string, unknown> = { note: note ?? null }
 
   if (imageFile) {
     const resized = await resizeImage(imageFile)
@@ -77,7 +83,7 @@ export const saveItemDetails = async (key, { note, imageFile }, user) => {
   return touchModified(key, fields, user)
 }
 
-export const deleteItem = async (key, imageUrl) => {
+export const deleteItem = async (key: string, imageUrl?: string | null) => {
   if (imageUrl) {
     try {
       await deleteObject(storageRef(storage, imageUrl))
@@ -90,14 +96,17 @@ export const deleteItem = async (key, imageUrl) => {
 
 export const stockRef = ref(db, 'stock')
 
-const touchStock = (key, fields, user) =>
+const touchStock = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
   update(ref(db, `stock/${key}`), {
     ...fields,
     updated_at: new Date().toISOString(),
     updated_by: user?.email || null
   })
 
-export const addStockItem = (item, user) =>
+export const addStockItem = (
+  item: { name: string; category: string; quantity: number; unit: string; low_threshold: number },
+  user?: AuthUser | null
+) =>
   push(stockRef, {
     name: item.name,
     category: item.category,
@@ -108,14 +117,15 @@ export const addStockItem = (item, user) =>
     updated_by: user?.email || null
   })
 
-export const adjustStockQuantity = (key, quantity, user) =>
+export const adjustStockQuantity = (key: string, quantity: number, user?: AuthUser | null) =>
   touchStock(key, { quantity: Math.max(0, quantity) }, user)
 
-export const updateStockItem = (key, fields, user) => touchStock(key, fields, user)
+export const updateStockItem = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
+  touchStock(key, fields, user)
 
-export const deleteStockItem = (key) => remove(ref(db, `stock/${key}`))
+export const deleteStockItem = (key: string) => remove(ref(db, `stock/${key}`))
 
-export const addStockItemToShoppingList = (entry, user) =>
+export const addStockItemToShoppingList = (entry: { name: string; category: string }, user?: AuthUser | null) =>
   push(groceriesRef, {
     item: entry.name,
     category: entry.category,
@@ -125,7 +135,11 @@ export const addStockItemToShoppingList = (entry, user) =>
     created_by: user?.email || null
   })
 
-export const addGroceryItem = (item, listName, user) =>
+export const addGroceryItem = (
+  item: { name: string; category: string },
+  listName: string | null,
+  user?: AuthUser | null
+) =>
   push(groceriesRef, {
     item: item.name,
     category: item.category,
@@ -136,34 +150,33 @@ export const addGroceryItem = (item, listName, user) =>
     created_by: user?.email || null
   })
 
-export const deleteGroceryList = async (listName) => {
+export const deleteGroceryList = async (listName: string | null) => {
   const snapshot = await get(groceriesRef)
   const data = snapshot.val() || {}
-  const updates = {}
-  Object.entries(data).forEach(([key, entry]) => {
+  const updates: Record<string, null> = {}
+  Object.entries(data).forEach(([key, entry]: [string, any]) => {
     if (entry.list_name === listName) updates[key] = null
   })
   if (Object.keys(updates).length === 0) return
   return update(groceriesRef, updates)
 }
 
-const normalizeName = (name) => (name || '').trim().toLowerCase()
+const normalizeName = (name?: string | null) => (name || '').trim().toLowerCase()
 
-export const findStockItemByName = async (name) => {
+export const findStockItemByName = async (name: string): Promise<StockItem | null> => {
   const target = normalizeName(name)
   if (!target) return null
   const snapshot = await get(stockRef)
   const data = snapshot.val() || {}
-  const match = Object.entries(data).find(([, entry]) => normalizeName(entry.name) === target)
-  return match ? { key: match[0], ...match[1] } : null
+  const match = Object.entries(data).find(([, entry]: [string, any]) => normalizeName(entry.name) === target)
+  return match ? ({ key: match[0], ...(match[1] as object) } as StockItem) : null
 }
 
 export const receiptsRef = ref(db, 'receipts')
 
-// Same-origin path, not the n8n URL directly — /api/scan-receipt (a Vercel serverless
-// function in prod, proxied to n8n by Vite in dev) keeps the webhook URL server-side
-// only, out of the browser's JS bundle.
-export const scanReceipt = async (fileBlob) => {
+// Same-origin path, not the n8n URL directly — /api/scan-receipt (a TanStack Start
+// server route) keeps the webhook URL server-side only, out of the browser's JS bundle.
+export const scanReceipt = async (fileBlob: Blob & { type: string }) => {
   const base64 = await blobToBase64(fileBlob)
   const response = await fetch('/api/scan-receipt', {
     method: 'POST',
@@ -174,10 +187,10 @@ export const scanReceipt = async (fileBlob) => {
   return response.json()
 }
 
-// Same-origin path — /api/scan-receipt-url (Vercel serverless function in prod, run
-// directly by Vite in dev) fetches the given link server-side and extracts a receipt
-// from it, so neither the n8n URL nor any scraping logic ever reaches the browser.
-export const scanReceiptFromUrl = async (sourceUrl) => {
+// Same-origin path — /api/scan-receipt-url (TanStack Start server route) fetches the
+// given link server-side and extracts a receipt from it, so neither the n8n URL nor
+// any scraping logic ever reaches the browser.
+export const scanReceiptFromUrl = async (sourceUrl: string) => {
   const response = await fetch('/api/scan-receipt-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -187,8 +200,12 @@ export const scanReceiptFromUrl = async (sourceUrl) => {
   return response.json()
 }
 
-export const saveReceipt = async (receipt, imageBlob, user) => {
-  let image_url = null
+export const saveReceipt = async (
+  receipt: { source_url?: string | null; store_name?: string | null; items: ReceiptItem[]; total: number | null },
+  imageBlob: Blob | null,
+  user?: AuthUser | null
+) => {
+  let image_url: string | null = null
   if (imageBlob) {
     const isPdf = imageBlob.type === 'application/pdf'
     const path = storageRef(storage, `receipts/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`)
@@ -207,7 +224,7 @@ export const saveReceipt = async (receipt, imageBlob, user) => {
   })
 }
 
-export const deleteReceipt = async (key, imageUrl) => {
+export const deleteReceipt = async (key: string, imageUrl?: string | null) => {
   if (imageUrl) {
     try {
       await deleteObject(storageRef(storage, imageUrl))
@@ -218,18 +235,18 @@ export const deleteReceipt = async (key, imageUrl) => {
   return remove(ref(db, `receipts/${key}`))
 }
 
-export const getReceiptPriceHistory = async (itemName) => {
+export const getReceiptPriceHistory = async (itemName: string) => {
   const target = normalizeName(itemName)
   const snapshot = await get(receiptsRef)
   const data = snapshot.val() || {}
 
-  return Object.values(data)
-    .flatMap((receipt) =>
+  return Object.values(data as Record<string, any>)
+    .flatMap((receipt: any) =>
       (receipt.items || [])
-        .filter((item) => normalizeName(item.name) === target)
-        .map((item) => ({ price: item.price, date: receipt.scanned_at }))
+        .filter((item: any) => normalizeName(item.name) === target)
+        .map((item: any) => ({ price: item.price, date: receipt.scanned_at }))
     )
-    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    .sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''))
 }
 
 export const categoriesRef = ref(db, 'categories')
@@ -242,7 +259,7 @@ export const seedCategoriesIfEmpty = async () => {
   await set(categoriesRef, DEFAULT_CATEGORIES)
 }
 
-export const addCategory = (category) =>
+export const addCategory = (category: { name: string; color: string; icon?: string; order?: number }) =>
   push(categoriesRef, {
     name: category.name,
     color: category.color,
@@ -251,20 +268,21 @@ export const addCategory = (category) =>
     order: typeof category.order === 'number' ? category.order : 0
   })
 
-export const updateCategory = (key, fields) => update(ref(db, `categories/${key}`), fields)
+export const updateCategory = (key: string, fields: Record<string, unknown>) =>
+  update(ref(db, `categories/${key}`), fields)
 
-export const deleteCategory = (key) => remove(ref(db, `categories/${key}`))
+export const deleteCategory = (key: string) => remove(ref(db, `categories/${key}`))
 
 export { OTHER_CATEGORY_NAME }
 
 export const adminsRef = ref(db, 'admins')
 
-export const addAdminEmail = (email) => {
+export const addAdminEmail = (email: string) => {
   const key = email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
   return set(ref(db, `admins/${key}`), email.trim().toLowerCase())
 }
 
-export const removeAdminEmail = (email) => {
+export const removeAdminEmail = (email: string) => {
   const key = email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
   return remove(ref(db, `admins/${key}`))
 }

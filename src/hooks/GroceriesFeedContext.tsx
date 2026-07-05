@@ -1,27 +1,34 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { groceriesRef, onValue } from './firebase.js'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { groceriesRef, onValue } from '../lib/firebase'
+import type { GroceryItem } from '../types'
 
-const GroceriesFeedContext = createContext(null)
+interface GroceriesFeedValue {
+  entries: GroceryItem[]
+  status: string
+  toast: string | null
+}
+
+const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
 
 // Single shared onValue subscription for /groceries, mounted once at the layout level so
 // the "new item" toast and status line stay visible across every tab, not just the
 // shopping list — matching the original single-component App.jsx behavior.
-export function GroceriesFeedProvider({ children }) {
-  const [entries, setEntries] = useState([])
+export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
+  const [entries, setEntries] = useState<GroceryItem[]>([])
   const [status, setStatus] = useState('מתחבר...')
-  const [toast, setToast] = useState(null)
-  const knownKeys = useRef(new Set())
+  const [toast, setToast] = useState<string | null>(null)
+  const knownKeys = useRef(new Set<string>())
   const firstLoad = useRef(true)
-  const toastTimer = useRef(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const unsubscribe = onValue(
       groceriesRef,
       (snapshot) => {
         const data = snapshot.val() || {}
-        const newlyAdded = []
+        const newlyAdded: string[] = []
 
-        const nextEntries = Object.entries(data).map(([key, entry]) => {
+        const nextEntries: GroceryItem[] = Object.entries(data as Record<string, any>).map(([key, entry]) => {
           const isFresh = !firstLoad.current && !knownKeys.current.has(key)
           if (isFresh) newlyAdded.push(entry.item)
           return { key, ...entry, isFresh }
@@ -54,11 +61,11 @@ export function GroceriesFeedProvider({ children }) {
     }
   }, [])
 
-  return (
-    <GroceriesFeedContext.Provider value={{ entries, status, toast }}>{children}</GroceriesFeedContext.Provider>
-  )
+  return <GroceriesFeedContext.Provider value={{ entries, status, toast }}>{children}</GroceriesFeedContext.Provider>
 }
 
 export function useGroceriesFeed() {
-  return useContext(GroceriesFeedContext)
+  const ctx = useContext(GroceriesFeedContext)
+  if (!ctx) throw new Error('useGroceriesFeed must be used within GroceriesFeedProvider')
+  return ctx
 }

@@ -1,11 +1,17 @@
 import { useState } from 'react'
-import { addCategory, deleteCategory, updateCategory } from './firebase.js'
+import { addCategory, deleteCategory, updateCategory } from '../lib/firebase'
+import type { Category } from '../types'
 
-export default function CategoriesModal({ categories, onClose }) {
+interface CategoriesModalProps {
+  categories: Category[]
+  onClose: () => void
+}
+
+export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('📌')
   const [newColor, setNewColor] = useState('#a8a8a8')
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleAdd = async () => {
     if (!newName.trim()) {
@@ -23,7 +29,7 @@ export default function CategoriesModal({ categories, onClose }) {
     }
   }
 
-  const handleDelete = async (cat) => {
+  const handleDelete = async (cat: Category) => {
     if (!window.confirm(`למחוק את הקטגוריה "${cat.name}"? פריטים קיימים בקטגוריה זו יעברו ל"אחר".`)) return
     try {
       await deleteCategory(cat.key)
@@ -32,7 +38,7 @@ export default function CategoriesModal({ categories, onClose }) {
     }
   }
 
-  const handleMove = async (index, direction) => {
+  const handleMove = async (index: number, direction: 1 | -1) => {
     const targetIndex = index + direction
     if (targetIndex < 0 || targetIndex >= categories.length) return
     const current = categories[index]

@@ -8,3 +8,9 @@ export function getRouter() {
     defaultPreload: 'intent'
   })
 }
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: ReturnType<typeof getRouter>
+  }
+}

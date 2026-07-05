@@ -1,7 +1,14 @@
 import { useState } from 'react'
+import type { StockItem } from '../types'
 
-export default function RestockPrompt({ item, onConfirm, onDismiss }) {
-  const [amount, setAmount] = useState(1)
+interface RestockPromptProps {
+  item: StockItem
+  onConfirm: (amount: number) => void
+  onDismiss: () => void
+}
+
+export default function RestockPrompt({ item, onConfirm, onDismiss }: RestockPromptProps) {
+  const [amount, setAmount] = useState<string | number>(1)
 
   return (
     <div className="modal-backdrop" onClick={onDismiss}>

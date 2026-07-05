@@ -1,10 +1,18 @@
 import { useState } from 'react'
+import type { Category } from '../types'
 
-export default function GroceryItemModal({ listName, categories, onClose, onAdd }) {
+interface GroceryItemModalProps {
+  listName: string | null
+  categories: Category[]
+  onClose: () => void
+  onAdd: (item: { name: string; category: string }) => Promise<unknown> | PromiseLike<unknown>
+}
+
+export default function GroceryItemModal({ listName, categories, onClose, onAdd }: GroceryItemModalProps) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState(categories[0]?.name || '')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleAdd = async () => {
     if (!name.trim()) {

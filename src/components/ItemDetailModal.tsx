@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react'
-import { formatDateTime } from './formatDateTime.js'
+import { formatDateTime } from '../lib/formatDateTime'
+import type { GroceryItem } from '../types'
 
-export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onSave, onDelete }) {
+interface ItemDetailModalProps {
+  entry: GroceryItem
+  canEdit: boolean
+  onSignIn: () => void
+  onClose: () => void
+  onSave: (key: string, details: { note: string; imageFile: File | null }) => Promise<unknown>
+  onDelete: (key: string) => Promise<unknown>
+}
+
+export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onSave, onDelete }: ItemDetailModalProps) {
   const [note, setNote] = useState(entry.note || '')
-  const [imageFile, setImageFile] = useState(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(entry.image_url || null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!imageFile) return

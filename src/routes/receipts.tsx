@@ -8,14 +8,15 @@ import {
   saveReceipt,
   scanReceipt,
   scanReceiptFromUrl
-} from '../firebase.js'
-import { formatDateTime } from '../formatDateTime.js'
-import { useAuth } from '../AuthContext.jsx'
-import ReceiptReviewModal from '../ReceiptReviewModal.jsx'
+} from '../lib/firebase'
+import { formatDateTime } from '../lib/formatDateTime'
+import { useAuth } from '../hooks/AuthContext'
+import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
+import type { Receipt, ReceiptItem } from '../types'
 
-const normalizeName = (name) => (name || '').trim().toLowerCase()
+const normalizeName = (name?: string | null) => (name || '').trim().toLowerCase()
 
-const receiptTotal = (receipt) =>
+const receiptTotal = (receipt: Receipt) =>
   receipt.total ?? (receipt.items || []).reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
 
 export const Route = createFileRoute('/receipts')({
@@ -24,18 +25,21 @@ export const Route = createFileRoute('/receipts')({
 
 function ReceiptsPage() {
   const { user, canEdit } = useAuth()
-  const [receipts, setReceipts] = useState([])
+  const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scanning, setScanning] = useState(false)
-  const [scanError, setScanError] = useState(null)
-  const [reviewData, setReviewData] = useState(null)
-  const [queue, setQueue] = useState([])
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [reviewData, setReviewData] = useState<ReceiptReviewData | null>(null)
+  const [queue, setQueue] = useState<File[]>([])
   const [queueIndex, setQueueIndex] = useState(0)
 
   useEffect(
     () =>
       onValue(receiptsRef, (snapshot) => {
         const data = snapshot.val() || {}
-        const list = Object.entries(data).map(([key, entry]) => ({ key, ...entry }))
+        const list: Receipt[] = Object.entries(data as Record<string, any>).map(([key, entry]) => ({
+          key,
+          ...entry
+        }))
         list.sort((a, b) => (b.scanned_at || '').localeCompare(a.scanned_at || ''))
         setReceipts(list)
       }),
@@ -43,7 +47,7 @@ function ReceiptsPage() {
   )
 
   const chronological = [...receipts].sort((a, b) => (a.scanned_at || '').localeCompare(b.scanned_at || ''))
-  const priceHistory = {}
+  const priceHistory: Record<string, { price: number; date: string }[]> = {}
   chronological.forEach((receipt) => {
     ;(receipt.items || []).forEach((item) => {
       const key = normalizeName(item.name)
@@ -52,7 +56,7 @@ function ReceiptsPage() {
     })
   })
 
-  const priceDiffFor = (item, receiptDate) => {
+  const priceDiffFor = (item: ReceiptItem, receiptDate: string) => {
     const history = priceHistory[normalizeName(item.name)] || []
     const before = history.filter((h) => (h.date || '') < (receiptDate || ''))
     if (before.length === 0) return null
@@ -60,18 +64,18 @@ function ReceiptsPage() {
     return Math.abs(delta) < 0.01 ? null : delta
   }
 
-  const processFile = async (file, index, total) => {
+  const processFile = async (file: File, index: number, total: number) => {
     setScanning(true)
     setScanError(null)
     const queuePosition = total > 1 ? { index, total } : null
     const isPdf = file.type === 'application/pdf'
-    let fileForScan
+    let fileForScan: Blob
     if (isPdf) {
       fileForScan = file
     } else {
       try {
         fileForScan = await resizeImage(file)
-      } catch (err) {
+      } catch (err: any) {
         setScanError('קריאת התמונה נכשלה: ' + err.message)
         setReviewData({ store_name: null, items: [], total: null, imageBlob: file, queuePosition })
         setScanning(false)
@@ -79,7 +83,7 @@ function ReceiptsPage() {
       }
     }
     try {
-      const result = await scanReceipt(fileForScan)
+      const result = await scanReceipt(fileForScan as Blob & { type: string })
       if (result.error) {
         setScanError('לא הצלחנו לקרוא את הקבלה אוטומטית — אפשר להזין ידנית')
         setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
@@ -92,7 +96,7 @@ function ReceiptsPage() {
           queuePosition
         })
       }
-    } catch (err) {
+    } catch (err: any) {
       setScanError('סריקה נכשלה: ' + err.message + ' — אפשר להזין ידנית')
       setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
     } finally {
@@ -100,7 +104,7 @@ function ReceiptsPage() {
     }
   }
 
-  const handleFilesSelected = (fileList) => {
+  const handleFilesSelected = (fileList: FileList | null) => {
     const files = Array.from(fileList || [])
     if (files.length === 0) return
     setQueue(files)
@@ -139,7 +143,7 @@ function ReceiptsPage() {
           source_url: trimmed
         })
       }
-    } catch (err) {
+    } catch (err: any) {
       setScanError('קריאת הקישור נכשלה: ' + err.message + ' — אפשר להזין ידנית')
       setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
     } finally {
@@ -147,8 +151,13 @@ function ReceiptsPage() {
     }
   }
 
-  const handleSaveReceipt = async (data) => {
-    await saveReceipt(data, reviewData.imageBlob, user)
+  const handleSaveReceipt = async (data: {
+    store_name: string | null
+    items: ReceiptItem[]
+    total: number | null
+    source_url: string | null
+  }) => {
+    await saveReceipt(data, reviewData!.imageBlob, user)
     setReviewData(null)
     setScanError(null)
     advanceQueue()
@@ -160,7 +169,7 @@ function ReceiptsPage() {
     advanceQueue()
   }
 
-  const handleDelete = (receipt) => {
+  const handleDelete = (receipt: Receipt) => {
     if (!window.confirm(`למחוק את הקבלה מ-${formatDateTime(receipt.scanned_at) || 'תאריך לא ידוע'}?`)) return
     deleteReceipt(receipt.key, receipt.image_url)
   }
@@ -250,7 +259,11 @@ function ReceiptsPage() {
       {reviewData && (
         <ReceiptReviewModal
           data={reviewData}
-          queueLabel={reviewData.queuePosition ? `קבלה ${reviewData.queuePosition.index + 1} מתוך ${reviewData.queuePosition.total} נטענה` : null}
+          queueLabel={
+            reviewData.queuePosition
+              ? `קבלה ${reviewData.queuePosition.index + 1} מתוך ${reviewData.queuePosition.total} נטענה`
+              : null
+          }
           onClose={handleCloseReview}
           onSave={handleSaveReceipt}
         />

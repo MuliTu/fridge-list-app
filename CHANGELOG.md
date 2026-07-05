@@ -6,6 +6,32 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.2.0] - 2026-07-06
+
+### Changed
+- Restructured `src/` into `routes/` (unchanged, TanStack convention), `components/`
+  (shared UI: modals, `Layout`), `hooks/` (`AuthContext`, `GroceriesFeedContext`,
+  `useCategories`, `useCollapsedSections`), and `lib/` (`firebase.ts`,
+  `formatDateTime.ts`, `categories.ts`) — first step of a broader modernization
+  (structure → TypeScript → i18n → design system → tests/CI, in that order, per
+  explicit direction to build changes before tests/QA).
+- Converted the entire frontend from `.jsx`/`.js` to TypeScript (`.tsx`/`.ts`).
+  Added `tsconfig.json` (`strict: false`, `strictNullChecks: true` — the latter is
+  required by TanStack Router's own types) and `src/types.ts` with shared interfaces
+  (`GroceryItem`, `StockItem`, `Category`, `Receipt`, `ReceiptItem`, `AuthUser`) reused
+  across every layer. No behavior changes — purely structural/typing.
+- Added a local-dev-only auth bypass (`.env.local`, gitignored) — set
+  `VITE_DEV_AUTH_BYPASS=true` to sign in as a fake user client-side without a real
+  Google popup, for exercising `canEdit`-gated flows in local dev/QA.
+
+### Fixed
+- A dev-server file-watcher loop (`page reload src/routeTree.gen.ts` repeating
+  indefinitely) after the file move — the generated route tree still imported the
+  old `router.jsx` path. Deleting the stale generated file let it regenerate correctly
+  against the renamed `router.tsx`. Confirmed cosmetic/non-blocking either way (verified
+  the app renders and navigates correctly via direct browser checks and a clean
+  production build) — flagged in `CLAUDE.md` in case it recurs.
+
 ## [2.1.0] - 2026-07-06
 
 ### Added

@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ADMIN_EMAILS, addAdminEmail, adminsRef, onValue, removeAdminEmail } from './firebase.js'
+import { ADMIN_EMAILS, addAdminEmail, adminsRef, onValue, removeAdminEmail } from '../lib/firebase'
 
-export default function AdminsModal({ onClose }) {
-  const [invitedEmails, setInvitedEmails] = useState([])
+interface AdminsModalProps {
+  onClose: () => void
+}
+
+export default function AdminsModal({ onClose }: AdminsModalProps) {
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([])
   const [newEmail, setNewEmail] = useState('')
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => onValue(adminsRef, (snapshot) => setInvitedEmails(Object.values(snapshot.val() || {}))), [])
 

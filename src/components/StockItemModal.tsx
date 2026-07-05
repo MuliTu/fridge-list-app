@@ -1,21 +1,37 @@
 import { useState } from 'react'
-import { formatDateTime } from './formatDateTime.js'
+import { formatDateTime } from '../lib/formatDateTime'
+import type { Category, StockItem } from '../types'
 
 const UNIT_PRESETS = ['יח\'', 'ק"ג', 'גרם', 'ליטר', 'מ"ל', 'חבילה']
 const OTHER_UNIT = 'אחר'
 
-export default function StockItemModal({ item, categories, onClose, onSubmit }) {
+interface StockItemFields {
+  name: string
+  category: string
+  quantity: number
+  unit: string
+  low_threshold: number
+}
+
+interface StockItemModalProps {
+  item: StockItem | null
+  categories: Category[]
+  onClose: () => void
+  onSubmit: (fields: StockItemFields) => Promise<unknown> | PromiseLike<unknown>
+}
+
+export default function StockItemModal({ item, categories, onClose, onSubmit }: StockItemModalProps) {
   const isEdit = !!item
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || categories[0]?.name || '')
-  const [quantity, setQuantity] = useState(item?.quantity ?? 1)
+  const [quantity, setQuantity] = useState<string | number>(item?.quantity ?? 1)
   const initialUnit = item?.unit || 'יח\''
   const initialIsCustom = !UNIT_PRESETS.includes(initialUnit)
   const [unit, setUnit] = useState(initialIsCustom ? OTHER_UNIT : initialUnit)
   const [customUnit, setCustomUnit] = useState(initialIsCustom ? initialUnit : '')
-  const [lowThreshold, setLowThreshold] = useState(item?.low_threshold ?? 1)
+  const [lowThreshold, setLowThreshold] = useState<string | number>(item?.low_threshold ?? 1)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const updatedAt = isEdit ? formatDateTime(item.updated_at) : null
 

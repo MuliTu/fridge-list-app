@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   addStockItem,
@@ -8,13 +8,14 @@ import {
   onValue,
   stockRef,
   updateStockItem
-} from '../firebase.js'
-import { OTHER_CATEGORY_NAME } from '../categories.js'
-import { useCategories } from '../useCategories.js'
-import { formatDateTime } from '../formatDateTime.js'
-import { useCollapsedSections } from '../useCollapsedSections.js'
-import { useAuth } from '../AuthContext.jsx'
-import StockItemModal from '../StockItemModal.jsx'
+} from '../lib/firebase'
+import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { useCategories } from '../hooks/useCategories'
+import { formatDateTime } from '../lib/formatDateTime'
+import { useCollapsedSections } from '../hooks/useCollapsedSections'
+import { useAuth } from '../hooks/AuthContext'
+import StockItemModal from '../components/StockItemModal'
+import type { StockItem } from '../types'
 
 export const Route = createFileRoute('/stock')({
   component: StockPage
@@ -22,9 +23,9 @@ export const Route = createFileRoute('/stock')({
 
 function StockPage() {
   const { user, canEdit } = useAuth()
-  const [entries, setEntries] = useState([])
+  const [entries, setEntries] = useState<StockItem[]>([])
   const [showAdd, setShowAdd] = useState(false)
-  const [editingItem, setEditingItem] = useState(null)
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
 
@@ -32,12 +33,12 @@ function StockPage() {
     () =>
       onValue(stockRef, (snapshot) => {
         const data = snapshot.val() || {}
-        setEntries(Object.entries(data).map(([key, entry]) => ({ key, ...entry })))
+        setEntries(Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry })))
       }),
     []
   )
 
-  const grouped = {}
+  const grouped: Record<string, StockItem[]> = {}
   entries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
@@ -55,14 +56,14 @@ function StockPage() {
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
   const isEmpty = visibleCategories.length === 0
 
-  const describeError = (action, err) => {
+  const describeError = (action: string, err: any) => {
     const message = String(err?.code || err?.message || '').includes('PERMISSION_DENIED')
       ? 'אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md).'
       : err.message
     return `${action}: ${message}`
   }
 
-  const handleAdjust = async (entry, delta) => {
+  const handleAdjust = async (entry: StockItem, delta: number) => {
     try {
       await adjustStockQuantity(entry.key, entry.quantity + delta, user)
     } catch (err) {
@@ -70,7 +71,7 @@ function StockPage() {
     }
   }
 
-  const handleDelete = async (entry) => {
+  const handleDelete = async (entry: StockItem) => {
     if (!window.confirm(`למחוק את "${entry.name}" מהמלאי?`)) return
     try {
       await deleteStockItem(entry.key)
@@ -79,7 +80,7 @@ function StockPage() {
     }
   }
 
-  const handleAddToShoppingList = (entry) => {
+  const handleAddToShoppingList = (entry: StockItem) => {
     addStockItemToShoppingList(entry, user)
   }
 
@@ -92,7 +93,7 @@ function StockPage() {
       ) : (
         <div className="board-grid">
           {visibleCategories.map(({ name, color, icon }) => (
-            <section className="panel" key={name} style={{ '--accent': color }}>
+            <section className="panel" key={name} style={{ '--accent': color } as CSSProperties}>
               <h2 className="panel-header" onClick={() => toggle(name)}>
                 <span className="cat-icon">{icon}</span>
                 {name}
@@ -181,7 +182,9 @@ function StockPage() {
             setEditingItem(null)
           }}
           onSubmit={(fields) =>
-            editingItem ? updateStockItem(editingItem.key, fields, user) : addStockItem(fields, user)
+            editingItem
+              ? updateStockItem(editingItem.key, fields as unknown as Record<string, unknown>, user)
+              : addStockItem(fields, user)
           }
         />
       )}

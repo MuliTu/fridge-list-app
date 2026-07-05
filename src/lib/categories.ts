@@ -1,6 +1,14 @@
 export const OTHER_CATEGORY_NAME = 'אחר'
 
-export const DEFAULT_CATEGORIES = {
+interface DefaultCategory {
+  name: string
+  color: string
+  icon: string
+  protected: boolean
+  order: number
+}
+
+export const DEFAULT_CATEGORIES: Record<string, DefaultCategory> = {
   vegetables: { name: 'ירקות', color: '#8fbf6a', icon: '🥕', protected: false, order: 0 },
   fruits: { name: 'פירות', color: '#e8a33d', icon: '🍎', protected: false, order: 1 },
   meat: { name: 'בשר ועוף', color: '#c96a5a', icon: '🍗', protected: false, order: 2 },
