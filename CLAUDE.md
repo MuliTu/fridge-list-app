@@ -51,7 +51,10 @@ iPhone (Siri Shortcut, dictation)
    ← Siri speaks the JSON's "response" field back to the user
 
 Web app (receipt scanning, see module docs below)
-   → POST https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-scan
+   → POST /api/scan-receipt (same-origin — see api/scan-receipt.js below, NOT the
+     n8n URL directly; the browser never sees the n8n URL, see Security note below)
+   → api/scan-receipt.js (Vercel serverless function) forwards server-side to
+     → POST https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-scan
    → n8n workflow "Receipt Scanner (Hebrew)"  (id: hqbxddY1YfH9r5FK) — separate workflow,
      separate webhook path, does not touch the Siri workflow or its webhook at all
        1. Receipt Webhook   – receives { image_base64: "<base64 JPEG>" }
@@ -216,15 +219,30 @@ comparison — all parked, not built) versus what was kept (this).
 Flow: canEdit-only "+" upload button (`src/ReceiptsView.jsx`) → photo resized
 client-side (reusing `resizeImage`, now exported from `src/firebase.js` for both this
 and the existing grocery-item-photo flow) → `scanReceipt()` POSTs the base64 JPEG to
-the n8n receipt-scanning workflow (see Architecture above) → result opens in
-`src/ReceiptReviewModal.jsx`, a mandatory edit screen showing the original photo
-alongside every extracted line (name/price/quantity, all editable, rows addable and
-removable) — **nothing reaches Firebase until the user explicitly confirms**. This was
-the single strongest requirement from Session 4 (Idan, an end user who'd built receipt
-scanning before): OCR is never clean, and skipping a review step before persisting was
-the most common mistake he'd seen elsewhere. If the n8n call fails outright (network
-error, or Gemini's output didn't parse as JSON), the same review modal still opens,
-just empty — falling back to fully manual entry rather than a dead end.
+`/api/scan-receipt` (see Architecture above and Security note below — **not** the n8n
+URL directly) → result opens in `src/ReceiptReviewModal.jsx`, a mandatory edit screen
+showing the original photo alongside every extracted line (name/price/quantity, all
+editable, rows addable and removable) — **nothing reaches Firebase until the user
+explicitly confirms**. This was the single strongest requirement from Session 4 (Idan,
+an end user who'd built receipt scanning before): OCR is never clean, and skipping a
+review step before persisting was the most common mistake he'd seen elsewhere. If the
+n8n call fails outright (network error, or Gemini's output didn't parse as JSON), the
+same review modal still opens, just empty — falling back to fully manual entry rather
+than a dead end.
+
+**Security note — why there's a proxy in front of this one webhook**: unlike the Siri
+webhook (only ever referenced in docs, never shipped to a browser), this one is called
+directly from client code — so if the client called n8n's URL directly, that URL would
+ship inside the JS bundle to every visitor, regardless of whether the GitHub repo is
+public or private (this was a real finding from this project's security review, logged
+in [`CONVERSATION.md`](CONVERSATION.md)). Fix: `api/scan-receipt.js` is a Vercel
+serverless function that holds the n8n URL server-side only; the browser calls
+`/api/scan-receipt` on the app's own domain, and that function forwards to n8n from the
+server. In local dev (`npm run dev`), `vite.config.js`'s dev-server proxy plays the same
+role — Vite's Node process forwards `/api/scan-receipt` to n8n directly, so the URL
+still never reaches the browser even locally. Same request/response shape either way
+(`{ image_base64 }` in, the parsed receipt JSON out), so `scanReceipt()` in
+`firebase.js` doesn't need to know or care which one is handling it.
 
 Price history / diff: `src/ReceiptsView.jsx` builds an in-memory map of every item name
 (normalized) → its price across all past receipts, computed client-side from the

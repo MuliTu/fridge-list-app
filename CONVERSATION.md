@@ -531,3 +531,26 @@ that has a real fix.
 **Roni (Senior PM):** Noted as the next real next-step, not done this round: a thin
 serverless proxy for the receipt-scan call, so the n8n URL never reaches the client.
 GitHub push (private) still goes ahead — no new exposure from that on its own.
+
+---
+
+## Follow-up — the proxy fix, done
+
+**Muli (the real user):** A Vercel connector became available — asked whether the app
+was published yet, then floated deploying the receipt-scan piece as its own
+microservice behind a REST call.
+
+**Yael (Engineer):** Talked Muli down from a fully separate standalone service —
+right instinct (don't let the client call n8n directly), wrong scope for a household
+app. Built the lightest version that actually closes the gap: `api/scan-receipt.js`,
+one Vercel serverless function living in the *same* project, deployed with the same
+push as the static site. The browser now calls `/api/scan-receipt` on the app's own
+domain; that function holds the n8n URL server-side and forwards to it. Also added a
+matching dev-server proxy in `vite.config.js` so local dev (`npm run dev`) keeps
+working without the URL ever touching the browser there either. Confirmed via the
+network tab that the n8n URL no longer appears anywhere in traffic the browser can
+see, and confirmed the served `firebase.js` no longer contains the URL string at all.
+
+**Roi (QA):** Verified: proxy round-trip still returns the same shape n8n always did,
+review-before-save flow untouched, no regressions on the other two tabs. This was the
+one open item blocking a public Vercel deploy — clear to proceed now.

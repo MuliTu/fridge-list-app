@@ -160,11 +160,12 @@ export const findStockItemByName = async (name) => {
 
 export const receiptsRef = ref(db, 'receipts')
 
-const RECEIPT_SCAN_URL = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-scan'
-
+// Same-origin path, not the n8n URL directly — /api/scan-receipt (a Vercel serverless
+// function in prod, proxied to n8n by Vite in dev) keeps the webhook URL server-side
+// only, out of the browser's JS bundle.
 export const scanReceipt = async (imageBlob) => {
   const base64 = await blobToBase64(imageBlob)
-  const response = await fetch(RECEIPT_SCAN_URL, {
+  const response = await fetch('/api/scan-receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image_base64: base64 })
