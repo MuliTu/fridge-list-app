@@ -486,6 +486,16 @@ h1 {
   display: none;
 }
 
+.fab-secondary {
+  bottom: 76px;
+  font-size: 20px;
+}
+
+.fab-secondary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .receipt-card {
   gap: 6px;
 }

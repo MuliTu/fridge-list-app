@@ -74,6 +74,23 @@ Web app (receipt scanning, see module docs below)
      review/edit screen — nothing is written to Firebase from n8n; the web app writes
      to `/receipts` itself only after the user reviews/edits and confirms
 
+Web app (receipt-from-a-URL, see module docs below — separate path from the photo flow)
+   → POST /api/scan-receipt-url { url } (same-origin, not n8n directly)
+   → api/scan-receipt-url.js (Vercel serverless function) fetches the given URL
+     server-side, extracts/strips it down to plain text, forwards that text to
+     → POST https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-url-scan
+   → n8n workflow "Receipt URL Parser (Hebrew)"  (id: oWm6trBDl06KHM1N) — separate
+     workflow from both the Siri flow and the photo-based Receipt Scanner
+       1. Receipt URL Webhook  – receives { text: "<scraped/stripped page text>" }
+       2. Extract From Text    – Google Gemini node, resource=text/operation=message
+                                 (same mode as Siri's "Extract Groceries", not the
+                                 image-vision mode — this is already text, not a photo)
+       3. Parse URL Receipt    – Code node, same defensive parsing pattern as the
+                                 photo flow's "Parse Receipt"
+       4. Respond with URL Receipt – responds with the parsed JSON directly
+   ← same { store_name, items, total } / { error: true } shape as the photo flow, same
+     review-before-save screen client-side
+
 Firebase Realtime Database (n8n-vocal-2-db, europe-west1)
    /groceries/{pushId} = { item, category, bought, added_at, raw_text }
    /categories/{key} = { name, color, icon, protected }   ← now the live source of
@@ -126,6 +143,13 @@ login friction, matching the original "low-stakes family list" tradeoff. Instead
   forever. `signInWithPopup` avoids that hang. If you ever revisit redirect-based auth,
   expect to hit this again unless the app is served from a domain that matches
   `authDomain` (e.g. via Firebase Hosting).
+- **Every domain the app is served from must be added to Firebase's "Authorized
+  domains" list** (Console → Authentication → Settings → Authorized domains) or Google
+  sign-in fails with `auth/unauthorized-domain` — this applies to `signInWithPopup`
+  just as much as redirect. Not something doable from this codebase (no Admin/service-
+  account credentials — see Blaze/Storage note below for why that was never set up).
+  `localhost` is on the list by default; **`fridge-list-app.vercel.app` needs to be
+  added manually** after the Vercel deploy, and again for any future custom domain.
 - Images upload to **Firebase Storage** (`src/firebase.js` `saveItemDetails`), resized
   client-side to ~1280px/JPEG q0.75 via canvas before upload. This requires the Firebase
   project to be on the **Blaze plan** with Storage enabled (Spark/free plan can't use
@@ -208,7 +232,9 @@ comparison — all parked, not built) versus what was kept (this).
 
 ```
 {
-  image_url,               // Storage download URL for the receipt photo
+  image_url,               // Storage download URL for the receipt photo | null
+  source_url,               // original link, only for URL-sourced receipts | null —
+                             // exactly one of image_url/source_url is set, never both
   store_name,               // string | null — Gemini's guess, editable before save
   items: [{ name, price, quantity }],
   total,                    // number | null
@@ -238,11 +264,50 @@ public or private (this was a real finding from this project's security review, 
 in [`CONVERSATION.md`](CONVERSATION.md)). Fix: `api/scan-receipt.js` is a Vercel
 serverless function that holds the n8n URL server-side only; the browser calls
 `/api/scan-receipt` on the app's own domain, and that function forwards to n8n from the
-server. In local dev (`npm run dev`), `vite.config.js`'s dev-server proxy plays the same
-role — Vite's Node process forwards `/api/scan-receipt` to n8n directly, so the URL
-still never reaches the browser even locally. Same request/response shape either way
-(`{ image_base64 }` in, the parsed receipt JSON out), so `scanReceipt()` in
+server. In local dev (`npm run dev`), `vite.config.js` registers a small
+`configureServer` middleware plugin that imports and runs the *same* handler file
+directly in Vite's own Node process — not a declarative string-proxy — so the n8n URL
+still never reaches the browser even locally, and there's only one copy of the request-
+forwarding logic to keep in sync between dev and prod. Same request/response shape
+either way (`{ image_base64 }` in, the parsed receipt JSON out), so `scanReceipt()` in
 `firebase.js` doesn't need to know or care which one is handling it.
+
+**Receipt from a URL** (`api/scan-receipt-url.js`, `scanReceiptFromUrl()` in
+`firebase.js`): a second way to add a receipt, alongside the photo flow — paste a link
+to a digital invoice (e.g. Shufersal's "green invoice" SMS/email link) instead of
+photographing paper. Same proxy reasoning as above, same dev/prod handler-reuse
+pattern via the `configureServer` plugin. What the function actually does:
+1. Fetches the given URL server-side (CORS-free, since it's not a browser fetch).
+2. Some digital-invoice viewer pages (confirmed for Shufersal) render as a mostly-empty
+   HTML shell that embeds the *real* receipt data as a JSON blob inside an inline
+   `<script>console.log(...)</script>` call — including a `PresignedURL` field, a
+   temporary signed S3 link to the actual line-item content. `findPresignedUrl()`
+   regex-extracts that field and fetches it too, appending its content. If no such
+   field is found (any other site), it just works with whatever the original page gave.
+3. Strips HTML tags/entities down to plain text (regex-based, not a full HTML parser —
+   deliberately simple, since Gemini's extraction step doesn't need pixel-perfect
+   text, just enough signal to find item/price lines) and caps it at 20,000 characters.
+4. POSTs that text to a **separate** n8n workflow, "Receipt URL Parser (Hebrew)" (id
+   `oWm6trBDl06KHM1N`) — webhook → Gemini in **text** mode (same `resource: text,
+   operation: message` shape as the Siri "Extract Groceries" node, not the image-vision
+   mode the photo flow uses, since this is already real text, not a photo needing OCR)
+   → same defensive JSON-parsing Code node pattern as "Parse Receipt" → responds with
+   `{ store_name, items, total }` (or `{ error: true }` on parse failure).
+5. Same `ReceiptReviewModal` as the photo flow handles the result — **no exception to
+   the "nothing saves without review" rule** just because this path skips a photo.
+   When there's no `imageBlob` (this path never has one), the modal shows a "🔗 צפייה
+   בקבלה המקורית" link to the original URL instead of an image preview, and
+   `saveReceipt()` stores that URL as `source_url` on the receipt instead of
+   `image_url` (which stays `null` — no Storage upload happens for link-sourced
+   receipts, nothing to upload).
+
+**This is Shufersal-specific reverse-engineering, not a general "any receipt link"
+solution** — the `PresignedURL`-in-embedded-JSON pattern was found by inspecting one
+real Shufersal invoice link; it's an undocumented internal structure that could change
+without notice, and other chains' digital-invoice pages almost certainly look nothing
+like this. The generic fallback (strip tags, hand the raw page to Gemini) is a
+reasonable best-effort for other sites, but only actually tested against Shufersal's
+specific structure.
 
 Price history / diff: `src/ReceiptsView.jsx` builds an in-memory map of every item name
 (normalized) → its price across all past receipts, computed client-side from the

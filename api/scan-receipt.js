@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     const data = await upstream.json()
     res.status(upstream.status).json(data)
   } catch (err) {
+    console.error('[scan-receipt] upstream call failed:', err.message)
     res.status(502).json({ error: true, message: 'receipt scan upstream failed' })
   }
 }

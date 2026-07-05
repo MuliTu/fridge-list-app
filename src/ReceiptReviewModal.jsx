@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export default function ReceiptReviewModal({ data, onClose, onSave }) {
-  const [previewUrl] = useState(() => URL.createObjectURL(data.imageBlob))
+  const [previewUrl] = useState(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
   const [storeName, setStoreName] = useState(data.store_name || '')
   const [items, setItems] = useState(
     (data.items || []).map((i) => ({ name: i.name, price: i.price, quantity: i.quantity || 1 }))
@@ -10,7 +10,7 @@ export default function ReceiptReviewModal({ data, onClose, onSave }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl])
+  useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl])
 
   const updateItem = (index, field, value) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
@@ -44,7 +44,8 @@ export default function ReceiptReviewModal({ data, onClose, onSave }) {
       await onSave({
         store_name: storeName.trim() || null,
         items: cleanItems,
-        total: total === '' ? null : Math.max(0, Number(total) || 0)
+        total: total === '' ? null : Math.max(0, Number(total) || 0),
+        source_url: data.source_url || null
       })
     } catch (err) {
       setError('שמירה נכשלה: ' + err.message)
@@ -57,7 +58,15 @@ export default function ReceiptReviewModal({ data, onClose, onSave }) {
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <h2>בדיקת קבלה לפני שמירה</h2>
 
-        <img className="modal-image-preview" src={previewUrl} alt="קבלה" />
+        {previewUrl ? (
+          <img className="modal-image-preview" src={previewUrl} alt="קבלה" />
+        ) : (
+          data.source_url && (
+            <a className="modal-note-readonly" href={data.source_url} target="_blank" rel="noreferrer">
+              🔗 צפייה בקבלה המקורית
+            </a>
+          )
+        )}
 
         <input
           className="modal-input"

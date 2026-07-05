@@ -174,13 +174,30 @@ export const scanReceipt = async (imageBlob) => {
   return response.json()
 }
 
+// Same-origin path — /api/scan-receipt-url (Vercel serverless function in prod, run
+// directly by Vite in dev) fetches the given link server-side and extracts a receipt
+// from it, so neither the n8n URL nor any scraping logic ever reaches the browser.
+export const scanReceiptFromUrl = async (sourceUrl) => {
+  const response = await fetch('/api/scan-receipt-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: sourceUrl })
+  })
+  if (!response.ok) throw new Error('קריאת הקבלה מהקישור נכשלה (' + response.status + ')')
+  return response.json()
+}
+
 export const saveReceipt = async (receipt, imageBlob, user) => {
-  const path = storageRef(storage, `receipts/${Date.now()}.jpg`)
-  await uploadBytes(path, imageBlob, { contentType: 'image/jpeg' })
-  const image_url = await getDownloadURL(path)
+  let image_url = null
+  if (imageBlob) {
+    const path = storageRef(storage, `receipts/${Date.now()}.jpg`)
+    await uploadBytes(path, imageBlob, { contentType: 'image/jpeg' })
+    image_url = await getDownloadURL(path)
+  }
 
   return push(receiptsRef, {
     image_url,
+    source_url: receipt.source_url || null,
     store_name: receipt.store_name || null,
     items: receipt.items,
     total: receipt.total,

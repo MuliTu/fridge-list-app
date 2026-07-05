@@ -554,3 +554,40 @@ see, and confirmed the served `firebase.js` no longer contains the URL string at
 **Roi (QA):** Verified: proxy round-trip still returns the same shape n8n always did,
 review-before-save flow untouched, no regressions on the other two tabs. This was the
 one open item blocking a public Vercel deploy — clear to proceed now.
+
+---
+
+## Follow-up — receipts from a URL, not just a photo
+
+**Muli (the real user):** Shared a real Shufersal digital-invoice link and asked to
+add support for entering a receipt as a URL instead of a photo.
+
+**Yael (Engineer):** Checked what that link actually is before designing anything —
+not a PDF, an HTML viewer page. Found it embeds the real receipt data as a JSON blob
+inline (visible in the raw HTML, no JS execution needed to see it), including a
+`PresignedURL` — a temporary signed S3 link to the actual line-item content, one hop
+further. Flagged before touching any of it: that specific link had a real phone number
+and real purchase data in it. Muli dismissed the follow-up on whether to actually fetch
+it to inspect the structure — proceeded on the general shape already visible instead of
+pulling more of the real data into view.
+
+**Yael (Engineer):** Built it the same way as the photo flow's proxy fix — reuse
+existing infrastructure, no new secrets:
+- New n8n workflow, "Receipt URL Parser (Hebrew)" — same defensive JSON-parsing Code
+  node pattern as the photo flow's "Parse Receipt", but Gemini runs in **text** mode
+  (same mode as Siri's own extraction), not image-vision, since this is already text.
+- `api/scan-receipt-url.js` fetches the pasted URL server-side (avoids CORS, keeps the
+  n8n URL out of the client same as the photo flow), follows a `PresignedURL` if the
+  Shufersal pattern is detected, strips HTML down to plain text, forwards to the new
+  n8n webhook.
+- Reused `ReceiptReviewModal` as-is for this path too — **same non-negotiable rule**:
+  nothing saves without review, whether it came from a photo or a link.
+
+**Roi (QA):** Named the honest limitation up front rather than let it pass quietly:
+this is Shufersal-specific reverse-engineering of an undocumented page structure, not
+a general "any store's link" solution. It can break silently if Shufersal changes
+their page. The generic fallback (strip tags, hand Gemini the raw page) is a
+reasonable best-effort for other sites but only actually verified against Shufersal.
+
+**Muli (the real user):** Fine for now — most of what I'd paste is from one or two
+chains anyway.

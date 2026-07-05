@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { deleteReceipt, onValue, receiptsRef, resizeImage, saveReceipt, scanReceipt } from './firebase.js'
+import {
+  deleteReceipt,
+  onValue,
+  receiptsRef,
+  resizeImage,
+  saveReceipt,
+  scanReceipt,
+  scanReceiptFromUrl
+} from './firebase.js'
 import { formatDateTime } from './formatDateTime.js'
 import ReceiptReviewModal from './ReceiptReviewModal.jsx'
 
@@ -71,6 +79,34 @@ export default function ReceiptsView({ canEdit, user }) {
     }
   }
 
+  const handleUrlSubmit = async () => {
+    const url = window.prompt('הדביקו קישור לקבלה דיגיטלית')
+    const trimmed = url?.trim()
+    if (!trimmed) return
+    setScanning(true)
+    setScanError(null)
+    try {
+      const result = await scanReceiptFromUrl(trimmed)
+      if (result.error) {
+        setScanError('לא הצלחנו לקרוא את הקבלה מהקישור — אפשר להזין ידנית')
+        setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
+      } else {
+        setReviewData({
+          store_name: result.store_name,
+          items: result.items,
+          total: result.total,
+          imageBlob: null,
+          source_url: trimmed
+        })
+      }
+    } catch (err) {
+      setScanError('קריאת הקישור נכשלה: ' + err.message + ' — אפשר להזין ידנית')
+      setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
+    } finally {
+      setScanning(false)
+    }
+  }
+
   const handleSaveReceipt = async (data) => {
     await saveReceipt(data, reviewData.imageBlob, user)
     setReviewData(null)
@@ -93,6 +129,11 @@ export default function ReceiptsView({ canEdit, user }) {
               <h2>
                 <span className="dot" />
                 {receipt.store_name || 'קבלה'}
+                {receipt.source_url && (
+                  <a href={receipt.source_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                    🔗
+                  </a>
+                )}
                 <span className="receipt-date">{formatDateTime(receipt.scanned_at)}</span>
               </h2>
               <ul className="items">
@@ -128,16 +169,26 @@ export default function ReceiptsView({ canEdit, user }) {
       )}
 
       {canEdit && (
-        <label className="fab-add-btn receipt-upload-btn" aria-label="סריקת קבלה">
-          {scanning ? '…' : '+'}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
+        <>
+          <button
+            className="fab-add-btn fab-secondary"
+            onClick={handleUrlSubmit}
             disabled={scanning}
-            onChange={(e) => handleFileSelected(e.target.files?.[0])}
-          />
-        </label>
+            aria-label="הוספת קבלה מקישור"
+          >
+            🔗
+          </button>
+          <label className="fab-add-btn receipt-upload-btn" aria-label="סריקת קבלה">
+            {scanning ? '…' : '+'}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              disabled={scanning}
+              onChange={(e) => handleFileSelected(e.target.files?.[0])}
+            />
+          </label>
+        </>
       )}
 
       {scanError && !reviewData && <div className="toast">{scanError}</div>}
