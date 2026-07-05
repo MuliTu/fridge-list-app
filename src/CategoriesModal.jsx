@@ -14,7 +14,8 @@ export default function CategoriesModal({ categories, onClose }) {
     }
     setError(null)
     try {
-      await addCategory({ name: newName.trim(), icon: newIcon.trim() || '📌', color: newColor })
+      const maxOrder = categories.reduce((max, c) => (typeof c.order === 'number' && c.order > max ? c.order : max), -1)
+      await addCategory({ name: newName.trim(), icon: newIcon.trim() || '📌', color: newColor, order: maxOrder + 1 })
       setNewName('')
       setNewIcon('📌')
     } catch (err) {
@@ -31,14 +32,52 @@ export default function CategoriesModal({ categories, onClose }) {
     }
   }
 
+  const handleMove = async (index, direction) => {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= categories.length) return
+    const current = categories[index]
+    const neighbor = categories[targetIndex]
+    // Categories seeded before this feature existed have no `order` field yet —
+    // fall back to their current display position instead of writing `order:
+    // undefined`, which the Firebase SDK rejects outright.
+    const currentOrder = typeof current.order === 'number' ? current.order : index
+    const neighborOrder = typeof neighbor.order === 'number' ? neighbor.order : targetIndex
+    try {
+      await Promise.all([
+        updateCategory(current.key, { order: neighborOrder }),
+        updateCategory(neighbor.key, { order: currentOrder })
+      ])
+    } catch (err) {
+      setError('שינוי סדר נכשל: ' + err.message)
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <h2>ניהול קטגוריות</h2>
 
         <div className="category-rows">
-          {categories.map((cat) => (
+          {categories.map((cat, index) => (
             <div className="category-row" key={cat.key}>
+              <div className="category-order-btns">
+                <button
+                  className="stock-icon-btn"
+                  onClick={() => handleMove(index, -1)}
+                  disabled={index === 0}
+                  aria-label="הזזת קטגוריה למעלה"
+                >
+                  ▲
+                </button>
+                <button
+                  className="stock-icon-btn"
+                  onClick={() => handleMove(index, 1)}
+                  disabled={index === categories.length - 1}
+                  aria-label="הזזת קטגוריה למטה"
+                >
+                  ▼
+                </button>
+              </div>
               <input
                 className="modal-input category-icon-input"
                 value={cat.icon || ''}

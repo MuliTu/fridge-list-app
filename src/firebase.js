@@ -163,12 +163,12 @@ export const receiptsRef = ref(db, 'receipts')
 // Same-origin path, not the n8n URL directly — /api/scan-receipt (a Vercel serverless
 // function in prod, proxied to n8n by Vite in dev) keeps the webhook URL server-side
 // only, out of the browser's JS bundle.
-export const scanReceipt = async (imageBlob) => {
-  const base64 = await blobToBase64(imageBlob)
+export const scanReceipt = async (fileBlob) => {
+  const base64 = await blobToBase64(fileBlob)
   const response = await fetch('/api/scan-receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_base64: base64 })
+    body: JSON.stringify({ image_base64: base64, mime_type: fileBlob.type || 'image/jpeg' })
   })
   if (!response.ok) throw new Error('סריקת הקבלה נכשלה (' + response.status + ')')
   return response.json()
@@ -190,8 +190,9 @@ export const scanReceiptFromUrl = async (sourceUrl) => {
 export const saveReceipt = async (receipt, imageBlob, user) => {
   let image_url = null
   if (imageBlob) {
-    const path = storageRef(storage, `receipts/${Date.now()}.jpg`)
-    await uploadBytes(path, imageBlob, { contentType: 'image/jpeg' })
+    const isPdf = imageBlob.type === 'application/pdf'
+    const path = storageRef(storage, `receipts/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`)
+    await uploadBytes(path, imageBlob, { contentType: isPdf ? 'application/pdf' : 'image/jpeg' })
     image_url = await getDownloadURL(path)
   }
 
@@ -246,7 +247,8 @@ export const addCategory = (category) =>
     name: category.name,
     color: category.color,
     icon: category.icon || '📌',
-    protected: false
+    protected: false,
+    order: typeof category.order === 'number' ? category.order : 0
   })
 
 export const updateCategory = (key, fields) => update(ref(db, `categories/${key}`), fields)

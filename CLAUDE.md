@@ -3,6 +3,10 @@
 This file exists to bring a fresh Claude Code session up to speed on this project without
 re-deriving everything from scratch. Read this before making changes.
 
+**Versioning**: every notable change bumps `package.json`'s version and gets an entry in
+[`CHANGELOG.md`](CHANGELOG.md) — check there for a chronological "what shipped when"
+view; this file stays organized by topic/module instead.
+
 ## What this project is
 
 A voice-driven, shared family shopping list, in Hebrew.

@@ -591,3 +591,42 @@ reasonable best-effort for other sites but only actually verified against Shufer
 
 **Muli (the real user):** Fine for now — most of what I'd paste is from one or two
 chains anyway.
+
+---
+
+## Follow-up — a batch round, split across parallel agents
+
+**Muli (the real user):** A bundle of asks at once: reorderable/manageable categories,
+click instead of hold-to-mark-purchased, a friendlier error than a raw
+`PERMISSION_DENIED` string when adding stock, a unit dropdown for stock (liters/kilos/
+etc), moving admin-only controls into a menu off the main page, PDF support for
+receipt upload, and starting a CHANGELOG with version bumps from here on — explicitly
+asked for multiple agents to split the work.
+
+**Yael (Engineer):** Worktree isolation wasn't available (the harness's git-repo
+detection predates this session's `git init`), but the three UI/feature asks touch
+completely non-overlapping files — categories (`CategoriesModal.jsx`/`useCategories.js`/
+`categories.js`), shopping-list interaction + menu (`App.jsx`/`App.css`), and stock
+(`StockItemModal.jsx`/`StockView.jsx`) — so three parallel subagents ran directly
+against the shared working tree without collision risk. Handled PDF support directly
+instead of delegating it, since it meant editing the *live* Receipt Scanner n8n
+workflow — added an IF branch routing to Gemini's document-analyze mode for PDFs
+versus the existing image-vision mode for photos, validated and smoke-tested on both
+branches before and after.
+
+**Roi (QA):** Reviewing the agents' work caught two real bugs before they shipped:
+1. The category sort used `Infinity` as the "no order yet" sentinel — `Infinity -
+   Infinity` is `NaN` in JS, not `0`, which silently broke the sort for every category
+   (none had an `order` value yet) and left them in raw Firebase key order instead of
+   alphabetical. Fixed with `Number.MAX_SAFE_INTEGER` instead.
+2. The reorder buttons would have written `order: undefined` to Firebase — rejected
+   outright by the SDK — the first time anyone used them, since swapping two
+   categories that both lack an `order` field passes `undefined` through. Fixed by
+   falling back to current display position when backfilling.
+
+Both confirmed via direct DOM inspection (category header order) before and after —
+not just "looks right," actually checked.
+
+**Roni (Senior PM):** Also set up `CHANGELOG.md` and started real semantic versioning
+— mapped the four commits so far to 1.0.0 through 1.3.0, this round is 1.4.0.
+Everything from here bumps the version and gets a changelog entry.

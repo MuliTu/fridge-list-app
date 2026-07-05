@@ -35,11 +35,10 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const [showCategories, setShowCategories] = useState(false)
   const [showAdmins, setShowAdmins] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const knownKeys = useRef(new Set())
   const firstLoad = useRef(true)
   const toastTimer = useRef(null)
-  const longPressTimer = useRef(null)
-  const longPressFired = useRef(false)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
 
@@ -117,28 +116,9 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
     }
   }
 
-  const handlePressStart = (entry) => {
-    if (!canEdit) return
-    longPressFired.current = false
-    longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true
-      handleToggleBought(entry)
-    }, 500)
-  }
-
-  const handlePressEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }
-
   const handleItemClick = (entry) => {
-    if (longPressFired.current) {
-      longPressFired.current = false
-      return
-    }
-    setSelectedEntry(entry)
+    if (!canEdit) return
+    handleToggleBought(entry)
   }
 
   const handleCreateList = () => {
@@ -176,14 +156,36 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
           {user ? (
             <>
               {canEdit && (
-                <>
-                  <button className="icon-btn" onClick={() => setShowCategories(true)} aria-label="ניהול קטגוריות">
-                    🗂
+                <div className="menu-wrap">
+                  <button className="icon-btn" onClick={() => setShowMenu((v) => !v)} aria-label="תפריט">
+                    ⚙️
                   </button>
-                  <button className="icon-btn" onClick={() => setShowAdmins(true)} aria-label="שיתוף עריכה">
-                    👥
-                  </button>
-                </>
+                  {showMenu && (
+                    <>
+                      <div className="menu-overlay" onClick={() => setShowMenu(false)} />
+                      <div className="menu-dropdown">
+                        <button
+                          className="menu-item"
+                          onClick={() => {
+                            setShowMenu(false)
+                            setShowCategories(true)
+                          }}
+                        >
+                          🗂 ניהול קטגוריות
+                        </button>
+                        <button
+                          className="menu-item"
+                          onClick={() => {
+                            setShowMenu(false)
+                            setShowAdmins(true)
+                          }}
+                        >
+                          👥 שיתוף עריכה
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
               <span>
                 {user.displayName || user.email}
@@ -270,15 +272,22 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
                         className={`item${entry.isFresh ? ' fresh' : ''}${entry.bought ? ' bought' : ''}`}
                         key={entry.key}
                         onClick={() => handleItemClick(entry)}
-                        onPointerDown={() => handlePressStart(entry)}
-                        onPointerUp={handlePressEnd}
-                        onPointerLeave={handlePressEnd}
                       >
                         <span className="item-row">
                           <span className="item-top">
                             <span>{entry.item}</span>
                             {entry.note && <span className="item-icon">📝</span>}
                             {entry.image_url && <span className="item-icon">📷</span>}
+                            <button
+                              className="stock-icon-btn item-info-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedEntry(entry)
+                              }}
+                              aria-label="פרטי פריט"
+                            >
+                              ℹ️
+                            </button>
                           </span>
                           <span className="item-meta">
                             {entry.bought

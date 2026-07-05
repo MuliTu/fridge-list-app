@@ -10,7 +10,12 @@ export function useCategories() {
     return onValue(categoriesRef, (snapshot) => {
       const data = snapshot.val() || {}
       const list = Object.entries(data).map(([key, entry]) => ({ key, ...entry }))
-      list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'))
+      const orderOf = (c) => (typeof c.order === 'number' ? c.order : Number.MAX_SAFE_INTEGER)
+      list.sort((a, b) => {
+        const diff = orderOf(a) - orderOf(b)
+        if (diff !== 0) return diff
+        return (a.name || '').localeCompare(b.name || '', 'he')
+      })
       setCategories(list)
     })
   }, [])

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export default function ReceiptReviewModal({ data, onClose, onSave }) {
+  const isPdfBlob = data.imageBlob?.type === 'application/pdf'
   const [previewUrl] = useState(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
   const [storeName, setStoreName] = useState(data.store_name || '')
   const [items, setItems] = useState(
@@ -59,7 +60,13 @@ export default function ReceiptReviewModal({ data, onClose, onSave }) {
         <h2>בדיקת קבלה לפני שמירה</h2>
 
         {previewUrl ? (
-          <img className="modal-image-preview" src={previewUrl} alt="קבלה" />
+          isPdfBlob ? (
+            <a className="modal-note-readonly" href={previewUrl} target="_blank" rel="noreferrer">
+              📄 צפייה בקובץ ה-PDF שהועלה
+            </a>
+          ) : (
+            <img className="modal-image-preview" src={previewUrl} alt="קבלה" />
+          )
         ) : (
           data.source_url && (
             <a className="modal-note-readonly" href={data.source_url} target="_blank" rel="noreferrer">

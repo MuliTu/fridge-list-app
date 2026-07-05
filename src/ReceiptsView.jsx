@@ -55,25 +55,35 @@ export default function ReceiptsView({ canEdit, user }) {
     if (!file) return
     setScanning(true)
     setScanError(null)
-    let resized
-    try {
-      resized = await resizeImage(file)
-    } catch (err) {
-      setScanError('קריאת התמונה נכשלה: ' + err.message)
-      setScanning(false)
-      return
+    const isPdf = file.type === 'application/pdf'
+    let fileForScan
+    if (isPdf) {
+      fileForScan = file
+    } else {
+      try {
+        fileForScan = await resizeImage(file)
+      } catch (err) {
+        setScanError('קריאת התמונה נכשלה: ' + err.message)
+        setScanning(false)
+        return
+      }
     }
     try {
-      const result = await scanReceipt(resized)
+      const result = await scanReceipt(fileForScan)
       if (result.error) {
         setScanError('לא הצלחנו לקרוא את הקבלה אוטומטית — אפשר להזין ידנית')
-        setReviewData({ store_name: null, items: [], total: null, imageBlob: resized })
+        setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan })
       } else {
-        setReviewData({ store_name: result.store_name, items: result.items, total: result.total, imageBlob: resized })
+        setReviewData({
+          store_name: result.store_name,
+          items: result.items,
+          total: result.total,
+          imageBlob: fileForScan
+        })
       }
     } catch (err) {
       setScanError('סריקה נכשלה: ' + err.message + ' — אפשר להזין ידנית')
-      setReviewData({ store_name: null, items: [], total: null, imageBlob: resized })
+      setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan })
     } finally {
       setScanning(false)
     }
@@ -182,7 +192,7 @@ export default function ReceiptsView({ canEdit, user }) {
             {scanning ? '…' : '+'}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               capture="environment"
               disabled={scanning}
               onChange={(e) => handleFileSelected(e.target.files?.[0])}

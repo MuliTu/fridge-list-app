@@ -48,13 +48,28 @@ export default function StockView({ canEdit, user }) {
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
   const isEmpty = visibleCategories.length === 0
 
-  const handleAdjust = (entry, delta) => {
-    adjustStockQuantity(entry.key, entry.quantity + delta, user)
+  const describeError = (action, err) => {
+    const message = String(err?.code || err?.message || '').includes('PERMISSION_DENIED')
+      ? 'אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md).'
+      : err.message
+    return `${action}: ${message}`
   }
 
-  const handleDelete = (entry) => {
+  const handleAdjust = async (entry, delta) => {
+    try {
+      await adjustStockQuantity(entry.key, entry.quantity + delta, user)
+    } catch (err) {
+      window.alert(describeError('עדכון כמות נכשל', err))
+    }
+  }
+
+  const handleDelete = async (entry) => {
     if (!window.confirm(`למחוק את "${entry.name}" מהמלאי?`)) return
-    deleteStockItem(entry.key)
+    try {
+      await deleteStockItem(entry.key)
+    } catch (err) {
+      window.alert(describeError('מחיקה נכשלה', err))
+    }
   }
 
   const handleAddToShoppingList = (entry) => {

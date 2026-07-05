@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { formatDateTime } from './formatDateTime.js'
 
+const UNIT_PRESETS = ['יח\'', 'ק"ג', 'גרם', 'ליטר', 'מ"ל', 'חבילה']
+const OTHER_UNIT = 'אחר'
+
 export default function StockItemModal({ item, categories, onClose, onSubmit }) {
   const isEdit = !!item
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || categories[0]?.name || '')
   const [quantity, setQuantity] = useState(item?.quantity ?? 1)
-  const [unit, setUnit] = useState(item?.unit || 'יח\'')
+  const initialUnit = item?.unit || 'יח\''
+  const initialIsCustom = !UNIT_PRESETS.includes(initialUnit)
+  const [unit, setUnit] = useState(initialIsCustom ? OTHER_UNIT : initialUnit)
+  const [customUnit, setCustomUnit] = useState(initialIsCustom ? initialUnit : '')
   const [lowThreshold, setLowThreshold] = useState(item?.low_threshold ?? 1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -20,17 +26,22 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }) 
     }
     setSaving(true)
     setError(null)
+    const effectiveUnit = unit === OTHER_UNIT ? customUnit.trim() : unit
     try {
       await onSubmit({
         name: name.trim(),
         category,
         quantity: Math.max(0, Number(quantity) || 0),
-        unit: unit.trim() || 'יח\'',
+        unit: effectiveUnit || 'יח\'',
         low_threshold: Math.max(0, Number(lowThreshold) || 0)
       })
       onClose()
     } catch (err) {
-      setError((isEdit ? 'עדכון נכשל: ' : 'הוספה נכשלה: ') + err.message)
+      const prefix = isEdit ? 'עדכון נכשל: ' : 'הוספה נכשלה: '
+      const message = String(err?.code || err?.message || '').includes('PERMISSION_DENIED')
+        ? 'אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md).'
+        : err.message
+      setError(prefix + message)
       setSaving(false)
     }
   }
@@ -68,9 +79,25 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }) 
           </label>
           <label className="modal-input-label">
             יחידה
-            <input className="modal-input" value={unit} onChange={(e) => setUnit(e.target.value)} />
+            <select className="modal-input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+              {UNIT_PRESETS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+              <option value={OTHER_UNIT}>{OTHER_UNIT}</option>
+            </select>
           </label>
         </div>
+
+        {unit === OTHER_UNIT && (
+          <input
+            className="modal-input"
+            placeholder="יחידה מותאמת אישית"
+            value={customUnit}
+            onChange={(e) => setCustomUnit(e.target.value)}
+          />
+        )}
 
         <label className="modal-input-label">
           התראת מלאי נמוך (כמות)
