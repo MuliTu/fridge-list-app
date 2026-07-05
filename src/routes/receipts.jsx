@@ -28,6 +28,8 @@ function ReceiptsPage() {
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState(null)
   const [reviewData, setReviewData] = useState(null)
+  const [queue, setQueue] = useState([])
+  const [queueIndex, setQueueIndex] = useState(0)
 
   useEffect(
     () =>
@@ -58,10 +60,10 @@ function ReceiptsPage() {
     return Math.abs(delta) < 0.01 ? null : delta
   }
 
-  const handleFileSelected = async (file) => {
-    if (!file) return
+  const processFile = async (file, index, total) => {
     setScanning(true)
     setScanError(null)
+    const queuePosition = total > 1 ? { index, total } : null
     const isPdf = file.type === 'application/pdf'
     let fileForScan
     if (isPdf) {
@@ -71,6 +73,7 @@ function ReceiptsPage() {
         fileForScan = await resizeImage(file)
       } catch (err) {
         setScanError('קריאת התמונה נכשלה: ' + err.message)
+        setReviewData({ store_name: null, items: [], total: null, imageBlob: file, queuePosition })
         setScanning(false)
         return
       }
@@ -79,20 +82,40 @@ function ReceiptsPage() {
       const result = await scanReceipt(fileForScan)
       if (result.error) {
         setScanError('לא הצלחנו לקרוא את הקבלה אוטומטית — אפשר להזין ידנית')
-        setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan })
+        setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
       } else {
         setReviewData({
           store_name: result.store_name,
           items: result.items,
           total: result.total,
-          imageBlob: fileForScan
+          imageBlob: fileForScan,
+          queuePosition
         })
       }
     } catch (err) {
       setScanError('סריקה נכשלה: ' + err.message + ' — אפשר להזין ידנית')
-      setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan })
+      setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
     } finally {
       setScanning(false)
+    }
+  }
+
+  const handleFilesSelected = (fileList) => {
+    const files = Array.from(fileList || [])
+    if (files.length === 0) return
+    setQueue(files)
+    setQueueIndex(0)
+    processFile(files[0], 0, files.length)
+  }
+
+  const advanceQueue = () => {
+    const nextIndex = queueIndex + 1
+    if (nextIndex < queue.length) {
+      setQueueIndex(nextIndex)
+      processFile(queue[nextIndex], nextIndex, queue.length)
+    } else {
+      setQueue([])
+      setQueueIndex(0)
     }
   }
 
@@ -128,6 +151,13 @@ function ReceiptsPage() {
     await saveReceipt(data, reviewData.imageBlob, user)
     setReviewData(null)
     setScanError(null)
+    advanceQueue()
+  }
+
+  const handleCloseReview = () => {
+    setReviewData(null)
+    setScanError(null)
+    advanceQueue()
   }
 
   const handleDelete = (receipt) => {
@@ -196,22 +226,34 @@ function ReceiptsPage() {
             🔗
           </button>
           <label className="fab-add-btn receipt-upload-btn" aria-label="סריקת קבלה">
-            {scanning ? '…' : '+'}
+            {scanning ? (queue.length > 1 ? `${queueIndex + 1}/${queue.length}` : '…') : '+'}
             <input
               type="file"
               accept="image/*,application/pdf"
               capture="environment"
+              multiple
               disabled={scanning}
-              onChange={(e) => handleFileSelected(e.target.files?.[0])}
+              onChange={(e) => handleFilesSelected(e.target.files)}
             />
           </label>
         </>
       )}
 
+      {scanning && queue.length > 1 && (
+        <div className="toast">
+          ⏳ טוען קבלה {queueIndex + 1} מתוך {queue.length}...
+        </div>
+      )}
+
       {scanError && !reviewData && <div className="toast">{scanError}</div>}
 
       {reviewData && (
-        <ReceiptReviewModal data={reviewData} onClose={() => setReviewData(null)} onSave={handleSaveReceipt} />
+        <ReceiptReviewModal
+          data={reviewData}
+          queueLabel={reviewData.queuePosition ? `קבלה ${reviewData.queuePosition.index + 1} מתוך ${reviewData.queuePosition.total} נטענה` : null}
+          onClose={handleCloseReview}
+          onSave={handleSaveReceipt}
+        />
       )}
     </div>
   )

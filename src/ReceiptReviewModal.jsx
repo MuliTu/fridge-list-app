@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export default function ReceiptReviewModal({ data, onClose, onSave }) {
+export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }) {
   const isPdfBlob = data.imageBlob?.type === 'application/pdf'
   const [previewUrl] = useState(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
   const [storeName, setStoreName] = useState(data.store_name || '')
@@ -58,6 +58,7 @@ export default function ReceiptReviewModal({ data, onClose, onSave }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <h2>בדיקת קבלה לפני שמירה</h2>
+        {queueLabel && <div className="queue-label">{queueLabel}</div>}
 
         {previewUrl ? (
           isPdfBlob ? (

@@ -6,6 +6,18 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.1.0] - 2026-07-06
+
+### Added
+- Multi-file receipt upload: the photo/PDF upload button now accepts multiple files at
+  once (`<input multiple>`), scanning and reviewing them one at a time in sequence. A
+  "X מתוך Y" progress counter shows on the upload button and as a banner while each
+  file is being scanned, and again inside the review modal once a file's data has
+  loaded — so a batch of receipts doesn't silently look stuck between files. Each
+  receipt still goes through the same mandatory review-before-save screen; saving or
+  cancelling one advances to the next in the batch. Single-file upload behaves exactly
+  as before (no counter shown when there's nothing to count).
+
 ## [2.0.0] - 2026-07-06
 
 ### Changed

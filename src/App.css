@@ -960,3 +960,12 @@ h1 {
 .menu-item + .menu-item {
   border-top: 1px solid rgba(244, 241, 232, 0.1);
 }
+
+.queue-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--chalk-dim);
+  opacity: 0.85;
+  margin-top: -6px;
+  margin-bottom: 4px;
+}
