@@ -17,7 +17,12 @@ web app displays the list on a fridge tablet, grouped by category, with checkbox
 iPhone (Siri Shortcut, dictation)
    → POST https://whiny-idealist-unseen.ngrok-free.dev/webhook/siri-groceries
    → n8n workflow "Siri → Groceries List (Hebrew)"  (id: xa3vWIimtG37EPKM)
-       1. Siri Webhook          – receives { text: "<hebrew dictation>" }
+       1. Siri Webhook          – receives { text: "<hebrew dictation>", person?: "<name>" }
+                                  `person` is optional, per-Shortcut (each family member
+                                  hardcodes their own name in their own copy of the
+                                  Shortcut — see README's Shortcut setup section).
+                                  Backward compatible: absent `person` behaves exactly
+                                  as before.
        2. Extract Groceries     – Google Gemini node, extracts + categorizes items,
                                   outputs JSON array [{item, category}, ...]
        3. Parse Items           – Code node: parses Gemini's raw output, validates
@@ -26,8 +31,12 @@ iPhone (Siri Shortcut, dictation)
                                   throws "not defined" in this instance's task runner),
                                   and decides insert vs. update vs. skip per item:
                                     - not on list yet           → action: insert
+                                      (stamps created_by from webhook body.person,
+                                      null if absent)
                                     - on list, already bought    → action: update
-                                      (reactivates it — sets bought:false again)
+                                      (reactivates it — sets bought:false again;
+                                      does NOT touch created_by — reactivating an item
+                                      doesn't change who originally added it)
                                     - on list, not yet bought    → skip (no duplicate)
                                   if nothing to do, emits a single { action: 'none' } item
                                   so the response pipeline still fires.
@@ -404,12 +413,17 @@ technically still write directly via REST, same as before this session's changes
    push for installed PWAs, not plain tabs.
 4. No dedup normalization beyond exact-string-match (case-insensitive, trimmed). E.g.
    "עגבניות" and "עגבניה" would be treated as different items.
-5. **Siri-added items have no per-person attribution.** Only one Google account
-   (`muli.turiel@gmail.com`) can edit today; a second household member can be added to
-   `ADMIN_EMAILS` in `src/firebase.js` any time. But even then, items added via the Siri
-   Shortcut will still show "Siri" as creator for everyone — the Shortcut only POSTs
-   `{ text }`, no user identity. Only low priority while it's a 1-2 person household;
-   revisit if that assumption changes (e.g. kids added, more adults using the list).
+5. **Siri per-person attribution — n8n side is done, Shortcut side is manual.** The
+   webhook/Parse Items/Insert to Firebase nodes now accept and stamp an optional
+   `person` field as `created_by` on newly-inserted items (see Architecture above).
+   That's live in the n8n workflow. What's *not* done: actually adding `"person":
+   "<name>"` to each family member's own copy of the Shortcut — that's a manual step on
+   each phone (see README's Shortcut setup section), not something doable from this
+   codebase. Until someone updates their Shortcut, their Siri-added items keep showing
+   up as "Siri" with no individual attribution, exactly as before. Editing rights
+   (`ADMIN_EMAILS` / the editor-invite feature) are a separate, already-solved concern
+   — this gap was specifically about knowing *which* person's voice added an item, not
+   about who's allowed to edit.
 6. **`/stock` Firebase rule not yet applied in the Console.** The code assumes the same
    open `{ ".read": true, ".write": true }` rule as `/groceries`/`/categories` — add it
    manually before the stock tab will work against the real database (see Firebase

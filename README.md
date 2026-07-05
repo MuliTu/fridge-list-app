@@ -50,10 +50,19 @@ npx serve dist      # or any static file host
      "known issue" below about it changing).
    - Method: POST
    - Headers: `Content-Type: application/json`
-   - Request Body (JSON): `{"text": "Dictated Text"}`
+   - Request Body (JSON): `{"text": "Dictated Text", "person": "Muli"}` — set `person`
+     to whoever owns *this* phone (hardcode their name in each person's own copy of the
+     Shortcut, don't make it dynamic). This is what lets the web app show "added by
+     Muli" instead of just "Siri" for items added by voice. Optional — if you skip it,
+     everything still works exactly as before, items just show as added by "Siri" with
+     no individual attribution.
 3. Add **Get Dictionary from Input** → **Get Dictionary Value** for key `response`.
 4. Add **Speak Text** using that value.
 5. Name the shortcut something like "תוסיף למכולת" and say "Hey Siri, [name]".
+6. **If more than one person uses this**: each family member should have their own
+   copy of the Shortcut on their own phone, with their own name hardcoded in step 2 —
+   that's the only way n8n can tell who said what, since Siri itself doesn't identify
+   the speaker to the Shortcut.
 
 ## Known issue: the webhook URL isn't permanent
 

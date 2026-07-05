@@ -13,6 +13,7 @@ import {
 import { OTHER_CATEGORY_NAME } from './categories.js'
 import { useCategories } from './useCategories.js'
 import { useCollapsedSections } from './useCollapsedSections.js'
+import { formatDateTime } from './formatDateTime.js'
 import ItemDetailModal from './ItemDetailModal.jsx'
 import GroceryItemModal from './GroceryItemModal.jsx'
 import StockView from './StockView.jsx'
@@ -37,6 +38,8 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
   const knownKeys = useRef(new Set())
   const firstLoad = useRef(true)
   const toastTimer = useRef(null)
+  const longPressTimer = useRef(null)
+  const longPressFired = useRef(false)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
 
@@ -112,6 +115,30 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
         })
         .catch((error) => console.error('[Stock] lookup failed:', error.message))
     }
+  }
+
+  const handlePressStart = (entry) => {
+    if (!canEdit) return
+    longPressFired.current = false
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true
+      handleToggleBought(entry)
+    }, 500)
+  }
+
+  const handlePressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  const handleItemClick = (entry) => {
+    if (longPressFired.current) {
+      longPressFired.current = false
+      return
+    }
+    setSelectedEntry(entry)
   }
 
   const handleCreateList = () => {
@@ -228,10 +255,10 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
         isEmpty ? (
           <div className="all-empty">הרשימה ריקה 🎉</div>
         ) : (
-          <div className="board-grid">
+          <div className="flat-list">
             {visibleCategories.map(({ name, color, icon }) => (
-              <section className="panel" key={name} style={{ '--accent': color }}>
-                <h2 className="panel-header" onClick={() => toggle(name)}>
+              <div className="flat-section" key={name} style={{ '--accent': color }}>
+                <h2 className="flat-section-header" onClick={() => toggle(name)}>
                   <span className="cat-icon">{icon}</span>
                   {name}
                   <span className={`chevron${isCollapsed(name) ? ' collapsed' : ''}`}>▾</span>
@@ -242,25 +269,28 @@ export default function App({ user, canEdit, onSignIn, onSignOut, authError }) {
                       <li
                         className={`item${entry.isFresh ? ' fresh' : ''}${entry.bought ? ' bought' : ''}`}
                         key={entry.key}
-                        onClick={() => setSelectedEntry(entry)}
+                        onClick={() => handleItemClick(entry)}
+                        onPointerDown={() => handlePressStart(entry)}
+                        onPointerUp={handlePressEnd}
+                        onPointerLeave={handlePressEnd}
                       >
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={!!entry.bought}
-                            disabled={!canEdit}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => handleToggleBought(entry)}
-                          />
-                          <span>{entry.item}</span>
-                          {entry.note && <span className="item-icon">📝</span>}
-                          {entry.image_url && <span className="item-icon">📷</span>}
-                        </label>
+                        <span className="item-row">
+                          <span className="item-top">
+                            <span>{entry.item}</span>
+                            {entry.note && <span className="item-icon">📝</span>}
+                            {entry.image_url && <span className="item-icon">📷</span>}
+                          </span>
+                          <span className="item-meta">
+                            {entry.bought
+                              ? `✓ סומן ע"י ${entry.modified_by || 'Siri'} · ${formatDateTime(entry.modified_at) || ''}`
+                              : `נוסף ע"י ${entry.created_by || 'Siri'} · ${formatDateTime(entry.added_at) || ''}`}
+                          </span>
+                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
-              </section>
+              </div>
             ))}
           </div>
         )
