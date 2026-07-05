@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { ADMIN_EMAILS, adminsRef, onAuthChange, onValue, signIn, signOutUser } from './firebase.js'
-import App from './App.jsx'
 
-export default function AuthGate() {
+const AuthContext = createContext(null)
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [authError, setAuthError] = useState(null)
   const [invitedEmails, setInvitedEmails] = useState([])
@@ -22,6 +23,12 @@ export default function AuthGate() {
   const canEdit = !!user && (ADMIN_EMAILS.includes(user.email) || invitedEmails.includes(user.email?.toLowerCase()))
 
   return (
-    <App user={user} canEdit={canEdit} onSignIn={handleSignIn} onSignOut={signOutUser} authError={authError} />
+    <AuthContext.Provider value={{ user, canEdit, onSignIn: handleSignIn, onSignOut: signOutUser, authError }}>
+      {children}
+    </AuthContext.Provider>
   )
+}
+
+export function useAuth() {
+  return useContext(AuthContext)
 }

@@ -6,6 +6,28 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.0.0] - 2026-07-06
+
+### Changed
+- Migrated the frontend from a plain Vite + React SPA to **TanStack Start**
+  (file-based routing on TanStack Router, Vite/Nitro under the hood). Done
+  incrementally, route by route, on a `migrate/tanstack-start` branch — the three
+  tabs ("רשימת קניות" / "מלאי" / "קבלות") are now real routes (`/`, `/stock`,
+  `/receipts`) instead of `useState` tab-switching, and the custom/temporary list
+  picker is a `?list=` search param instead of local state, so a custom list is now
+  a shareable/refreshable URL. UX, auth flow (Google popup sign-in), and data-fetching
+  behavior (client-side Firebase `onValue` realtime subscriptions — deliberately kept
+  out of TanStack Start's SSR loaders, since they're push subscriptions, not one-shot
+  fetches) are unchanged.
+- The two receipt-scanning proxies (`api/scan-receipt.js`, `api/scan-receipt-url.js`)
+  moved from Vercel serverless functions + a hand-rolled Vite dev-proxy plugin to
+  TanStack Start's native file-based server routes (`src/routes/api/*.jsx`). Same
+  request/response shape, so no client-code changes were needed beyond the route move.
+- Bumped Vite 5 → 8 and `@vitejs/plugin-react` 4 → 6 (required by TanStack Start's
+  peer dependencies); React stayed at 18.3.1.
+
+See `CLAUDE.md`'s "Frontend app" section for the new route-tree layout.
+
 ## [1.4.0] - 2026-07-06
 
 ### Added

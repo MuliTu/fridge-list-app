@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import {
   deleteReceipt,
   onValue,
@@ -7,16 +8,22 @@ import {
   saveReceipt,
   scanReceipt,
   scanReceiptFromUrl
-} from './firebase.js'
-import { formatDateTime } from './formatDateTime.js'
-import ReceiptReviewModal from './ReceiptReviewModal.jsx'
+} from '../firebase.js'
+import { formatDateTime } from '../formatDateTime.js'
+import { useAuth } from '../AuthContext.jsx'
+import ReceiptReviewModal from '../ReceiptReviewModal.jsx'
 
 const normalizeName = (name) => (name || '').trim().toLowerCase()
 
 const receiptTotal = (receipt) =>
   receipt.total ?? (receipt.items || []).reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
 
-export default function ReceiptsView({ canEdit, user }) {
+export const Route = createFileRoute('/receipts')({
+  component: ReceiptsPage
+})
+
+function ReceiptsPage() {
+  const { user, canEdit } = useAuth()
   const [receipts, setReceipts] = useState([])
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState(null)

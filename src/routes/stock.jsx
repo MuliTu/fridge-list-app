@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import {
   addStockItem,
   addStockItemToShoppingList,
@@ -7,14 +8,20 @@ import {
   onValue,
   stockRef,
   updateStockItem
-} from './firebase.js'
-import { OTHER_CATEGORY_NAME } from './categories.js'
-import { useCategories } from './useCategories.js'
-import { formatDateTime } from './formatDateTime.js'
-import { useCollapsedSections } from './useCollapsedSections.js'
-import StockItemModal from './StockItemModal.jsx'
+} from '../firebase.js'
+import { OTHER_CATEGORY_NAME } from '../categories.js'
+import { useCategories } from '../useCategories.js'
+import { formatDateTime } from '../formatDateTime.js'
+import { useCollapsedSections } from '../useCollapsedSections.js'
+import { useAuth } from '../AuthContext.jsx'
+import StockItemModal from '../StockItemModal.jsx'
 
-export default function StockView({ canEdit, user }) {
+export const Route = createFileRoute('/stock')({
+  component: StockPage
+})
+
+function StockPage() {
+  const { user, canEdit } = useAuth()
   const [entries, setEntries] = useState([])
   const [showAdd, setShowAdd] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
