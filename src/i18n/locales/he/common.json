@@ -44,8 +44,9 @@
   },
   "groceryItem": {
     "title": "הוספת פריט ל\"{{listName}}\"",
-    "namePlaceholder": "שם הפריט",
+    "namePlaceholder": "שם הפריט (למשל: חלב, או חלב ולחם)",
     "nameRequired": "חובה להזין שם פריט",
+    "categorizing": "מסווג...",
     "addFailed": "הוספה נכשלה"
   },
   "restockPrompt": {

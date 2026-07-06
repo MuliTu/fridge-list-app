@@ -528,6 +528,15 @@ h1 {
   gap: 6px;
 }
 
+.receipt-view-image-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
 .receipt-date {
   margin-inline-start: auto;
   font-size: 11px;
@@ -595,6 +604,32 @@ h1 {
 .receipt-review-price {
   flex: 1;
   min-width: 0;
+}
+
+.reconcile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reconcile-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(244, 241, 232, 0.1);
+}
+
+.reconcile-item-name {
+  font-weight: 600;
+}
+
+.reconcile-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--chalk-dim);
 }
 
 .modal-input {

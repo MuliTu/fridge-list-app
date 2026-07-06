@@ -6,6 +6,126 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.9.0] - 2026-07-06
+
+### Added
+- Auto-categorization for manually-added shopping list items: `GroceryItemModal`'s
+  "add item" flow no longer has a manual category dropdown — the typed free text
+  (which can describe more than one item, e.g. "חלב ולחם") is sent through a new n8n
+  workflow, "Categorize Grocery Item (Hebrew)" (webhook `categorize-item`), which
+  mirrors Siri's own extraction/categorization Gemini prompt and category list, so
+  manually typed and voice-added items get identical categorization. New
+  `categorizeItem()` in `firebase.ts` posts to a new `/api/categorize-item` server
+  route (same server-side-URL-hiding proxy pattern as the receipt endpoints). If
+  nothing relevant is detected or the call fails outright, falls back to adding the
+  raw typed text under `OTHER_CATEGORY_NAME` rather than losing it. Deliberately a
+  separate n8n workflow from Siri's (which also does Firebase dedup/writes directly
+  and has no concept of `list_name`) — this one only extracts + categorizes, same
+  "n8n extracts, app persists" split already used for receipt scanning. Verified
+  end-to-end: typing "בננה" auto-categorized it under 🍎 פירות with no manual step.
+
+## [2.8.1] - 2026-07-06
+
+### Changed
+- Removed the `info` log level entirely from `src/lib/logger.ts` — every backend log
+  line is now strictly Success, Warning, or Error, no neutral/informational tier.
+  Previously "request received" and "forwarding to n8n webhook..." used `info`,
+  showing a plain ℹ icon instead of a typed result; reclassified as Success (normal,
+  expected steps in the request lifecycle), reserving Warning for handled/recoverable
+  conditions (a `{error: true}` business response from n8n, a failed presigned-URL
+  fetch that still falls back to the outer page) and Error for thrown exceptions.
+  Verified live in the terminal — `logger.info` no longer exists as a method, so any
+  future reintroduction fails at compile time rather than silently.
+
+## [2.8.0] - 2026-07-06
+
+### Changed
+- **Every receipt item now ends up on the shopping list, not just ones that already
+  matched something.** Previously `ReceiptReconcileModal` only listed items that
+  matched an existing `/stock` item or an existing unbought `/groceries` item —
+  anything with no match was silently skipped entirely, so scanning a real receipt
+  could leave several purchased products completely absent from the list. Now every
+  line item appears in the modal: items matching an existing unbought grocery entry
+  still get "mark as purchased" (updates the existing record), but items with no
+  match get a new "add to shopping list as purchased" option (checked by default)
+  that creates a fresh `bought: true` entry via the new `addPurchasedGroceryItem`
+  helper in `firebase.ts` — category inferred from a stock match if one exists,
+  otherwise falling back to `OTHER_CATEGORY_NAME` (receipts don't carry a category,
+  only name/price/quantity). Still fully manual/reviewable, same as before — nothing
+  is added or marked without the user hitting confirm. Verified end-to-end against
+  the real database (write confirmed via direct query, then cleaned up test data).
+
+## [2.7.1] - 2026-07-06
+
+### Changed
+- Backend server-route logging now goes through [consola](https://github.com/unjs/consola)
+  instead of raw `console.log`/`console.error`, via a shared `src/lib/logger.ts`.
+  Every line is typed as Info/Success/Warning/Error (colored icon/badge) and always
+  prefixed with a full ISO timestamp — the timestamp is applied manually in the
+  logger wrapper rather than relying on consola's own `formatOptions.date`, which
+  turned out to only render when it detects a wide-enough TTY column width (not
+  reliable under this dev server's stdout capture) — confirmed by testing both ways
+  live against the terminal. Same two routes as v2.7.0 (`scan-receipt`,
+  `scan-receipt-url`); upstream success now logs as Success, an `{error: true}`
+  business-logic response from n8n logs as Warning (not Error, since it's a handled
+  fallback-to-manual-entry case), and thrown exceptions log as Error.
+
+## [2.7.0] - 2026-07-06
+
+### Added
+- Timestamped terminal logging for both backend server routes
+  (`src/routes/api/scan-receipt.tsx`, `src/routes/api/scan-receipt-url.tsx`) — the
+  only server-side ("BE") code in this app, since everything else talks to Firebase
+  directly from the browser. Each stage now logs to the terminal running `npm run
+  dev`/the production Node process: request received (mime type, payload size),
+  page/presigned-URL fetch steps and their status codes, stripped-text length,
+  forwarding to the n8n webhook, and the upstream response status — success and
+  failure paths both covered. Verified live in the dev server terminal for both
+  routes (including the failure path for `scan-receipt-url`).
+
+## [2.6.0] - 2026-07-06
+
+### Changed
+- **Replaced Firebase Storage with Firestore for all image/PDF storage** (receipt
+  photos and grocery item photos). Storage requires the paid Blaze plan; direct
+  queries against Cloud Storage confirmed neither possible bucket name
+  (`n8n-vocal-2-db.appspot.com` nor `.firebasestorage.app`) exists — Storage was
+  never actually provisioned, and per explicit direction the project should not
+  require paid billing. Firestore is free on the Spark plan. Images are now stored
+  as base64 documents (`groceryImages/{key}`, `receiptImages/{key}` — id matches the
+  owning record's own Realtime Database key) via new `saveImageDoc`/
+  `getImageDataUrl`/`deleteImageDoc` helpers in `firebase.ts`, fetched **on demand**
+  rather than eagerly synced with the list (`ItemDetailModal` fetches on open; each
+  receipt card gets a lazy 📷 "view photo" button instead of loading every receipt's
+  image on every list render). Firestore's 1MiB document cap is guarded by a 700KB
+  raw-file limit (`MAX_INLINE_IMAGE_BYTES`) — an oversized file (realistically only a
+  large multi-page PDF, since photos are already resized/compressed) throws
+  `ImageTooLargeError`, which `saveReceipt` catches to still save the extracted item
+  data without the photo, surfacing a "file too large, saved without photo" message,
+  rather than losing everything. Requires a one-time manual Console step (enable
+  Firestore + set its security rules) — see `CLAUDE.md`'s Auth section for the exact
+  rules snippet; not something this codebase can do on its own.
+
+## [2.5.0] - 2026-07-06
+
+### Added
+- Receipt reconciliation: after saving a scanned (photo or PDF) or URL-sourced
+  receipt, each line item is matched by name (same trimmed/lowercased comparison as
+  the rest of the app) against current `/stock` items and unbought `/groceries`
+  items. If any matches are found, a new confirmation step (`ReceiptReconcileModal`)
+  lists them with independently toggleable checkboxes — "add +N to stock" and/or
+  "mark as purchased on the shopping list" — defaulting to checked, applied only on
+  explicit confirm (same "nothing writes without review" principle as the receipt
+  review screen itself and the existing restock-on-checkout prompt). Skipping the
+  step (or having no matches at all) falls straight through to the next queued
+  receipt exactly as before. New `findUnboughtGroceryItemByName` helper in
+  `firebase.ts` mirrors the existing `findStockItemByName`.
+
+### Fixed
+- A single-file receipt upload showed no loading feedback at all — the toast that
+  reports scan progress only rendered for multi-file queue uploads (`queue.length >
+  1`). Now shows a "⏳ Scanning receipt..." toast for single uploads too.
+
 ## [2.4.0] - 2026-07-06
 
 ### Changed
@@ -25,7 +145,6 @@ Full design/decision history (why, not just what) lives in
   and the Radix UI primitives shadcn's components wrap (`@radix-ui/react-dialog`,
   `-select`, `-label`, `-slot`).
 
-## [2.3.0] - 2026-07-06
 ## [2.3.0] - 2026-07-06
 
 ### Added
@@ -48,7 +167,6 @@ Full design/decision history (why, not just what) lives in
   non-fatal residual warning remains for one lazily-loaded route chunk — see
   `CLAUDE.md`'s "i18n" section for the full explanation.
 
-## [2.2.0] - 2026-07-06
 ## [2.2.0] - 2026-07-06
 
 ### Changed

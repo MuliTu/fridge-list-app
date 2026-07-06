@@ -44,8 +44,9 @@
   },
   "groceryItem": {
     "title": "Add item to \"{{listName}}\"",
-    "namePlaceholder": "Item name",
+    "namePlaceholder": "Item name (e.g. milk, or milk and bread)",
     "nameRequired": "Item name is required",
+    "categorizing": "Categorizing...",
     "addFailed": "Add failed"
   },
   "restockPrompt": {

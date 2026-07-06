@@ -167,7 +167,7 @@ function ShoppingListPage() {
           onSignIn={onSignIn}
           onClose={() => setSelectedEntry(null)}
           onSave={(key, details) => saveItemDetails(key, details, user)}
-          onDelete={(key) => deleteItem(key, selectedEntry.image_url)}
+          onDelete={(key) => deleteItem(key, selectedEntry.image_ref)}
         />
       )}
 
@@ -185,7 +185,6 @@ function ShoppingListPage() {
       {showAddGrocery && (
         <GroceryItemModal
           listName={activeList}
-          categories={categories}
           onClose={() => setShowAddGrocery(false)}
           onAdd={(item) => addGroceryItem(item, activeList, user)}
         />

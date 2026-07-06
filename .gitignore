@@ -5,3 +5,5 @@ dist
 *.log
 .vercel
 .claude/scheduled_tasks.lock
+TODO.md
+.tanstack

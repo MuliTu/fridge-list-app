@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { logger } from '../../lib/logger'
 
 const RECEIPT_URL_SCAN_ENDPOINT = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-url-scan'
 
@@ -30,35 +31,49 @@ export const Route = createFileRoute('/api/scan-receipt-url')({
       POST: async ({ request }) => {
         const { url } = (await request.json()) || {}
         if (!url || typeof url !== 'string') {
+          logger.warn('[scan-receipt-url] request rejected: missing url')
           return Response.json({ error: true, message: 'missing url' }, { status: 400 })
         }
 
+        logger.success(`[scan-receipt-url] fetching page: ${url}`)
         try {
           const pageResponse = await fetch(url)
+          logger.success(`[scan-receipt-url] page fetched: status=${pageResponse.status}`)
           const pageHtml = await pageResponse.text()
 
           let combined = pageHtml
           const presignedUrl = findPresignedUrl(pageHtml)
           if (presignedUrl) {
+            logger.success(`[scan-receipt-url] found PresignedURL, fetching detail: ${presignedUrl}`)
             try {
               const detailResponse = await fetch(presignedUrl)
               combined += '\n' + (await detailResponse.text())
-            } catch {
-              // fall back to whatever the outer page already gave us
+              logger.success(`[scan-receipt-url] detail fetched: status=${detailResponse.status}`)
+            } catch (err) {
+              logger.warn(`[scan-receipt-url] presigned detail fetch failed, using page content only: ${err.message}`)
             }
+          } else {
+            logger.success('[scan-receipt-url] no PresignedURL found, using page content as-is')
           }
 
           const text = stripHtml(combined).slice(0, 20000)
+          logger.success(`[scan-receipt-url] stripped text length: ${text.length}`)
 
+          logger.success('[scan-receipt-url] forwarding to n8n webhook...')
           const upstream = await fetch(RECEIPT_URL_SCAN_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text })
           })
           const data = await upstream.json()
+          if (data.error) {
+            logger.warn(`[scan-receipt-url] upstream responded with error: status=${upstream.status}`)
+          } else {
+            logger.success(`[scan-receipt-url] upstream responded: status=${upstream.status}`)
+          }
           return Response.json(data, { status: upstream.status })
         } catch (err) {
-          console.error('[scan-receipt-url] failed:', err.message)
+          logger.error(`[scan-receipt-url] failed: ${err.message}`)
           return Response.json({ error: true, message: 'receipt url scan failed' }, { status: 502 })
         }
       }

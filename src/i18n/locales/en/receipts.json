@@ -5,9 +5,11 @@
   "deleteBtn": "🗑 Delete",
   "deleteConfirm": "Delete the receipt from {{date}}?",
   "deleteConfirmUnknownDate": "unknown date",
+  "loading": "⏳ Scanning receipt...",
   "queueProgress": "⏳ Loading receipt {{current}} of {{total}}...",
   "queueLabel": "Receipt {{current}} of {{total}} loaded",
   "urlPrompt": "Paste a link to a digital receipt",
+  "viewImageAria": "View receipt photo",
   "uploadFab": {
     "ariaScan": "Scan receipt",
     "ariaFromUrl": "Add receipt from link"
@@ -17,7 +19,8 @@
     "scanAutoFailed": "Couldn't read the receipt automatically — you can enter it manually",
     "scanFailed": "Scan failed: {{message}} — you can enter it manually",
     "urlScanAutoFailed": "Couldn't read the receipt from the link — you can enter it manually",
-    "urlScanFailed": "Failed to read the link: {{message}} — you can enter it manually"
+    "urlScanFailed": "Failed to read the link: {{message}} — you can enter it manually",
+    "imageTooLarge": "The file is too large to save — the items were saved without the photo"
   },
   "reviewModal": {
     "title": "Review receipt before saving",
@@ -31,5 +34,14 @@
     "total": "Total",
     "atLeastOneItem": "At least one item is required",
     "saveFailed": "Save failed: {{message}}"
+  },
+  "reconcile": {
+    "title": "Update stock & shopping list",
+    "description": "Every item from this receipt will be synced to stock and/or the shopping list. Uncheck anything you don't want updated:",
+    "updateStock": "Update stock (+{{quantity}} {{unit}})",
+    "markPurchased": "Mark as purchased on the shopping list",
+    "addAsPurchased": "Add to shopping list as purchased",
+    "skipAll": "Skip",
+    "apply": "Update"
   }
 }

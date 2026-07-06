@@ -12,6 +12,7 @@ export interface GroceryItem {
   raw_text?: string
   note?: string | null
   image_url?: string | null
+  image_ref?: string | null
   modified_at?: string
   modified_by?: string | null
   list_name?: string | null
@@ -48,6 +49,7 @@ export interface ReceiptItem {
 export interface Receipt {
   key: string
   image_url: string | null
+  image_ref?: string | null
   source_url?: string | null
   store_name: string | null
   items: ReceiptItem[]

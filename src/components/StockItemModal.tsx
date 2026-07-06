@@ -7,9 +7,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-
-const UNIT_PRESETS = ['יח\'', 'ק"ג', 'גרם', 'ליטר', 'מ"ל', 'חבילה']
-const OTHER_UNIT = 'אחר'
+import { StockUnit, UNIT_PRESETS, OTHER_UNIT } from '../lib/units'
 
 interface StockItemFields {
   name: string
@@ -32,8 +30,8 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || categories[0]?.name || '')
   const [quantity, setQuantity] = useState<string | number>(item?.quantity ?? 1)
-  const initialUnit = item?.unit || 'יח\''
-  const initialIsCustom = !UNIT_PRESETS.includes(initialUnit)
+  const initialUnit = item?.unit || StockUnit.Piece
+  const initialIsCustom = !(UNIT_PRESETS as string[]).includes(initialUnit)
   const [unit, setUnit] = useState(initialIsCustom ? OTHER_UNIT : initialUnit)
   const [customUnit, setCustomUnit] = useState(initialIsCustom ? initialUnit : '')
   const [lowThreshold, setLowThreshold] = useState<string | number>(item?.low_threshold ?? 1)
@@ -55,7 +53,7 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
         name: name.trim(),
         category,
         quantity: Math.max(0, Number(quantity) || 0),
-        unit: effectiveUnit || 'יח\'',
+        unit: effectiveUnit || StockUnit.Piece,
         low_threshold: Math.max(0, Number(lowThreshold) || 0)
       })
       onClose()

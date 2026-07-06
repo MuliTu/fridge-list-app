@@ -5,9 +5,11 @@
   "deleteBtn": "🗑 מחיקה",
   "deleteConfirm": "למחוק את הקבלה מ-{{date}}?",
   "deleteConfirmUnknownDate": "תאריך לא ידוע",
+  "loading": "⏳ סורק את הקבלה...",
   "queueProgress": "⏳ טוען קבלה {{current}} מתוך {{total}}...",
   "queueLabel": "קבלה {{current}} מתוך {{total}} נטענה",
   "urlPrompt": "הדביקו קישור לקבלה דיגיטלית",
+  "viewImageAria": "צפייה בתמונת הקבלה",
   "uploadFab": {
     "ariaScan": "סריקת קבלה",
     "ariaFromUrl": "הוספת קבלה מקישור"
@@ -17,7 +19,8 @@
     "scanAutoFailed": "לא הצלחנו לקרוא את הקבלה אוטומטית — אפשר להזין ידנית",
     "scanFailed": "סריקה נכשלה: {{message}} — אפשר להזין ידנית",
     "urlScanAutoFailed": "לא הצלחנו לקרוא את הקבלה מהקישור — אפשר להזין ידנית",
-    "urlScanFailed": "קריאת הקישור נכשלה: {{message}} — אפשר להזין ידנית"
+    "urlScanFailed": "קריאת הקישור נכשלה: {{message}} — אפשר להזין ידנית",
+    "imageTooLarge": "הקובץ גדול מדי לשמירה — הפריטים נשמרו בלי התמונה"
   },
   "reviewModal": {
     "title": "בדיקת קבלה לפני שמירה",
@@ -31,5 +34,14 @@
     "total": "סה\"כ",
     "atLeastOneItem": "חובה להזין לפחות פריט אחד",
     "saveFailed": "שמירה נכשלה: {{message}}"
+  },
+  "reconcile": {
+    "title": "עדכון מלאי ורשימת קניות",
+    "description": "כל פריט מהקבלה יתעדכן במלאי ו/או ברשימת הקניות. אפשר לבטל סימון לפריטים שלא רוצים לעדכן:",
+    "updateStock": "עדכון מלאי (+{{quantity}} {{unit}})",
+    "markPurchased": "סימון כנרכש ברשימת הקניות",
+    "addAsPurchased": "הוספה לרשימת הקניות כנרכש",
+    "skipAll": "דילוג",
+    "apply": "עדכון"
   }
 }

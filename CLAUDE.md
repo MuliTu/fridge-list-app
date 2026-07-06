@@ -152,17 +152,49 @@ login friction, matching the original "low-stakes family list" tradeoff. Instead
   domains" list** (Console → Authentication → Settings → Authorized domains) or Google
   sign-in fails with `auth/unauthorized-domain` — this applies to `signInWithPopup`
   just as much as redirect. Not something doable from this codebase (no Admin/service-
-  account credentials — see Blaze/Storage note below for why that was never set up).
-  `localhost` is on the list by default; **`fridge-list-app.vercel.app` needs to be
-  added manually** after the Vercel deploy, and again for any future custom domain.
-- Images upload to **Firebase Storage** (`src/lib/firebase.ts` `saveItemDetails`), resized
-  client-side to ~1280px/JPEG q0.75 via canvas before upload. This requires the Firebase
-  project to be on the **Blaze plan** with Storage enabled (Spark/free plan can't use
-  Storage at all) — a manual Console step, not something done from this codebase.
-  Storage's own security rules (separate from the Realtime Database's) should require
-  `request.auth != null`, since Storage is a new surface only touched by the
-  authenticated web app — see the rule snippet kept in this session's plan file if you
-  need to re-apply it.
+  account credentials). `localhost` is on the list by default; **`fridge-list-app.vercel.app`
+  needs to be added manually** after the Vercel deploy, and again for any future custom
+  domain.
+- **Images/PDFs are stored in Firestore, not Firebase Storage.** Storage requires the
+  paid Blaze plan; this was confirmed unusable for this project (both possible bucket
+  names — `n8n-vocal-2-db.appspot.com` and `n8n-vocal-2-db.firebasestorage.app` —
+  return `NoSuchBucket` when queried directly against Cloud Storage) and the user
+  explicitly doesn't want to pay for it. Firestore is free on the **Spark** plan, so
+  `src/lib/firebase.ts`'s `saveImageDoc`/`getImageDataUrl`/`deleteImageDoc` helpers
+  store resized images (grocery item photos, `saveItemDetails`) and receipt photos/PDFs
+  (`saveReceipt`) as base64 strings in Firestore documents instead — `groceryImages/{grocery
+  item key}` and `receiptImages/{receipt key}` collections, one doc per image, id always
+  matching the owning record's own Realtime Database key so lookups/deletes need no
+  extra pointer field beyond `image_ref` (which is set to that same key on the RTDB
+  record once the image is saved). Firestore caps documents at 1MiB; base64 inflates
+  size by ~4/3, so `MAX_INLINE_IMAGE_BYTES` (700KB raw) guards against that — a file
+  over the cap throws `ImageTooLargeError`, which `saveReceipt` catches to still save
+  the receipt's extracted data (just without the photo) rather than losing everything,
+  surfacing `receipts:scanErrors.imageTooLarge` to the user. `saveItemDetails` doesn't
+  have this fallback since it's user-resized JPEG only (no PDFs), always comfortably
+  under the cap. Images are fetched **on demand**, not eagerly: `ItemDetailModal` fetches
+  its own image once on open (only one modal open at a time, cheap); the receipts list
+  does **not** eagerly fetch every card's photo on render (that would mean pulling every
+  receipt's base64 blob on every `/receipts` load) — instead each card gets a small 📷
+  button that calls `getImageDataUrl` lazily on click, converts the result to a Blob URL,
+  and opens it in a new tab.
+  **Requires a one-time manual Console step, not doable from this codebase**: enable
+  Firestore (Console → Build → Firestore Database → Create database, Native mode, any
+  region — no Blaze plan needed) and set its security rules (separate from the Realtime
+  Database's own rules) to allow the app's unauthenticated reads/writes, same open
+  philosophy as `/groceries`/`/categories`:
+  ```
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /groceryImages/{id} { allow read, write: if true; }
+      match /receiptImages/{id} { allow read, write: if true; }
+    }
+  }
+  ```
+  Until both steps are done, saves fail cleanly with `PERMISSION_DENIED` (confirmed via
+  browser testing) rather than the confusing indefinite-hang/CORS-flavored failure the
+  old Storage-based code produced against the nonexistent bucket.
 
 ## Data model (`/groceries/{pushId}`)
 
@@ -213,6 +245,35 @@ over a fully separate lists/collections model, to keep this small and reversible
   destructive action — it removes every item tagged with that `list_name` in one
   atomic multi-path Firebase `update()`, behind a confirm dialog that states the item
   count. There's no undo.
+
+## Auto-categorization for manually-added items
+
+`GroceryItemModal.tsx`'s "add item" flow (the FAB on custom lists) has **no manual
+category picker** — it's a single free-text field, and the typed text is sent through
+n8n to be extracted/categorized by Gemini before being saved, mirroring exactly how
+Siri's own voice flow works (same category list, same prompt logic, so a manually
+typed "חלב" and a spoken "חלב" land in the same category). Separate n8n workflow,
+"Categorize Grocery Item (Hebrew)" (webhook path `categorize-item`) — deliberately its
+own workflow rather than reusing the Siri webhook, since Siri's webhook also does
+Firebase dedup/insert/update directly (bypassing the web app entirely) and has no
+concept of `list_name`; this one only extracts + categorizes and lets the web app
+handle persistence, same "n8n extracts, app persists" split already used for receipt
+scanning.
+
+- `src/lib/firebase.ts`'s `categorizeItem(text)` posts to `/api/categorize-item` (a
+  TanStack Start server route, same server-side-URL-hiding pattern as the receipt
+  endpoints) and returns `{ item, category }[]` — free text can describe more than one
+  item (e.g. "חלב ולחם"), so `GroceryItemModal` loops over every returned item and
+  calls `onAdd` once per item.
+- If Gemini finds nothing relevant to a shopping list (chit-chat, same filtering Siri
+  applies) or the network call fails outright, `GroceryItemModal` falls back to adding
+  the raw typed text as a single item under `OTHER_CATEGORY_NAME` — nothing the user
+  types is ever silently dropped, matching the graceful-degradation pattern used
+  elsewhere (receipt OCR failing still opens the review modal, just empty).
+- Known gap this does **not** fix: same as Siri's own workflow, the categorization
+  prompt's category list is hardcoded in the n8n workflow, not read live from
+  `/categories` — see the existing "n8n still doesn't read /categories" known gap
+  below, which now applies to two n8n workflows instead of one.
 
 ## Collapsible category sections (`useCollapsedSections`)
 
@@ -325,6 +386,33 @@ outside the main list render.
 
 Editing/deleting receipts requires `canEdit`, same as everywhere else; viewing the
 receipts tab is open, consistent with the rest of the app's auth model.
+
+**Reconcile-after-save (stock + shopping list)**: right after `saveReceipt()`
+succeeds — for a photo/PDF scan or a URL-sourced receipt, same for both — each saved
+line item's name is matched (same normalized/trimmed/lowercased comparison used
+everywhere else in the app) against current `/stock` items
+(`findStockItemByName`, existing) and against unbought `/groceries` items
+(`findUnboughtGroceryItemByName`, mirrors `findStockItemByName`'s shape).
+`src/components/ReceiptReconcileModal.tsx` then opens next in the same per-receipt
+queue slot the review modal just vacated, listing **every** line item (not just ones
+that matched something — an earlier version of this feature silently dropped
+unmatched items entirely, which is exactly what "some products are in the receipt
+but not in the list" was reported against; fixed in v2.8.0) with independently
+toggleable checkboxes: "add +N to stock" (only shown if a stock match exists) and a
+shopping-list checkbox that's either "mark as purchased" (if an unbought match
+exists — updates that record) or "add to shopping list as purchased" (no match —
+creates a fresh `bought: true` entry via `addPurchasedGroceryItem`, category taken
+from the stock match if there is one, else run through the same `categorizeItem()`
+Gemini call the manual "add item" flow uses (falling back to `OTHER_CATEGORY_NAME`
+only if that call throws or returns nothing) — receipt items don't carry a category
+of their own, so this lookup is done once per item in `handleSaveReceipt` and stored
+on each match as `suggestedCategory`. Every checkbox is checked by default but nothing is written
+until the user hits confirm, same "review before persisting" principle as the
+receipt review screen itself (see Session 4 reasoning above) and the existing
+restock-on-checkout prompt. Skipping the modal falls straight through to
+`advanceQueue()` exactly as before this feature existed — the multi-file upload queue
+counter is unaffected. Same known name-matching limitation as everywhere else
+("קוטג' 5%" vs "קוטג 5 אחוז" won't link up) — not solved differently here.
 
 ## Stock / inventory module (`/stock/{pushId}`)
 
@@ -489,11 +577,13 @@ technically still write directly via REST, same as before this session's changes
 1. **n8n still doesn't read `/categories`.** The web app now does (see Categories
    module above) — this gap is narrower than it used to be, but n8n's Siri workflow
    still hardcodes its own copy in two places (the Gemini prompt and
-   `VALID_CATEGORIES`). Intended next step, unchanged: add a "Get Categories" HTTP GET
-   node early in the n8n flow, and rewrite the Gemini system message +
-   `VALID_CATEGORIES` to reference its output instead of hardcoded arrays. Until that's
-   done, adding/renaming/deleting a category in the app has no effect on how Siri
-   classifies new items.
+   `VALID_CATEGORIES`), and the new "Categorize Grocery Item (Hebrew)" workflow (see
+   Auto-categorization section above) hardcodes the same list a second time, since it
+   deliberately mirrors Siri's prompt for consistency. Intended next step, unchanged:
+   add a "Get Categories" HTTP GET node early in each flow, and rewrite the Gemini
+   system message + category list to reference its output instead of hardcoded
+   arrays. Until that's done, adding/renaming/deleting a category in the app has no
+   effect on how either Siri or manually-typed items get classified.
 2. **ngrok URL is not stable.** `https://whiny-idealist-unseen.ngrok-free.dev` will
    change if the tunnel restarts, breaking the Siri Shortcut silently. Recommended
    fix: migrate to Cloudflare Tunnel or Tailscale Funnel for a permanent URL.
@@ -615,52 +705,13 @@ route's SSR path, out of scope for this pass.
 
 ## Design system (shadcn/ui)
 
-Adopted for form controls and modals — buttons, dialogs, text/number inputs,
-textareas, selects, and labels — since these had the most to gain from Radix's
-accessibility/focus-trap/keyboard handling underneath. Explicitly **not** shadcn's
-default look: `src/App.css`'s `@theme inline` block (Tailwind v4 CSS-first config)
-maps shadcn's expected token names (`--color-background`, `--color-primary`, etc.)
-onto this app's existing 4-variable chalkboard palette (`--board`, `--board-edge`,
-`--chalk`, `--chalk-dim`), so the visual identity is unchanged — verified side-by-side
-in the browser preview, not just by reading the CSS.
+Conventions for using shadcn/ui and the chalkboard palette are now in
+`.claude/skills/add-app-module` — see that skill instead of here.
 
-- `src/components/ui/` — the shadcn primitives themselves (`button.tsx`, `dialog.tsx`,
-  `input.tsx`, `textarea.tsx`, `label.tsx`, `select.tsx`), each hand-written from
-  shadcn's standard source (no `npx shadcn add` was run — this isn't a Next.js/plain-Vite
-  project shadcn's CLI targets out of the box, and the existing folder layout
-  (`src/components`, `src/lib`) didn't need shadcn's usual `@/` import-alias
-  convention).
-- `src/lib/utils.ts` — the standard `cn()` helper (`clsx` + `tailwind-merge`).
-- All 7 modals (`ItemDetailModal`, `GroceryItemModal`, `StockItemModal`,
-  `ReceiptReviewModal`, `CategoriesModal`, `AdminsModal`, `RestockPrompt`) were
-  converted: hand-rolled `.modal-backdrop`/`.modal-sheet` divs → shadcn `Dialog`,
-  native `<input>`/`<textarea>`/`<select>` → `Input`/`Textarea`/`Select`, action
-  buttons → `Button` with `variant="default"/"secondary"/"destructive"/"ghost"`.
-- **Deliberately left as custom-styled native elements, not shadcn**: the FAB
-  (`.fab-add-btn`), list-picker pills (`.list-pill`), tab links (`.tab-btn`, actual
-  `<Link>`s not buttons), and small icon-only action buttons in the stock/receipts
-  list views (`.stock-icon-btn`, `.stepper-btn`). These are bespoke app-chrome shapes
-  (circular FAB, pill-shaped filters) rather than generic form controls — the kind of
-  "native component" this task was actually about — so wrapping them in shadcn's
-  `Button` would add an indirection layer without changing behavior or accessibility
-  in any meaningful way. Revisit if a future pass wants full design-system coverage.
+## Session conventions
 
-## Debugging tips learned this session
-
-- To inspect live Firebase data without touching the browser, spin up a disposable n8n
-  workflow: Webhook → HTTP Request (GET `.../groceries.json`) → Respond to Webhook.
-  Delete it when done — don't leave debug workflows active.
-- `n8n_validate_workflow` will flag an HTTP Request node's `method` field as invalid if
-  you try to set it via expression (`={{ ... }}`) — this node version's `method`
-  parameter doesn't support dynamic expressions. Use a Switch/Route node instead to
-  pick between fixed-method HTTP Request nodes.
-- Inside n8n Code nodes on this instance, use `this.helpers.httpRequest(...)`, not
-  `$helpers.httpRequest(...)` — the latter throws `$helpers is not defined` here
-  (may vary by n8n version/task-runner config, but confirmed broken on this instance).
-- If `signInWithRedirect` appears to do nothing (no error, no navigation, just stays on
-  the sign-in button), don't assume it's a code bug — check the Network tab for a stalled
-  request to `<authDomain>/__/auth/iframe`. That's Firebase Auth's cross-origin storage
-  check, and modern Chrome's third-party-cookie restrictions can hang it forever with no
-  error surfaced. Switching to `signInWithPopup` fixed it here. Deploying to a different
-  domain (e.g. Vercel) would **not** have fixed this on its own, since `authDomain` stays
-  a separate origin either way.
+Versioning discipline, verification steps, n8n/Firebase access rules, cost-consciousness,
+i18n discipline, graceful degradation, and test-data hygiene are now codified as skills —
+see `.claude/skills/release-bump`, `.claude/skills/firebase-data-model`, and
+`.claude/skills/n8n-groceries-workflow`. Read those before making changes instead of
+looking for this info here.

@@ -1,26 +1,61 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, onValue, get, push, set, update, remove } from 'firebase/database'
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, type User } from 'firebase/auth'
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore'
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
-import type { AuthUser, ReceiptItem, StockItem } from '../types'
+import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAcwoGM2xPNBF372qI9kqVsp72kUG-Errs',
   authDomain: 'n8n-vocal-2-db.firebaseapp.com',
   databaseURL: 'https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app',
   projectId: 'n8n-vocal-2-db',
-  // Confirm this matches the bucket name shown once Storage is enabled in the console
-  // (older projects use <project-id>.appspot.com, newer ones <project-id>.firebasestorage.app).
-  storageBucket: 'n8n-vocal-2-db.appspot.com',
   appId: '1:32784605229:web:0375ee6a30d8bb5da5d8a4'
 }
 
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 const auth = getAuth(app)
-const storage = getStorage(app)
+const firestore = getFirestore(app)
 const googleProvider = new GoogleAuthProvider()
+
+// Firebase Storage requires the paid Blaze plan (confirmed unavailable for this
+// project — both possible bucket names return NoSuchBucket). Firestore is free on
+// the Spark plan, so images/PDFs are stored as base64 documents there instead of
+// Storage blobs. Firestore caps documents at 1MiB; base64 inflates size by ~4/3, so
+// this caps the raw file at a conservative 700KB, leaving room for the other fields.
+const MAX_INLINE_IMAGE_BYTES = 700_000
+
+export class ImageTooLargeError extends Error {
+  constructor() {
+    super('התמונה/הקובץ גדולים מדי לשמירה (מעל 700KB)')
+  }
+}
+
+const saveImageDoc = async (collectionName: string, id: string, blob: Blob) => {
+  if (blob.size > MAX_INLINE_IMAGE_BYTES) throw new ImageTooLargeError()
+  const data = await blobToBase64(blob)
+  await setDoc(doc(firestore, collectionName, id), {
+    data,
+    contentType: blob.type || 'application/octet-stream',
+    uploaded_at: new Date().toISOString()
+  })
+}
+
+export const getImageDataUrl = async (collectionName: string, id: string): Promise<string | null> => {
+  const snapshot = await getDoc(doc(firestore, collectionName, id))
+  if (!snapshot.exists()) return null
+  const { data, contentType } = snapshot.data() as { data: string; contentType: string }
+  return `data:${contentType};base64,${data}`
+}
+
+const deleteImageDoc = async (collectionName: string, id: string) => {
+  try {
+    await deleteDoc(doc(firestore, collectionName, id))
+  } catch {
+    // best-effort cleanup; still remove the owning record even if this fails
+  }
+}
 
 export const ADMIN_EMAILS: string[] = ['muli.turiel@gmail.com']
 
@@ -75,22 +110,15 @@ export const saveItemDetails = async (
 
   if (imageFile) {
     const resized = await resizeImage(imageFile)
-    const path = storageRef(storage, `groceries/${key}/${Date.now()}.jpg`)
-    await uploadBytes(path, resized, { contentType: 'image/jpeg' })
-    fields.image_url = await getDownloadURL(path)
+    await saveImageDoc('groceryImages', key, resized)
+    fields.image_ref = key
   }
 
   return touchModified(key, fields, user)
 }
 
-export const deleteItem = async (key: string, imageUrl?: string | null) => {
-  if (imageUrl) {
-    try {
-      await deleteObject(storageRef(storage, imageUrl))
-    } catch {
-      // best-effort cleanup; still remove the list entry even if the image is already gone
-    }
-  }
+export const deleteItem = async (key: string, imageRef?: string | null) => {
+  if (imageRef) await deleteImageDoc('groceryImages', imageRef)
   return remove(ref(db, `groceries/${key}`))
 }
 
@@ -150,6 +178,36 @@ export const addGroceryItem = (
     created_by: user?.email || null
   })
 
+// Same-origin path, not the n8n URL directly — /api/categorize-item (a TanStack Start
+// server route) keeps the webhook URL server-side only. Mirrors Siri's own
+// extract-and-categorize Gemini prompt/category list, so manually typed items get the
+// same categorization as voice-added ones. Free text can contain more than one item
+// (e.g. "חלב ולחם"); returns [] if nothing relevant to a shopping list was found.
+export const categorizeItem = async (text: string): Promise<{ item: string; category: string }[]> => {
+  const response = await fetch('/api/categorize-item', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  })
+  if (!response.ok) throw new Error('סיווג הפריט נכשל (' + response.status + ')')
+  const data = await response.json()
+  return data.items || []
+}
+
+export const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
+  const now = new Date().toISOString()
+  return push(groceriesRef, {
+    item: item.name,
+    category: item.category,
+    bought: true,
+    added_at: now,
+    modified_at: now,
+    modified_by: user?.email || null,
+    raw_text: 'מקבלה',
+    created_by: user?.email || null
+  })
+}
+
 export const deleteGroceryList = async (listName: string | null) => {
   const snapshot = await get(groceriesRef)
   const data = snapshot.val() || {}
@@ -170,6 +228,17 @@ export const findStockItemByName = async (name: string): Promise<StockItem | nul
   const data = snapshot.val() || {}
   const match = Object.entries(data).find(([, entry]: [string, any]) => normalizeName(entry.name) === target)
   return match ? ({ key: match[0], ...(match[1] as object) } as StockItem) : null
+}
+
+export const findUnboughtGroceryItemByName = async (name: string): Promise<GroceryItem | null> => {
+  const target = normalizeName(name)
+  if (!target) return null
+  const snapshot = await get(groceriesRef)
+  const data = snapshot.val() || {}
+  const match = Object.entries(data).find(
+    ([, entry]: [string, any]) => normalizeName(entry.item) === target && !entry.bought
+  )
+  return match ? ({ key: match[0], ...(match[1] as object) } as GroceryItem) : null
 }
 
 export const receiptsRef = ref(db, 'receipts')
@@ -205,16 +274,24 @@ export const saveReceipt = async (
   imageBlob: Blob | null,
   user?: AuthUser | null
 ) => {
-  let image_url: string | null = null
+  const newRef = push(receiptsRef)
+  const key = newRef.key as string
+  let image_ref: string | null = null
+  let imageSkipped = false
+
   if (imageBlob) {
-    const isPdf = imageBlob.type === 'application/pdf'
-    const path = storageRef(storage, `receipts/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`)
-    await uploadBytes(path, imageBlob, { contentType: isPdf ? 'application/pdf' : 'image/jpeg' })
-    image_url = await getDownloadURL(path)
+    try {
+      await saveImageDoc('receiptImages', key, imageBlob)
+      image_ref = key
+    } catch (err) {
+      if (!(err instanceof ImageTooLargeError)) throw err
+      imageSkipped = true
+    }
   }
 
-  return push(receiptsRef, {
-    image_url,
+  await set(newRef, {
+    image_url: null,
+    image_ref,
     source_url: receipt.source_url || null,
     store_name: receipt.store_name || null,
     items: receipt.items,
@@ -222,16 +299,12 @@ export const saveReceipt = async (
     scanned_at: new Date().toISOString(),
     scanned_by: user?.email || null
   })
+
+  return { key, imageSkipped }
 }
 
-export const deleteReceipt = async (key: string, imageUrl?: string | null) => {
-  if (imageUrl) {
-    try {
-      await deleteObject(storageRef(storage, imageUrl))
-    } catch {
-      // best-effort cleanup; still remove the receipt entry even if the image is already gone
-    }
-  }
+export const deleteReceipt = async (key: string, imageRef?: string | null) => {
+  if (imageRef) await deleteImageDoc('receiptImages', imageRef)
   return remove(ref(db, `receipts/${key}`))
 }
 

@@ -1,34 +1,44 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Category } from '../types'
+import { categorizeItem } from '../lib/firebase'
+import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 interface GroceryItemModalProps {
   listName: string | null
-  categories: Category[]
   onClose: () => void
   onAdd: (item: { name: string; category: string }) => Promise<unknown> | PromiseLike<unknown>
 }
 
-export default function GroceryItemModal({ listName, categories, onClose, onAdd }: GroceryItemModalProps) {
+export default function GroceryItemModal({ listName, onClose, onAdd }: GroceryItemModalProps) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
-  const [category, setCategory] = useState(categories[0]?.name || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleAdd = async () => {
-    if (!name.trim()) {
+    const trimmed = name.trim()
+    if (!trimmed) {
       setError(t('common:groceryItem.nameRequired'))
       return
     }
     setSaving(true)
     setError(null)
     try {
-      await onAdd({ name: name.trim(), category })
+      let items: { item: string; category: string }[]
+      try {
+        items = await categorizeItem(trimmed)
+      } catch {
+        items = []
+      }
+      if (items.length === 0) {
+        items = [{ item: trimmed, category: OTHER_CATEGORY_NAME }]
+      }
+      for (const { item, category } of items) {
+        await onAdd({ name: item, category })
+      }
       onClose()
     } catch (err: any) {
       setError(`${t('common:groceryItem.addFailed')}: ${err.message}`)
@@ -49,19 +59,6 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
           onChange={(e) => setName(e.target.value)}
         />
 
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((c) => (
-              <SelectItem key={c.key} value={c.name}>
-                {c.icon} {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         {error && <div className="text-sm text-destructive">{error}</div>}
 
         <DialogFooter>
@@ -69,7 +66,7 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
             {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleAdd} disabled={saving}>
-            {saving ? t('common:actions.adding') : t('common:actions.add')}
+            {saving ? t('common:groceryItem.categorizing') : t('common:actions.add')}
           </Button>
         </DialogFooter>
       </DialogContent>

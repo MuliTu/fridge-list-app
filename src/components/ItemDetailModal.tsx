@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
+import { getImageDataUrl } from '../lib/firebase'
 import type { GroceryItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
@@ -30,6 +31,14 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [imageFile])
+
+  useEffect(() => {
+    if (previewUrl || !entry.image_ref) return
+    getImageDataUrl('groceryImages', entry.image_ref).then((url) => {
+      if (url) setPreviewUrl(url)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.image_ref])
 
   const createdAt = formatDateTime(entry.added_at)
   const modifiedAt = formatDateTime(entry.modified_at)

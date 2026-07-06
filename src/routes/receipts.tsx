@@ -2,17 +2,26 @@ import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
+  addPurchasedGroceryItem,
+  adjustStockQuantity,
+  categorizeItem,
   deleteReceipt,
+  findStockItemByName,
+  findUnboughtGroceryItemByName,
+  getImageDataUrl,
   onValue,
   receiptsRef,
   resizeImage,
   saveReceipt,
   scanReceipt,
-  scanReceiptFromUrl
+  scanReceiptFromUrl,
+  setBought
 } from '../lib/firebase'
+import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { formatDateTime } from '../lib/formatDateTime'
 import { useAuth } from '../hooks/AuthContext'
 import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
+import ReceiptReconcileModal, { type ReconcileMatch } from '../components/ReceiptReconcileModal'
 import type { Receipt, ReceiptItem } from '../types'
 
 const normalizeName = (name?: string | null) => (name || '').trim().toLowerCase()
@@ -31,6 +40,7 @@ function ReceiptsPage() {
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [reviewData, setReviewData] = useState<ReceiptReviewData | null>(null)
+  const [reconcileMatches, setReconcileMatches] = useState<ReconcileMatch[] | null>(null)
   const [queue, setQueue] = useState<File[]>([])
   const [queueIndex, setQueueIndex] = useState(0)
 
@@ -159,9 +169,55 @@ function ReceiptsPage() {
     total: number | null
     source_url: string | null
   }) => {
-    await saveReceipt(data, reviewData!.imageBlob, user)
+    const { imageSkipped } = await saveReceipt(data, reviewData!.imageBlob, user)
     setReviewData(null)
-    setScanError(null)
+    setScanError(imageSkipped ? t('receipts:scanErrors.imageTooLarge') : null)
+
+    const matches: ReconcileMatch[] = await Promise.all(
+      data.items.map(async (item) => {
+        const [stockMatch, groceryMatch] = await Promise.all([
+          findStockItemByName(item.name),
+          findUnboughtGroceryItemByName(item.name)
+        ])
+        // Receipt line items don't carry a category. A stock match already has an
+        // authoritative one; otherwise, run the item name through the same Gemini
+        // categorization the manual "add item" flow uses (GroceryItemModal), instead
+        // of always dumping it into OTHER_CATEGORY_NAME.
+        let suggestedCategory = stockMatch?.category || null
+        if (!suggestedCategory) {
+          try {
+            const categorized = await categorizeItem(item.name)
+            suggestedCategory = categorized[0]?.category || null
+          } catch {
+            suggestedCategory = null
+          }
+        }
+        return { item, stockMatch, groceryMatch, suggestedCategory: suggestedCategory || OTHER_CATEGORY_NAME }
+      })
+    )
+
+    setReconcileMatches(matches)
+  }
+
+  const handleReconcileConfirm = (selections: { stock: boolean; grocery: boolean }[]) => {
+    ;(reconcileMatches || []).forEach((m, i) => {
+      if (selections[i]?.stock && m.stockMatch) {
+        adjustStockQuantity(m.stockMatch.key, m.stockMatch.quantity + (m.item.quantity || 1), user)
+      }
+      if (selections[i]?.grocery) {
+        if (m.groceryMatch) {
+          setBought(m.groceryMatch.key, true, user)
+        } else {
+          addPurchasedGroceryItem({ name: m.item.name, category: m.suggestedCategory }, user)
+        }
+      }
+    })
+    setReconcileMatches(null)
+    advanceQueue()
+  }
+
+  const handleReconcileClose = () => {
+    setReconcileMatches(null)
     advanceQueue()
   }
 
@@ -174,7 +230,17 @@ function ReceiptsPage() {
   const handleDelete = (receipt: Receipt) => {
     const date = formatDateTime(receipt.scanned_at) || t('receipts:deleteConfirmUnknownDate')
     if (!window.confirm(t('receipts:deleteConfirm', { date }))) return
-    deleteReceipt(receipt.key, receipt.image_url)
+    deleteReceipt(receipt.key, receipt.image_ref)
+  }
+
+  const handleViewImage = async (receipt: Receipt) => {
+    if (!receipt.image_ref) return
+    const dataUrl = await getImageDataUrl('receiptImages', receipt.image_ref)
+    if (!dataUrl) return
+    const blob = await (await fetch(dataUrl)).blob()
+    const objectUrl = URL.createObjectURL(blob)
+    window.open(objectUrl, '_blank')
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
   }
 
   return (
@@ -195,6 +261,15 @@ function ReceiptsPage() {
                   <a href={receipt.source_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                     🔗
                   </a>
+                )}
+                {receipt.image_ref && (
+                  <button
+                    className="receipt-view-image-btn"
+                    onClick={() => handleViewImage(receipt)}
+                    aria-label={t('receipts:viewImageAria')}
+                  >
+                    📷
+                  </button>
                 )}
                 <span className="receipt-date">{formatDateTime(receipt.scanned_at)}</span>
               </h2>
@@ -256,9 +331,11 @@ function ReceiptsPage() {
         </>
       )}
 
-      {scanning && queue.length > 1 && (
+      {scanning && (
         <div className="toast">
-          {t('receipts:queueProgress', { current: queueIndex + 1, total: queue.length })}
+          {queue.length > 1
+            ? t('receipts:queueProgress', { current: queueIndex + 1, total: queue.length })
+            : t('receipts:loading')}
         </div>
       )}
 
@@ -277,6 +354,14 @@ function ReceiptsPage() {
           }
           onClose={handleCloseReview}
           onSave={handleSaveReceipt}
+        />
+      )}
+
+      {reconcileMatches && (
+        <ReceiptReconcileModal
+          matches={reconcileMatches}
+          onClose={handleReconcileClose}
+          onConfirm={handleReconcileConfirm}
         />
       )}
     </div>
