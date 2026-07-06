@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Category } from '../types'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 interface GroceryItemModalProps {
   listName: string | null
@@ -26,43 +30,49 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
     try {
       await onAdd({ name: name.trim(), category })
       onClose()
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('common:groceryItem.addFailed')}: ${err.message}`)
       setSaving(false)
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('common:groceryItem.title', { listName })}</h2>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('common:groceryItem.title', { listName })}</DialogTitle>
+        </DialogHeader>
 
-        <input
-          className="modal-input"
+        <Input
           placeholder={t('common:groceryItem.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
 
-        <select className="modal-input" value={category} onChange={(e) => setCategory(e.target.value)}>
-          {categories.map((c) => (
-            <option key={c.key} value={c.name}>
-              {c.icon} {c.name}
-            </option>
-          ))}
-        </select>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((c) => (
+              <SelectItem key={c.key} value={c.name}>
+                {c.icon} {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        {error && <div className="modal-error">{error}</div>}
+        {error && <div className="text-sm text-destructive">{error}</div>}
 
-        <div className="modal-actions">
-          <button className="modal-btn secondary" onClick={onClose} disabled={saving}>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
             {t('common:actions.cancel')}
-          </button>
-          <button className="modal-btn primary" onClick={handleAdd} disabled={saving}>
+          </Button>
+          <Button onClick={handleAdd} disabled={saving}>
             {saving ? t('common:actions.adding') : t('common:actions.add')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

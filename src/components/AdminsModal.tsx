@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ADMIN_EMAILS, addAdminEmail, adminsRef, onValue, removeAdminEmail } from '../lib/firebase'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 interface AdminsModalProps {
   onClose: () => void
@@ -24,18 +27,18 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
     try {
       await addAdminEmail(trimmed)
       setNewEmail('')
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('admins:addFailed')}: ${err.message}`)
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('admins:title')}</h2>
-        <p className="modal-note-readonly">
-          {t('admins:explanation')}
-        </p>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('admins:title')}</DialogTitle>
+        </DialogHeader>
+        <p className="modal-note-readonly">{t('admins:explanation')}</p>
 
         <div className="category-rows">
           {ADMIN_EMAILS.map((email) => (
@@ -47,34 +50,43 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
           {invitedEmails.map((email) => (
             <div className="category-row" key={email}>
               <span className="admin-email">{email}</span>
-              <button className="stock-icon-btn" onClick={() => removeAdminEmail(email)} aria-label={t('admins:removeAdmin')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-[26px] w-[26px]"
+                onClick={() => removeAdminEmail(email)}
+                aria-label={t('admins:removeAdmin')}
+              >
                 🗑
-              </button>
+              </Button>
             </div>
           ))}
         </div>
 
         <div className="category-row">
-          <input
-            className="modal-input"
+          <Input
             type="email"
             placeholder={t('admins:emailPlaceholder')}
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
-          <button className="stock-icon-btn" onClick={handleAdd} aria-label={t('admins:addAdmin')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-[26px] w-[26px]"
+            onClick={handleAdd}
+            aria-label={t('admins:addAdmin')}
+          >
             ➕
-          </button>
+          </Button>
         </div>
 
-        {error && <div className="modal-error">{error}</div>}
+        {error && <div className="text-sm text-destructive">{error}</div>}
 
-        <div className="modal-actions">
-          <button className="modal-btn primary" onClick={onClose}>
-            {t('common:actions.close')}
-          </button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button onClick={onClose}>{t('common:actions.close')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

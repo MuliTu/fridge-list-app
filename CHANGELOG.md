@@ -6,6 +6,26 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.4.0] - 2026-07-06
+
+### Changed
+- Adopted shadcn/ui for form controls and modals (buttons, dialogs, inputs,
+  textareas, selects, labels) across all 7 modals (`ItemDetailModal`,
+  `GroceryItemModal`, `StockItemModal`, `ReceiptReviewModal`, `CategoriesModal`,
+  `AdminsModal`, `RestockPrompt`), replacing the hand-rolled `.modal-backdrop`/
+  `.modal-sheet` pattern and native `<input>`/`<select>`/`<textarea>` elements.
+  Retheme via Tailwind v4's `@theme inline` CSS variable mapping — the chalkboard
+  visual identity is unchanged, verified side-by-side in the browser preview (not
+  just by reading the CSS). Bespoke app chrome (the FAB, list-picker pills, tab
+  links, small icon-only stock/receipt action buttons) was deliberately left as
+  custom-styled native elements — see `CLAUDE.md`'s new "Design system" section for
+  the reasoning.
+- Added Tailwind CSS v4 (`@tailwindcss/vite`) alongside the existing `App.css` theme
+  file, plus `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`,
+  and the Radix UI primitives shadcn's components wrap (`@radix-ui/react-dialog`,
+  `-select`, `-label`, `-slot`).
+
+## [2.3.0] - 2026-07-06
 ## [2.3.0] - 2026-07-06
 
 ### Added

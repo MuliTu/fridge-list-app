@@ -1,8 +1,36 @@
+@import 'tailwindcss';
+
+/* Bridges shadcn/ui's expected token names to this app's existing chalkboard palette —
+   deliberately not shadcn's default look, per explicit product decision (see CLAUDE.md). */
+@theme inline {
+  --color-background: var(--board);
+  --color-foreground: var(--chalk);
+  --color-muted: var(--board-edge);
+  --color-muted-foreground: var(--chalk-dim);
+  --color-border: var(--border-alpha);
+  --color-input: var(--input-alpha);
+  --color-primary: var(--chalk);
+  --color-primary-foreground: var(--board);
+  --color-secondary: transparent;
+  --color-secondary-foreground: var(--chalk-dim);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--chalk);
+  --color-popover: var(--board);
+  --color-popover-foreground: var(--chalk);
+  --color-accent: var(--board-edge);
+  --color-accent-foreground: var(--chalk);
+  --color-ring: var(--chalk);
+  --radius: 12px;
+}
+
 :root {
   --board: #2f3d34;
   --board-edge: #24302a;
   --chalk: #f4f1e8;
   --chalk-dim: #cfd3c9;
+  --danger: #e08a8a;
+  --border-alpha: rgba(244, 241, 232, 0.15);
+  --input-alpha: rgba(244, 241, 232, 0.06);
 }
 
 * {

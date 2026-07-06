@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import type { GroceryItem } from '../types'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Button } from './ui/button'
+import { Textarea } from './ui/textarea'
 
 interface ItemDetailModalProps {
   entry: GroceryItem
@@ -37,7 +40,7 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
     try {
       await onSave(entry.key, { note, imageFile })
       onClose()
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('common:itemDetail.saveFailed')}: ${err.message}`)
       setSaving(false)
     }
@@ -50,16 +53,18 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
     try {
       await onDelete(entry.key)
       onClose()
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('common:itemDetail.deleteFailed')}: ${err.message}`)
       setDeleting(false)
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>{entry.item}</h2>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{entry.item}</DialogTitle>
+        </DialogHeader>
 
         {previewUrl && <img className="modal-image-preview" src={previewUrl} alt={entry.item} />}
 
@@ -75,8 +80,7 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
               />
             </label>
 
-            <textarea
-              className="modal-note"
+            <Textarea
               placeholder={t('common:itemDetail.notePlaceholder')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -100,33 +104,31 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
           )}
         </div>
 
-        {error && <div className="modal-error">{error}</div>}
+        {error && <div className="text-sm text-destructive">{error}</div>}
 
-        <div className="modal-actions">
+        <DialogFooter>
           {canEdit ? (
             <>
-              <button className="modal-btn danger" onClick={handleDelete} disabled={saving || deleting}>
+              <Button variant="destructive" className="me-auto" onClick={handleDelete} disabled={saving || deleting}>
                 {deleting ? t('common:actions.deleting') : t('common:actions.delete')}
-              </button>
-              <button className="modal-btn secondary" onClick={onClose} disabled={saving || deleting}>
+              </Button>
+              <Button variant="secondary" onClick={onClose} disabled={saving || deleting}>
                 {t('common:actions.cancel')}
-              </button>
-              <button className="modal-btn primary" onClick={handleSave} disabled={saving || deleting}>
+              </Button>
+              <Button onClick={handleSave} disabled={saving || deleting}>
                 {saving ? t('common:actions.saving') : t('common:actions.save')}
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <button className="modal-btn secondary" onClick={onClose}>
+              <Button variant="secondary" onClick={onClose}>
                 {t('common:actions.close')}
-              </button>
-              <button className="modal-btn primary" onClick={onSignIn}>
-                {t('common:auth.signIn')}
-              </button>
+              </Button>
+              <Button onClick={onSignIn}>{t('common:auth.signIn')}</Button>
             </>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

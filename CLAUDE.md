@@ -613,6 +613,38 @@ the language preference from a cookie (available during SSR) instead of/alongsid
 not done here since it requires threading request-scoped state through the root
 route's SSR path, out of scope for this pass.
 
+## Design system (shadcn/ui)
+
+Adopted for form controls and modals — buttons, dialogs, text/number inputs,
+textareas, selects, and labels — since these had the most to gain from Radix's
+accessibility/focus-trap/keyboard handling underneath. Explicitly **not** shadcn's
+default look: `src/App.css`'s `@theme inline` block (Tailwind v4 CSS-first config)
+maps shadcn's expected token names (`--color-background`, `--color-primary`, etc.)
+onto this app's existing 4-variable chalkboard palette (`--board`, `--board-edge`,
+`--chalk`, `--chalk-dim`), so the visual identity is unchanged — verified side-by-side
+in the browser preview, not just by reading the CSS.
+
+- `src/components/ui/` — the shadcn primitives themselves (`button.tsx`, `dialog.tsx`,
+  `input.tsx`, `textarea.tsx`, `label.tsx`, `select.tsx`), each hand-written from
+  shadcn's standard source (no `npx shadcn add` was run — this isn't a Next.js/plain-Vite
+  project shadcn's CLI targets out of the box, and the existing folder layout
+  (`src/components`, `src/lib`) didn't need shadcn's usual `@/` import-alias
+  convention).
+- `src/lib/utils.ts` — the standard `cn()` helper (`clsx` + `tailwind-merge`).
+- All 7 modals (`ItemDetailModal`, `GroceryItemModal`, `StockItemModal`,
+  `ReceiptReviewModal`, `CategoriesModal`, `AdminsModal`, `RestockPrompt`) were
+  converted: hand-rolled `.modal-backdrop`/`.modal-sheet` divs → shadcn `Dialog`,
+  native `<input>`/`<textarea>`/`<select>` → `Input`/`Textarea`/`Select`, action
+  buttons → `Button` with `variant="default"/"secondary"/"destructive"/"ghost"`.
+- **Deliberately left as custom-styled native elements, not shadcn**: the FAB
+  (`.fab-add-btn`), list-picker pills (`.list-pill`), tab links (`.tab-btn`, actual
+  `<Link>`s not buttons), and small icon-only action buttons in the stock/receipts
+  list views (`.stock-icon-btn`, `.stepper-btn`). These are bespoke app-chrome shapes
+  (circular FAB, pill-shaped filters) rather than generic form controls — the kind of
+  "native component" this task was actually about — so wrapping them in shadcn's
+  `Button` would add an indirection layer without changing behavior or accessibility
+  in any meaningful way. Revisit if a future pass wants full design-system coverage.
+
 ## Debugging tips learned this session
 
 - To inspect live Firebase data without touching the browser, spin up a disposable n8n

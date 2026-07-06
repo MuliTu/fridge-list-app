@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addCategory, deleteCategory, updateCategory } from '../lib/firebase'
 import type { Category } from '../types'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 interface CategoriesModalProps {
   categories: Category[]
@@ -26,7 +29,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
       await addCategory({ name: newName.trim(), icon: newIcon.trim() || '📌', color: newColor, order: maxOrder + 1 })
       setNewName('')
       setNewIcon('📌')
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('categories:addFailed')}: ${err.message}`)
     }
   }
@@ -35,7 +38,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
     if (!window.confirm(t('categories:deleteConfirm', { categoryName: cat.name }))) return
     try {
       await deleteCategory(cat.key)
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('categories:deleteFailed')}: ${err.message}`)
     }
   }
@@ -55,44 +58,49 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
         updateCategory(current.key, { order: neighborOrder }),
         updateCategory(neighbor.key, { order: currentOrder })
       ])
-    } catch (err) {
+    } catch (err: any) {
       setError(`${t('categories:reorderFailed')}: ${err.message}`)
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('categories:title')}</h2>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('categories:title')}</DialogTitle>
+        </DialogHeader>
 
         <div className="category-rows">
           {categories.map((cat, index) => (
             <div className="category-row" key={cat.key}>
               <div className="category-order-btns">
-                <button
-                  className="stock-icon-btn"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-[26px] w-[26px]"
                   onClick={() => handleMove(index, -1)}
                   disabled={index === 0}
                   aria-label={t('categories:moveUp')}
                 >
                   ▲
-                </button>
-                <button
-                  className="stock-icon-btn"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-[26px] w-[26px]"
                   onClick={() => handleMove(index, 1)}
                   disabled={index === categories.length - 1}
                   aria-label={t('categories:moveDown')}
                 >
                   ▼
-                </button>
+                </Button>
               </div>
-              <input
-                className="modal-input category-icon-input"
+              <Input
+                className="w-11 shrink-0 px-1 text-center"
                 value={cat.icon || ''}
                 onChange={(e) => updateCategory(cat.key, { icon: e.target.value })}
               />
-              <input
-                className="modal-input"
+              <Input
                 value={cat.name}
                 disabled={cat.protected}
                 onChange={(e) => updateCategory(cat.key, { name: e.target.value })}
@@ -104,23 +112,28 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
                 onChange={(e) => updateCategory(cat.key, { color: e.target.value })}
               />
               {!cat.protected && (
-                <button className="stock-icon-btn" onClick={() => handleDelete(cat)} aria-label={t('categories:deleteCategory')}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-[26px] w-[26px]"
+                  onClick={() => handleDelete(cat)}
+                  aria-label={t('categories:deleteCategory')}
+                >
                   🗑
-                </button>
+                </Button>
               )}
             </div>
           ))}
         </div>
 
         <div className="category-row">
-          <input
-            className="modal-input category-icon-input"
+          <Input
+            className="w-11 shrink-0 px-1 text-center"
             placeholder={t('categories:newCategoryIconPlaceholder')}
             value={newIcon}
             onChange={(e) => setNewIcon(e.target.value)}
           />
-          <input
-            className="modal-input"
+          <Input
             placeholder={t('categories:newCategoryNamePlaceholder')}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -131,19 +144,23 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
             value={newColor}
             onChange={(e) => setNewColor(e.target.value)}
           />
-          <button className="stock-icon-btn" onClick={handleAdd} aria-label={t('categories:addCategory')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-[26px] w-[26px]"
+            onClick={handleAdd}
+            aria-label={t('categories:addCategory')}
+          >
             ➕
-          </button>
+          </Button>
         </div>
 
-        {error && <div className="modal-error">{error}</div>}
+        {error && <div className="text-sm text-destructive">{error}</div>}
 
-        <div className="modal-actions">
-          <button className="modal-btn primary" onClick={onClose}>
-            {t('common:actions.close')}
-          </button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button onClick={onClose}>{t('common:actions.close')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

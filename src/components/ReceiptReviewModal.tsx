@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReceiptItem } from '../types'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
 
 export interface ReceiptReviewData {
   store_name: string | null
@@ -35,9 +39,12 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-  }, [previewUrl])
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    },
+    [previewUrl]
+  )
 
   const updateItem = (index: number, field: 'name' | 'price' | 'quantity', value: string | number) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
@@ -74,16 +81,18 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
         total: total === '' ? null : Math.max(0, Number(total) || 0),
         source_url: data.source_url || null
       })
-    } catch (err) {
+    } catch (err: any) {
       setError(t('receipts:reviewModal.saveFailed', { message: err.message }))
       setSaving(false)
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('receipts:reviewModal.title')}</h2>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('receipts:reviewModal.title')}</DialogTitle>
+        </DialogHeader>
         {queueLabel && <div className="queue-label">{queueLabel}</div>}
 
         {previewUrl ? (
@@ -102,8 +111,7 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
           )
         )}
 
-        <input
-          className="modal-input"
+        <Input
           placeholder={t('receipts:reviewModal.storeNamePlaceholder')}
           value={storeName}
           onChange={(e) => setStoreName(e.target.value)}
@@ -112,61 +120,60 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
         <div className="receipt-review-items">
           {items.map((item, i) => (
             <div className="receipt-review-row" key={i}>
-              <input
-                className="modal-input receipt-review-name"
+              <Input
+                className="receipt-review-name"
                 placeholder={t('receipts:reviewModal.productNamePlaceholder')}
                 value={item.name}
                 onChange={(e) => updateItem(i, 'name', e.target.value)}
               />
-              <input
-                className="modal-input receipt-review-qty"
+              <Input
+                className="receipt-review-qty"
                 type="number"
                 min="1"
                 value={item.quantity}
                 onChange={(e) => updateItem(i, 'quantity', e.target.value)}
               />
-              <input
-                className="modal-input receipt-review-price"
+              <Input
+                className="receipt-review-price"
                 type="number"
                 min="0"
                 step="0.1"
                 value={item.price}
                 onChange={(e) => updateItem(i, 'price', e.target.value)}
               />
-              <button className="stock-icon-btn" onClick={() => removeItem(i)} aria-label={t('receipts:reviewModal.removeRowAria')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-[26px] w-[26px]"
+                onClick={() => removeItem(i)}
+                aria-label={t('receipts:reviewModal.removeRowAria')}
+              >
                 ✕
-              </button>
+              </Button>
             </div>
           ))}
         </div>
 
-        <button className="list-pill list-pill-new" onClick={addItem}>
+        <Button variant="outline" className="w-fit" onClick={addItem}>
           {t('receipts:reviewModal.addRow')}
-        </button>
+        </Button>
 
-        <label className="modal-input-label">
+        <Label>
           {t('receipts:reviewModal.total')}
-          <input
-            className="modal-input"
-            type="number"
-            min="0"
-            step="0.1"
-            value={total}
-            onChange={(e) => setTotal(e.target.value)}
-          />
-        </label>
+          <Input type="number" min="0" step="0.1" value={total} onChange={(e) => setTotal(e.target.value)} />
+        </Label>
 
-        {error && <div className="modal-error">{error}</div>}
+        {error && <div className="text-sm text-destructive">{error}</div>}
 
-        <div className="modal-actions">
-          <button className="modal-btn secondary" onClick={onClose} disabled={saving}>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
             {t('common:actions.cancel')}
-          </button>
-          <button className="modal-btn primary" onClick={handleSave} disabled={saving}>
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? t('common:actions.saving') : t('common:actions.save')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
