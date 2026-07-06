@@ -6,6 +6,29 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.3.0] - 2026-07-06
+
+### Added
+- i18n: Hebrew/English support via `react-i18next`, namespaced translation files
+  (`src/i18n/locales/{he,en}/*.json`), a language switcher in the header, and dynamic
+  RTL/LTR layout switching (`src/hooks/useSyncHtmlLangDir.ts`). Hebrew remains the
+  default. Every hardcoded UI string across the app was extracted into translation
+  keys (persisted data values like stock unit presets and the protected "אחר" category
+  name were deliberately left untranslated — they're matched by equality against real
+  Firebase data, not display copy).
+- `src/routes/index.tsx` decomposed into smaller components: `ListPicker.tsx`,
+  `ShoppingListItemRow.tsx`, `CategorySection.tsx` (under `src/components/`).
+
+### Fixed
+- A real SSR hydration failure introduced while wiring up i18n: when a returning
+  user's stored language preference differed from the server-rendered default, React
+  discarded the entire server-rendered document and did a full client-side re-render
+  instead of hydrating. Fixed by always initializing i18n to `'he'` on both server and
+  client, and only switching to a stored preference in a post-mount effect. A minor,
+  non-fatal residual warning remains for one lazily-loaded route chunk — see
+  `CLAUDE.md`'s "i18n" section for the full explanation.
+
+## [2.2.0] - 2026-07-06
 ## [2.2.0] - 2026-07-06
 
 ### Changed

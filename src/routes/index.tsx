@@ -1,5 +1,6 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import {
   addGroceryItem,
   adjustStockQuantity,
@@ -12,12 +13,14 @@ import {
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
-import { formatDateTime } from '../lib/formatDateTime'
 import { useAuth } from '../hooks/AuthContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import ItemDetailModal from '../components/ItemDetailModal'
 import GroceryItemModal from '../components/GroceryItemModal'
 import RestockPrompt from '../components/RestockPrompt'
+import ListPicker from '../components/ListPicker'
+import ShoppingListItemRow from '../components/ShoppingListItemRow'
+import CategorySection from '../components/CategorySection'
 import type { GroceryItem, StockItem } from '../types'
 
 const PERMANENT_LIST = null
@@ -30,6 +33,7 @@ export const Route = createFileRoute('/')({
 })
 
 function ShoppingListPage() {
+  const { t } = useTranslation()
   const { list } = Route.useSearch()
   const navigate = Route.useNavigate()
   const activeList = list || PERMANENT_LIST
@@ -82,7 +86,7 @@ function ShoppingListPage() {
   }
 
   const handleCreateList = () => {
-    const name = window.prompt('שם הרשימה החדשה (למשל: מסיבה)')
+    const name = window.prompt(t('shoppingList:newListPrompt'))
     const trimmed = name?.trim()
     if (!trimmed) return
     navigate({ search: { list: trimmed } })
@@ -90,7 +94,7 @@ function ShoppingListPage() {
 
   const handleDeleteList = () => {
     const count = visibleEntries.length
-    if (!window.confirm(`למחוק את הרשימה "${activeList}" וכל ${count} הפריטים בה? לא ניתן לשחזר.`)) return
+    if (!window.confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count }))) return
     deleteGroceryList(activeList)
     navigate({ search: { list: undefined } })
   }
@@ -98,8 +102,10 @@ function ShoppingListPage() {
   const handleShareMissing = () => {
     const missing = visibleEntries.filter((e) => !e.bought)
     if (missing.length === 0) return
-    const lines = missing.map((e) => `• ${e.item}`).join('\n')
-    const title = activeList ? `רשימת קניות – ${activeList}` : 'רשימת קניות'
+    const lines = missing.map((e) => t('shoppingList:share.itemLine', { item: e.item })).join('\n')
+    const title = activeList
+      ? t('shoppingList:share.customTitle', { listName: activeList })
+      : t('shoppingList:share.permanentTitle')
     const text = `${title}:\n${lines}`
 
     if (navigator.share) {
@@ -111,91 +117,45 @@ function ShoppingListPage() {
 
   return (
     <>
-      <div className="list-picker">
-        <button
-          className={`list-pill${activeList === PERMANENT_LIST ? ' active' : ''}`}
-          onClick={() => navigate({ search: { list: undefined } })}
-        >
-          הרשימה הקבועה
-        </button>
-        {sortedCustomLists.map((name) => (
-          <button
-            key={name}
-            className={`list-pill${activeList === name ? ' active' : ''}`}
-            onClick={() => navigate({ search: { list: name } })}
-          >
-            {name}
-          </button>
-        ))}
-        {canEdit && (
-          <button className="list-pill list-pill-new" onClick={handleCreateList}>
-            + רשימה חדשה
-          </button>
-        )}
-        {canEdit && activeList !== PERMANENT_LIST && (
-          <button className="list-delete-btn" onClick={handleDeleteList}>
-            🗑 מחיקת הרשימה
-          </button>
-        )}
-        {visibleEntries.some((e) => !e.bought) && (
-          <button className="list-pill" onClick={handleShareMissing}>
-            📤 שיתוף מה חסר
-          </button>
-        )}
-      </div>
+      <ListPicker
+        activeList={activeList}
+        customLists={sortedCustomLists}
+        canEdit={canEdit}
+        hasUnbought={visibleEntries.some((e) => !e.bought)}
+        onSelectList={(l) => navigate({ search: { list: l || undefined } })}
+        onCreateList={handleCreateList}
+        onDeleteList={handleDeleteList}
+        onShareMissing={handleShareMissing}
+      />
 
       {isEmpty ? (
-        <div className="all-empty">הרשימה ריקה 🎉</div>
+        <div className="all-empty">{t('shoppingList:empty')}</div>
       ) : (
         <div className="flat-list">
           {visibleCategories.map(({ name, color, icon }) => (
-            <div className="flat-section" key={name} style={{ '--accent': color } as CSSProperties}>
-              <h2 className="flat-section-header" onClick={() => toggle(name)}>
-                <span className="cat-icon">{icon}</span>
-                {name}
-                <span className={`chevron${isCollapsed(name) ? ' collapsed' : ''}`}>▾</span>
-              </h2>
-              {!isCollapsed(name) && (
-                <ul className="items">
-                  {grouped[name].map((entry) => (
-                    <li
-                      className={`item${entry.isFresh ? ' fresh' : ''}${entry.bought ? ' bought' : ''}`}
-                      key={entry.key}
-                      onClick={() => handleItemClick(entry)}
-                    >
-                      <span className="item-row">
-                        <span className="item-top">
-                          <span>{entry.item}</span>
-                          {entry.note && <span className="item-icon">📝</span>}
-                          {entry.image_url && <span className="item-icon">📷</span>}
-                          <button
-                            className="stock-icon-btn item-info-btn"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedEntry(entry)
-                            }}
-                            aria-label="פרטי פריט"
-                          >
-                            ℹ️
-                          </button>
-                        </span>
-                        <span className="item-meta">
-                          {entry.bought
-                            ? `✓ סומן ע"י ${entry.modified_by || 'Siri'} · ${formatDateTime(entry.modified_at) || ''}`
-                            : `נוסף ע"י ${entry.created_by || 'Siri'} · ${formatDateTime(entry.added_at) || ''}`}
-                        </span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <CategorySection
+              key={name}
+              name={name}
+              color={color}
+              icon={icon}
+              collapsed={isCollapsed(name)}
+              onToggle={() => toggle(name)}
+            >
+              {grouped[name].map((entry) => (
+                <ShoppingListItemRow
+                  key={entry.key}
+                  entry={entry}
+                  onClick={() => handleItemClick(entry)}
+                  onInfoClick={() => setSelectedEntry(entry)}
+                />
+              ))}
+            </CategorySection>
           ))}
         </div>
       )}
 
       {canEdit && activeList !== PERMANENT_LIST && (
-        <button className="fab-add-btn" onClick={() => setShowAddGrocery(true)} aria-label="הוספת פריט לרשימה">
+        <button className="fab-add-btn" onClick={() => setShowAddGrocery(true)} aria-label={t('shoppingList:addItemFab')}>
           +
         </button>
       )}

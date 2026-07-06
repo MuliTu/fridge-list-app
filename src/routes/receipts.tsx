@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import {
   deleteReceipt,
   onValue,
@@ -24,6 +25,7 @@ export const Route = createFileRoute('/receipts')({
 })
 
 function ReceiptsPage() {
+  const { t } = useTranslation(['receipts', 'common'])
   const { user, canEdit } = useAuth()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scanning, setScanning] = useState(false)
@@ -76,7 +78,7 @@ function ReceiptsPage() {
       try {
         fileForScan = await resizeImage(file)
       } catch (err: any) {
-        setScanError('קריאת התמונה נכשלה: ' + err.message)
+        setScanError(t('receipts:scanErrors.imageReadFailed', { message: err.message }))
         setReviewData({ store_name: null, items: [], total: null, imageBlob: file, queuePosition })
         setScanning(false)
         return
@@ -85,7 +87,7 @@ function ReceiptsPage() {
     try {
       const result = await scanReceipt(fileForScan as Blob & { type: string })
       if (result.error) {
-        setScanError('לא הצלחנו לקרוא את הקבלה אוטומטית — אפשר להזין ידנית')
+        setScanError(t('receipts:scanErrors.scanAutoFailed'))
         setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
       } else {
         setReviewData({
@@ -97,7 +99,7 @@ function ReceiptsPage() {
         })
       }
     } catch (err: any) {
-      setScanError('סריקה נכשלה: ' + err.message + ' — אפשר להזין ידנית')
+      setScanError(t('receipts:scanErrors.scanFailed', { message: err.message }))
       setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
     } finally {
       setScanning(false)
@@ -124,7 +126,7 @@ function ReceiptsPage() {
   }
 
   const handleUrlSubmit = async () => {
-    const url = window.prompt('הדביקו קישור לקבלה דיגיטלית')
+    const url = window.prompt(t('receipts:urlPrompt'))
     const trimmed = url?.trim()
     if (!trimmed) return
     setScanning(true)
@@ -132,7 +134,7 @@ function ReceiptsPage() {
     try {
       const result = await scanReceiptFromUrl(trimmed)
       if (result.error) {
-        setScanError('לא הצלחנו לקרוא את הקבלה מהקישור — אפשר להזין ידנית')
+        setScanError(t('receipts:scanErrors.urlScanAutoFailed'))
         setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
       } else {
         setReviewData({
@@ -144,7 +146,7 @@ function ReceiptsPage() {
         })
       }
     } catch (err: any) {
-      setScanError('קריאת הקישור נכשלה: ' + err.message + ' — אפשר להזין ידנית')
+      setScanError(t('receipts:scanErrors.urlScanFailed', { message: err.message }))
       setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
     } finally {
       setScanning(false)
@@ -170,21 +172,25 @@ function ReceiptsPage() {
   }
 
   const handleDelete = (receipt: Receipt) => {
-    if (!window.confirm(`למחוק את הקבלה מ-${formatDateTime(receipt.scanned_at) || 'תאריך לא ידוע'}?`)) return
+    const date = formatDateTime(receipt.scanned_at) || t('receipts:deleteConfirmUnknownDate')
+    if (!window.confirm(t('receipts:deleteConfirm', { date }))) return
     deleteReceipt(receipt.key, receipt.image_url)
   }
 
   return (
     <div className="stock-view">
       {receipts.length === 0 ? (
-        <div className="all-empty">אין עדיין קבלות סרוקות{canEdit ? ' 📸' : ''}</div>
+        <div className="all-empty">
+          {t('receipts:empty')}
+          {canEdit ? ' 📸' : ''}
+        </div>
       ) : (
         <div className="board-grid">
           {receipts.map((receipt) => (
             <section className="panel receipt-card" key={receipt.key}>
               <h2>
                 <span className="dot" />
-                {receipt.store_name || 'קבלה'}
+                {receipt.store_name || t('receipts:fallbackTitle')}
                 {receipt.source_url && (
                   <a href={receipt.source_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                     🔗
@@ -213,10 +219,12 @@ function ReceiptsPage() {
                   )
                 })}
               </ul>
-              <div className="receipt-total">סה"כ: ₪{receiptTotal(receipt).toFixed(2)}</div>
+              <div className="receipt-total">
+                {t('receipts:total', { amount: receiptTotal(receipt).toFixed(2) })}
+              </div>
               {canEdit && (
                 <button className="stock-icon-btn stock-delete-btn" onClick={() => handleDelete(receipt)}>
-                  🗑 מחיקה
+                  {t('receipts:deleteBtn')}
                 </button>
               )}
             </section>
@@ -230,11 +238,11 @@ function ReceiptsPage() {
             className="fab-add-btn fab-secondary"
             onClick={handleUrlSubmit}
             disabled={scanning}
-            aria-label="הוספת קבלה מקישור"
+            aria-label={t('receipts:uploadFab.ariaFromUrl')}
           >
             🔗
           </button>
-          <label className="fab-add-btn receipt-upload-btn" aria-label="סריקת קבלה">
+          <label className="fab-add-btn receipt-upload-btn" aria-label={t('receipts:uploadFab.ariaScan')}>
             {scanning ? (queue.length > 1 ? `${queueIndex + 1}/${queue.length}` : '…') : '+'}
             <input
               type="file"
@@ -250,7 +258,7 @@ function ReceiptsPage() {
 
       {scanning && queue.length > 1 && (
         <div className="toast">
-          ⏳ טוען קבלה {queueIndex + 1} מתוך {queue.length}...
+          {t('receipts:queueProgress', { current: queueIndex + 1, total: queue.length })}
         </div>
       )}
 
@@ -261,7 +269,10 @@ function ReceiptsPage() {
           data={reviewData}
           queueLabel={
             reviewData.queuePosition
-              ? `קבלה ${reviewData.queuePosition.index + 1} מתוך ${reviewData.queuePosition.total} נטענה`
+              ? t('receipts:queueLabel', {
+                  current: reviewData.queuePosition.index + 1,
+                  total: reviewData.queuePosition.total
+                })
               : null
           }
           onClose={handleCloseReview}

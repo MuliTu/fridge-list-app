@@ -1,0 +1,35 @@
+{
+  "emptyAddFirst": "Stock is empty — add your first item 📦",
+  "emptyViewOnly": "Stock is empty 📦",
+  "addFab": "Add stock item",
+  "updatedCaption": "Updated: {{date}}",
+  "updatedCaptionWithEmail": "Updated: {{date}} · {{email}}",
+  "editModal": {
+    "title": "Add stock item",
+    "titleEdit": "Edit stock item",
+    "namePlaceholder": "Item name",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "otherUnit": "Other",
+    "customUnitPlaceholder": "Custom unit",
+    "lowThreshold": "Low stock alert (quantity)",
+    "updatedAt": "Updated: {{date}}",
+    "updatedAtWithEmail": "Updated: {{date}} · {{email}}",
+    "nameRequired": "Item name is required",
+    "updateFailedPrefix": "Update failed: ",
+    "addFailedPrefix": "Add failed: "
+  },
+  "actions": {
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "addToList": "🛒 Add to list",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete \"{{name}}\" from stock?",
+    "adjustFailed": "Quantity update failed",
+    "deleteFailed": "Delete failed"
+  },
+  "errors": {
+    "permissionDenied": "No write permission on the database — add the /stock rule in the Firebase console (see CLAUDE.md)."
+  }
+}

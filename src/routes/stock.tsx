@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import {
   addStockItem,
   addStockItemToShoppingList,
@@ -22,6 +23,7 @@ export const Route = createFileRoute('/stock')({
 })
 
 function StockPage() {
+  const { t } = useTranslation(['stock', 'common'])
   const { user, canEdit } = useAuth()
   const [entries, setEntries] = useState<StockItem[]>([])
   const [showAdd, setShowAdd] = useState(false)
@@ -58,7 +60,7 @@ function StockPage() {
 
   const describeError = (action: string, err: any) => {
     const message = String(err?.code || err?.message || '').includes('PERMISSION_DENIED')
-      ? 'אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md).'
+      ? t('stock:errors.permissionDenied')
       : err.message
     return `${action}: ${message}`
   }
@@ -67,16 +69,16 @@ function StockPage() {
     try {
       await adjustStockQuantity(entry.key, entry.quantity + delta, user)
     } catch (err) {
-      window.alert(describeError('עדכון כמות נכשל', err))
+      window.alert(describeError(t('stock:actions.adjustFailed'), err))
     }
   }
 
   const handleDelete = async (entry: StockItem) => {
-    if (!window.confirm(`למחוק את "${entry.name}" מהמלאי?`)) return
+    if (!window.confirm(t('stock:actions.deleteConfirm', { name: entry.name }))) return
     try {
       await deleteStockItem(entry.key)
     } catch (err) {
-      window.alert(describeError('מחיקה נכשלה', err))
+      window.alert(describeError(t('stock:actions.deleteFailed'), err))
     }
   }
 
@@ -87,9 +89,7 @@ function StockPage() {
   return (
     <div className="stock-view">
       {isEmpty ? (
-        <div className="all-empty">
-          המלאי ריק{canEdit ? ' — הוסיפו פריט ראשון 📦' : ' 📦'}
-        </div>
+        <div className="all-empty">{canEdit ? t('stock:emptyAddFirst') : t('stock:emptyViewOnly')}</div>
       ) : (
         <div className="board-grid">
           {visibleCategories.map(({ name, color, icon }) => (
@@ -113,7 +113,12 @@ function StockPage() {
                         </div>
                         {(entry.updated_by || entry.updated_at) && (
                           <div className="stock-meta">
-                            עודכן: {formatDateTime(entry.updated_at)} {entry.updated_by && `· ${entry.updated_by}`}
+                            {entry.updated_by
+                              ? t('stock:updatedCaptionWithEmail', {
+                                  date: formatDateTime(entry.updated_at),
+                                  email: entry.updated_by
+                                })
+                              : t('stock:updatedCaption', { date: formatDateTime(entry.updated_at) })}
                           </div>
                         )}
                         <div className="stock-actions">
@@ -121,7 +126,7 @@ function StockPage() {
                             className="stepper-btn"
                             disabled={!canEdit}
                             onClick={() => handleAdjust(entry, -1)}
-                            aria-label="הפחתה"
+                            aria-label={t('stock:actions.decrease')}
                           >
                             −
                           </button>
@@ -129,20 +134,20 @@ function StockPage() {
                             className="stepper-btn"
                             disabled={!canEdit}
                             onClick={() => handleAdjust(entry, 1)}
-                            aria-label="הוספה"
+                            aria-label={t('stock:actions.increase')}
                           >
                             +
                           </button>
                           {isLow && canEdit && (
                             <button className="add-to-list-btn" onClick={() => handleAddToShoppingList(entry)}>
-                              🛒 לרשימה
+                              {t('stock:actions.addToList')}
                             </button>
                           )}
                           {canEdit && (
                             <button
                               className="stock-icon-btn"
                               onClick={() => setEditingItem(entry)}
-                              aria-label="עריכה"
+                              aria-label={t('stock:actions.edit')}
                             >
                               ✎
                             </button>
@@ -151,7 +156,7 @@ function StockPage() {
                             <button
                               className="stock-icon-btn stock-delete-btn"
                               onClick={() => handleDelete(entry)}
-                              aria-label="מחיקה"
+                              aria-label={t('stock:actions.delete')}
                             >
                               🗑
                             </button>
@@ -168,7 +173,7 @@ function StockPage() {
       )}
 
       {canEdit && (
-        <button className="fab-add-btn" onClick={() => setShowAdd(true)} aria-label="הוספת פריט למלאי">
+        <button className="fab-add-btn" onClick={() => setShowAdd(true)} aria-label={t('stock:addFab')}>
           +
         </button>
       )}

@@ -195,7 +195,7 @@ h1 {
   gap: 16px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-inline-end: 4px;
   align-content: start;
 }
 
@@ -214,7 +214,7 @@ h1 {
   gap: 18px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-inline-end: 4px;
 }
 
 .flat-list::-webkit-scrollbar {
@@ -968,4 +968,12 @@ h1 {
   opacity: 0.85;
   margin-top: -6px;
   margin-bottom: 4px;
+}
+
+.lang-switch-btn {
+  width: auto;
+  height: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
 }

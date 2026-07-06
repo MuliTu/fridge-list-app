@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Category } from '../types'
 
 interface GroceryItemModalProps {
@@ -9,6 +10,7 @@ interface GroceryItemModalProps {
 }
 
 export default function GroceryItemModal({ listName, categories, onClose, onAdd }: GroceryItemModalProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [category, setCategory] = useState(categories[0]?.name || '')
   const [saving, setSaving] = useState(false)
@@ -16,7 +18,7 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
 
   const handleAdd = async () => {
     if (!name.trim()) {
-      setError('חובה להזין שם פריט')
+      setError(t('common:groceryItem.nameRequired'))
       return
     }
     setSaving(true)
@@ -25,7 +27,7 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
       await onAdd({ name: name.trim(), category })
       onClose()
     } catch (err) {
-      setError('הוספה נכשלה: ' + err.message)
+      setError(`${t('common:groceryItem.addFailed')}: ${err.message}`)
       setSaving(false)
     }
   }
@@ -33,11 +35,11 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>הוספת פריט ל"{listName}"</h2>
+        <h2>{t('common:groceryItem.title', { listName })}</h2>
 
         <input
           className="modal-input"
-          placeholder="שם הפריט"
+          placeholder={t('common:groceryItem.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -54,10 +56,10 @@ export default function GroceryItemModal({ listName, categories, onClose, onAdd 
 
         <div className="modal-actions">
           <button className="modal-btn secondary" onClick={onClose} disabled={saving}>
-            ביטול
+            {t('common:actions.cancel')}
           </button>
           <button className="modal-btn primary" onClick={handleAdd} disabled={saving}>
-            {saving ? 'מוסיף...' : 'הוספה'}
+            {saving ? t('common:actions.adding') : t('common:actions.add')}
           </button>
         </div>
       </div>

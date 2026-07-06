@@ -1,0 +1,14 @@
+{
+  "title": "Manage categories",
+  "nameRequired": "Category name is required",
+  "deleteConfirm": "Delete the category \"{{categoryName}}\"? Existing items in this category will move to \"אחר\".",
+  "addFailed": "Add failed",
+  "deleteFailed": "Delete failed",
+  "reorderFailed": "Reorder failed",
+  "moveUp": "Move category up",
+  "moveDown": "Move category down",
+  "deleteCategory": "Delete category",
+  "addCategory": "Add category",
+  "newCategoryIconPlaceholder": "🆕",
+  "newCategoryNamePlaceholder": "New category name"
+}

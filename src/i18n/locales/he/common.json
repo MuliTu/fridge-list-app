@@ -1,0 +1,58 @@
+{
+  "appTitle": "רשימת הבית",
+  "appSubtitle": "מתעדכן בזמן אמת",
+  "tabs": {
+    "shoppingList": "רשימת קניות",
+    "stock": "מלאי",
+    "receipts": "קבלות"
+  },
+  "auth": {
+    "signIn": "התחברות לעריכה",
+    "signOut": "התנתקות",
+    "viewOnly": "צפייה בלבד",
+    "signInError": "שגיאת התחברות"
+  },
+  "menu": {
+    "button": "תפריט",
+    "manageCategories": "🗂 ניהול קטגוריות",
+    "shareEditing": "👥 שיתוף עריכה"
+  },
+  "actions": {
+    "cancel": "ביטול",
+    "save": "שמירה",
+    "saving": "שומר...",
+    "delete": "מחיקה",
+    "deleting": "מוחק...",
+    "add": "הוספה",
+    "adding": "מוסיף...",
+    "close": "סגירה"
+  },
+  "language": {
+    "label": "שפה",
+    "he": "עברית",
+    "en": "English"
+  },
+  "itemDetail": {
+    "addPhoto": "הוספת תמונה",
+    "replacePhoto": "החלפת תמונה",
+    "notePlaceholder": "הערה...",
+    "createdBy": "נוצר",
+    "updatedBy": "עודכן",
+    "deleteConfirm": "למחוק את \"{{itemName}}\" מהרשימה?",
+    "deleteFailed": "מחיקה נכשלה",
+    "saveFailed": "שמירה נכשלה"
+  },
+  "groceryItem": {
+    "title": "הוספת פריט ל\"{{listName}}\"",
+    "namePlaceholder": "שם הפריט",
+    "nameRequired": "חובה להזין שם פריט",
+    "addFailed": "הוספה נכשלה"
+  },
+  "restockPrompt": {
+    "title": "עדכון מלאי",
+    "message": "סימנתם \"{{itemName}}\" כנקנה — להוסיף למלאי?",
+    "quantityLabel": "כמות להוספה ({{unit}})",
+    "skip": "דילוג",
+    "addToStock": "הוספה למלאי"
+  }
+}

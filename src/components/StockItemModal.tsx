@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import type { Category, StockItem } from '../types'
 
@@ -21,6 +22,7 @@ interface StockItemModalProps {
 }
 
 export default function StockItemModal({ item, categories, onClose, onSubmit }: StockItemModalProps) {
+  const { t } = useTranslation(['stock', 'common'])
   const isEdit = !!item
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || categories[0]?.name || '')
@@ -37,7 +39,7 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError('חובה להזין שם פריט')
+      setError(t('stock:editModal.nameRequired'))
       return
     }
     setSaving(true)
@@ -53,9 +55,9 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
       })
       onClose()
     } catch (err) {
-      const prefix = isEdit ? 'עדכון נכשל: ' : 'הוספה נכשלה: '
+      const prefix = isEdit ? t('stock:editModal.updateFailedPrefix') : t('stock:editModal.addFailedPrefix')
       const message = String(err?.code || err?.message || '').includes('PERMISSION_DENIED')
-        ? 'אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md).'
+        ? t('stock:errors.permissionDenied')
         : err.message
       setError(prefix + message)
       setSaving(false)
@@ -65,11 +67,11 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>{isEdit ? 'עריכת פריט מלאי' : 'הוספת פריט למלאי'}</h2>
+        <h2>{isEdit ? t('stock:editModal.titleEdit') : t('stock:editModal.title')}</h2>
 
         <input
           className="modal-input"
-          placeholder="שם הפריט"
+          placeholder={t('stock:editModal.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -84,7 +86,7 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
 
         <div className="modal-input-row">
           <label className="modal-input-label">
-            כמות
+            {t('stock:editModal.quantity')}
             <input
               className="modal-input"
               type="number"
@@ -94,14 +96,14 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
             />
           </label>
           <label className="modal-input-label">
-            יחידה
+            {t('stock:editModal.unit')}
             <select className="modal-input" value={unit} onChange={(e) => setUnit(e.target.value)}>
               {UNIT_PRESETS.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
               ))}
-              <option value={OTHER_UNIT}>{OTHER_UNIT}</option>
+              <option value={OTHER_UNIT}>{t('stock:editModal.otherUnit')}</option>
             </select>
           </label>
         </div>
@@ -109,14 +111,14 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
         {unit === OTHER_UNIT && (
           <input
             className="modal-input"
-            placeholder="יחידה מותאמת אישית"
+            placeholder={t('stock:editModal.customUnitPlaceholder')}
             value={customUnit}
             onChange={(e) => setCustomUnit(e.target.value)}
           />
         )}
 
         <label className="modal-input-label">
-          התראת מלאי נמוך (כמות)
+          {t('stock:editModal.lowThreshold')}
           <input
             className="modal-input"
             type="number"
@@ -129,7 +131,9 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
         {isEdit && updatedAt && (
           <div className="modal-meta">
             <div>
-              עודכן: {updatedAt} {item.updated_by && `· ${item.updated_by}`}
+              {item.updated_by
+                ? t('stock:editModal.updatedAtWithEmail', { date: updatedAt, email: item.updated_by })
+                : t('stock:editModal.updatedAt', { date: updatedAt })}
             </div>
           </div>
         )}
@@ -138,10 +142,10 @@ export default function StockItemModal({ item, categories, onClose, onSubmit }: 
 
         <div className="modal-actions">
           <button className="modal-btn secondary" onClick={onClose} disabled={saving}>
-            ביטול
+            {t('common:actions.cancel')}
           </button>
           <button className="modal-btn primary" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'שומר...' : isEdit ? 'שמירה' : 'הוספה'}
+            {saving ? t('common:actions.saving') : isEdit ? t('common:actions.save') : t('common:actions.add')}
           </button>
         </div>
       </div>

@@ -1,0 +1,23 @@
+{
+  "listPicker": {
+    "permanentList": "הרשימה הקבועה",
+    "newList": "+ רשימה חדשה",
+    "deleteList": "🗑 מחיקת הרשימה",
+    "shareMissing": "📤 שיתוף מה חסר"
+  },
+  "newListPrompt": "שם הרשימה החדשה (למשל: מסיבה)",
+  "deleteListConfirm": "למחוק את הרשימה \"{{listName}}\" וכל {{count}} הפריטים בה? לא ניתן לשחזר.",
+  "share": {
+    "permanentTitle": "רשימת קניות",
+    "customTitle": "רשימת קניות – {{listName}}",
+    "itemLine": "• {{item}}"
+  },
+  "empty": "הרשימה ריקה 🎉",
+  "addItemFab": "הוספת פריט לרשימה",
+  "item": {
+    "info": "פרטי פריט",
+    "bought": "✓ סומן ע\"י {{name}} · {{date}}",
+    "added": "נוסף ע\"י {{name}} · {{date}}",
+    "siri": "Siri"
+  }
+}

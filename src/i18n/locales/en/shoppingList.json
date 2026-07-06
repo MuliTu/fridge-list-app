@@ -1,0 +1,23 @@
+{
+  "listPicker": {
+    "permanentList": "Permanent list",
+    "newList": "+ New list",
+    "deleteList": "🗑 Delete list",
+    "shareMissing": "📤 Share what's missing"
+  },
+  "newListPrompt": "Name of the new list (e.g. party)",
+  "deleteListConfirm": "Delete the list \"{{listName}}\" and all {{count}} items in it? This cannot be undone.",
+  "share": {
+    "permanentTitle": "Shopping list",
+    "customTitle": "Shopping list – {{listName}}",
+    "itemLine": "• {{item}}"
+  },
+  "empty": "The list is empty 🎉",
+  "addItemFab": "Add item to list",
+  "item": {
+    "info": "Item details",
+    "bought": "✓ Checked off by {{name}} · {{date}}",
+    "added": "Added by {{name}} · {{date}}",
+    "siri": "Siri"
+  }
+}

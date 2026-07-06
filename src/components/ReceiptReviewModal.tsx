@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReceiptItem } from '../types'
 
 export interface ReceiptReviewData {
@@ -23,6 +24,7 @@ interface ReceiptReviewModalProps {
 }
 
 export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }: ReceiptReviewModalProps) {
+  const { t } = useTranslation(['receipts', 'common'])
   const isPdfBlob = data.imageBlob?.type === 'application/pdf'
   const [previewUrl] = useState<string | null>(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
   const [storeName, setStoreName] = useState(data.store_name || '')
@@ -59,7 +61,7 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
       .filter((item) => item.name.length > 0)
 
     if (cleanItems.length === 0) {
-      setError('חובה להזין לפחות פריט אחד')
+      setError(t('receipts:reviewModal.atLeastOneItem'))
       return
     }
 
@@ -73,7 +75,7 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
         source_url: data.source_url || null
       })
     } catch (err) {
-      setError('שמירה נכשלה: ' + err.message)
+      setError(t('receipts:reviewModal.saveFailed', { message: err.message }))
       setSaving(false)
     }
   }
@@ -81,28 +83,28 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>בדיקת קבלה לפני שמירה</h2>
+        <h2>{t('receipts:reviewModal.title')}</h2>
         {queueLabel && <div className="queue-label">{queueLabel}</div>}
 
         {previewUrl ? (
           isPdfBlob ? (
             <a className="modal-note-readonly" href={previewUrl} target="_blank" rel="noreferrer">
-              📄 צפייה בקובץ ה-PDF שהועלה
+              {t('receipts:reviewModal.viewPdf')}
             </a>
           ) : (
-            <img className="modal-image-preview" src={previewUrl} alt="קבלה" />
+            <img className="modal-image-preview" src={previewUrl} alt={t('receipts:reviewModal.imageAlt')} />
           )
         ) : (
           data.source_url && (
             <a className="modal-note-readonly" href={data.source_url} target="_blank" rel="noreferrer">
-              🔗 צפייה בקבלה המקורית
+              {t('receipts:reviewModal.viewOriginal')}
             </a>
           )
         )}
 
         <input
           className="modal-input"
-          placeholder="שם החנות"
+          placeholder={t('receipts:reviewModal.storeNamePlaceholder')}
           value={storeName}
           onChange={(e) => setStoreName(e.target.value)}
         />
@@ -112,7 +114,7 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
             <div className="receipt-review-row" key={i}>
               <input
                 className="modal-input receipt-review-name"
-                placeholder="שם המוצר"
+                placeholder={t('receipts:reviewModal.productNamePlaceholder')}
                 value={item.name}
                 onChange={(e) => updateItem(i, 'name', e.target.value)}
               />
@@ -131,7 +133,7 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
                 value={item.price}
                 onChange={(e) => updateItem(i, 'price', e.target.value)}
               />
-              <button className="stock-icon-btn" onClick={() => removeItem(i)} aria-label="הסרת שורה">
+              <button className="stock-icon-btn" onClick={() => removeItem(i)} aria-label={t('receipts:reviewModal.removeRowAria')}>
                 ✕
               </button>
             </div>
@@ -139,11 +141,11 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
         </div>
 
         <button className="list-pill list-pill-new" onClick={addItem}>
-          + הוספת שורה
+          {t('receipts:reviewModal.addRow')}
         </button>
 
         <label className="modal-input-label">
-          סה"כ
+          {t('receipts:reviewModal.total')}
           <input
             className="modal-input"
             type="number"
@@ -158,10 +160,10 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
 
         <div className="modal-actions">
           <button className="modal-btn secondary" onClick={onClose} disabled={saving}>
-            ביטול
+            {t('common:actions.cancel')}
           </button>
           <button className="modal-btn primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'שומר...' : 'שמירה'}
+            {saving ? t('common:actions.saving') : t('common:actions.save')}
           </button>
         </div>
       </div>

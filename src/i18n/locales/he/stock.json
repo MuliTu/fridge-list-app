@@ -1,0 +1,35 @@
+{
+  "emptyAddFirst": "המלאי ריק — הוסיפו פריט ראשון 📦",
+  "emptyViewOnly": "המלאי ריק 📦",
+  "addFab": "הוספת פריט למלאי",
+  "updatedCaption": "עודכן: {{date}}",
+  "updatedCaptionWithEmail": "עודכן: {{date}} · {{email}}",
+  "editModal": {
+    "title": "הוספת פריט למלאי",
+    "titleEdit": "עריכת פריט מלאי",
+    "namePlaceholder": "שם הפריט",
+    "quantity": "כמות",
+    "unit": "יחידה",
+    "otherUnit": "אחר",
+    "customUnitPlaceholder": "יחידה מותאמת אישית",
+    "lowThreshold": "התראת מלאי נמוך (כמות)",
+    "updatedAt": "עודכן: {{date}}",
+    "updatedAtWithEmail": "עודכן: {{date}} · {{email}}",
+    "nameRequired": "חובה להזין שם פריט",
+    "updateFailedPrefix": "עדכון נכשל: ",
+    "addFailedPrefix": "הוספה נכשלה: "
+  },
+  "actions": {
+    "decrease": "הפחתה",
+    "increase": "הוספה",
+    "addToList": "🛒 לרשימה",
+    "edit": "עריכה",
+    "delete": "מחיקה",
+    "deleteConfirm": "למחוק את \"{{name}}\" מהמלאי?",
+    "adjustFailed": "עדכון כמות נכשל",
+    "deleteFailed": "מחיקה נכשלה"
+  },
+  "errors": {
+    "permissionDenied": "אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md)."
+  }
+}

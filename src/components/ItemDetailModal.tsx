@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import type { GroceryItem } from '../types'
 
@@ -12,6 +13,7 @@ interface ItemDetailModalProps {
 }
 
 export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onSave, onDelete }: ItemDetailModalProps) {
+  const { t } = useTranslation()
   const [note, setNote] = useState(entry.note || '')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(entry.image_url || null)
@@ -36,20 +38,20 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
       await onSave(entry.key, { note, imageFile })
       onClose()
     } catch (err) {
-      setError('שמירה נכשלה: ' + err.message)
+      setError(`${t('common:itemDetail.saveFailed')}: ${err.message}`)
       setSaving(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`למחוק את "${entry.item}" מהרשימה?`)) return
+    if (!window.confirm(t('common:itemDetail.deleteConfirm', { itemName: entry.item }))) return
     setDeleting(true)
     setError(null)
     try {
       await onDelete(entry.key)
       onClose()
     } catch (err) {
-      setError('מחיקה נכשלה: ' + err.message)
+      setError(`${t('common:itemDetail.deleteFailed')}: ${err.message}`)
       setDeleting(false)
     }
   }
@@ -64,7 +66,7 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
         {canEdit ? (
           <>
             <label className="modal-file-btn">
-              📷 {previewUrl ? 'החלפת תמונה' : 'הוספת תמונה'}
+              📷 {previewUrl ? t('common:itemDetail.replacePhoto') : t('common:itemDetail.addPhoto')}
               <input
                 type="file"
                 accept="image/*"
@@ -75,7 +77,7 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
 
             <textarea
               className="modal-note"
-              placeholder="הערה..."
+              placeholder={t('common:itemDetail.notePlaceholder')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
@@ -88,12 +90,12 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
         <div className="modal-meta">
           {createdAt && (
             <div>
-              נוצר: {createdAt} {entry.created_by ? `· ${entry.created_by}` : '· Siri'}
+              {t('common:itemDetail.createdBy')}: {createdAt} {entry.created_by ? `· ${entry.created_by}` : '· Siri'}
             </div>
           )}
           {modifiedAt && (
             <div>
-              עודכן: {modifiedAt} {entry.modified_by && `· ${entry.modified_by}`}
+              {t('common:itemDetail.updatedBy')}: {modifiedAt} {entry.modified_by && `· ${entry.modified_by}`}
             </div>
           )}
         </div>
@@ -104,22 +106,22 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
           {canEdit ? (
             <>
               <button className="modal-btn danger" onClick={handleDelete} disabled={saving || deleting}>
-                {deleting ? 'מוחק...' : 'מחיקה'}
+                {deleting ? t('common:actions.deleting') : t('common:actions.delete')}
               </button>
               <button className="modal-btn secondary" onClick={onClose} disabled={saving || deleting}>
-                ביטול
+                {t('common:actions.cancel')}
               </button>
               <button className="modal-btn primary" onClick={handleSave} disabled={saving || deleting}>
-                {saving ? 'שומר...' : 'שמירה'}
+                {saving ? t('common:actions.saving') : t('common:actions.save')}
               </button>
             </>
           ) : (
             <>
               <button className="modal-btn secondary" onClick={onClose}>
-                סגירה
+                {t('common:actions.close')}
               </button>
               <button className="modal-btn primary" onClick={onSignIn}>
-                התחברות לעריכה
+                {t('common:auth.signIn')}
               </button>
             </>
           )}

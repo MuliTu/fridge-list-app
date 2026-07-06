@@ -576,6 +576,43 @@ build regardless of what's in the env file.
 Important: this **must** be served over http(s), not opened as a `file://` URL — the
 Firebase SDK is loaded as an ES module, which browsers block on `file://`.
 
+## i18n (Hebrew/English, RTL/LTR)
+
+`react-i18next`, initialized in `src/i18n/config.ts`, namespaced JSON resources at
+`src/i18n/locales/{he,en}/{common,shoppingList,stock,receipts,categories,admins}.json`.
+Hebrew is the default/fallback language and always what SSR renders (see below for
+why). A language-switcher button in the header (`src/components/Layout.tsx`,
+`.lang-switch-btn`) calls `changeLanguage()` from `config.ts`, which both calls
+`i18n.changeLanguage()` and persists the choice to `localStorage` (`appLanguage` key).
+`src/hooks/useSyncHtmlLangDir.ts` keeps `<html lang>`/`<html dir>` in sync with the
+active language (`rtl` for Hebrew, `ltr` otherwise) and applies any stored preference
+on mount.
+
+Persisted data values are never translated — e.g. `StockItemModal.tsx`'s unit presets
+(`'יח''`, `'ק"ג'`, etc.) and the protected category name `"אחר"` are real strings
+matched by equality against what's stored in Firebase; translating them in the UI
+would silently break that matching. Only display-only UI copy went through i18n
+extraction.
+
+**Known SSR/hydration limitation, deliberately accepted rather than engineered
+around:** `i18n.init()` always starts at `'he'` on both server and client (so the very
+first client render matches the server-rendered HTML exactly), and only *after* mount
+does a `useEffect` in `useSyncHtmlLangDir` switch to whatever language was previously
+stored. This avoids the worse failure mode this session actually hit first — when SSR
+and the client's *initial* render disagreed on language, React discarded the entire
+server-rendered document and did a full client-side re-render instead of hydrating
+(a real, visible flash/relayout, not just a console warning). With the current fix,
+a returning English-preferring user still gets one harmless React
+"text content did not match" warning for content inside the lazily-loaded route chunk
+(`src/routes/index.tsx` specifically, e.g. the "Permanent list" button) — this is a
+race between TanStack Router's per-route code-splitting hydrating slightly after the
+root layout's language-switch effect runs. React auto-heals the text to the correct
+value; it does not repeat the full-document-replace failure. A proper fix would read
+the language preference from a cookie (available during SSR) instead of/alongside
+`localStorage`, so the server could render the correct language from the first byte —
+not done here since it requires threading request-scoped state through the root
+route's SSR path, out of scope for this pass.
+
 ## Debugging tips learned this session
 
 - To inspect live Firebase data without touching the browser, spin up a disposable n8n

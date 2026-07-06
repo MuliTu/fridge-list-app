@@ -1,0 +1,14 @@
+{
+  "title": "ניהול קטגוריות",
+  "nameRequired": "חובה להזין שם קטגוריה",
+  "deleteConfirm": "למחוק את הקטגוריה \"{{categoryName}}\"? פריטים קיימים בקטגוריה זו יעברו ל\"אחר\".",
+  "addFailed": "הוספה נכשלה",
+  "deleteFailed": "מחיקה נכשלה",
+  "reorderFailed": "שינוי סדר נכשל",
+  "moveUp": "הזזת קטגוריה למעלה",
+  "moveDown": "הזזת קטגוריה למטה",
+  "deleteCategory": "מחיקת קטגוריה",
+  "addCategory": "הוספת קטגוריה",
+  "newCategoryIconPlaceholder": "🆕",
+  "newCategoryNamePlaceholder": "שם קטגוריה חדשה"
+}

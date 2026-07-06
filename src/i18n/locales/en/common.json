@@ -1,0 +1,58 @@
+{
+  "appTitle": "Household List",
+  "appSubtitle": "Updates in real time",
+  "tabs": {
+    "shoppingList": "Shopping List",
+    "stock": "Stock",
+    "receipts": "Receipts"
+  },
+  "auth": {
+    "signIn": "Sign in to edit",
+    "signOut": "Sign out",
+    "viewOnly": "View only",
+    "signInError": "Sign-in error"
+  },
+  "menu": {
+    "button": "Menu",
+    "manageCategories": "🗂 Manage categories",
+    "shareEditing": "👥 Share editing"
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving...",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "add": "Add",
+    "adding": "Adding...",
+    "close": "Close"
+  },
+  "language": {
+    "label": "Language",
+    "he": "עברית",
+    "en": "English"
+  },
+  "itemDetail": {
+    "addPhoto": "Add photo",
+    "replacePhoto": "Replace photo",
+    "notePlaceholder": "Note...",
+    "createdBy": "Created",
+    "updatedBy": "Updated",
+    "deleteConfirm": "Delete \"{{itemName}}\" from the list?",
+    "deleteFailed": "Delete failed",
+    "saveFailed": "Save failed"
+  },
+  "groceryItem": {
+    "title": "Add item to \"{{listName}}\"",
+    "namePlaceholder": "Item name",
+    "nameRequired": "Item name is required",
+    "addFailed": "Add failed"
+  },
+  "restockPrompt": {
+    "title": "Update stock",
+    "message": "You marked \"{{itemName}}\" as bought — add it to stock?",
+    "quantityLabel": "Quantity to add ({{unit}})",
+    "skip": "Skip",
+    "addToStock": "Add to stock"
+  }
+}

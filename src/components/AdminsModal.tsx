@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ADMIN_EMAILS, addAdminEmail, adminsRef, onValue, removeAdminEmail } from '../lib/firebase'
 
 interface AdminsModalProps {
@@ -6,6 +7,7 @@ interface AdminsModalProps {
 }
 
 export default function AdminsModal({ onClose }: AdminsModalProps) {
+  const { t } = useTranslation()
   const [invitedEmails, setInvitedEmails] = useState<string[]>([])
   const [newEmail, setNewEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -15,7 +17,7 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
   const handleAdd = async () => {
     const trimmed = newEmail.trim().toLowerCase()
     if (!trimmed || !trimmed.includes('@')) {
-      setError('כתובת אימייל לא תקינה')
+      setError(t('admins:invalidEmail'))
       return
     }
     setError(null)
@@ -23,29 +25,29 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
       await addAdminEmail(trimmed)
       setNewEmail('')
     } catch (err) {
-      setError('הוספה נכשלה: ' + err.message)
+      setError(`${t('admins:addFailed')}: ${err.message}`)
     }
   }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>שיתוף עריכה</h2>
+        <h2>{t('admins:title')}</h2>
         <p className="modal-note-readonly">
-          כל מי שיתחבר עם אחת מהכתובות האלה (חשבון Google) יוכל לערוך את הרשימה, לא רק לצפות בה.
+          {t('admins:explanation')}
         </p>
 
         <div className="category-rows">
           {ADMIN_EMAILS.map((email) => (
             <div className="category-row" key={email}>
               <span className="admin-email">{email}</span>
-              <span className="admin-owner-tag">בעל/ת הבית</span>
+              <span className="admin-owner-tag">{t('admins:ownerTag')}</span>
             </div>
           ))}
           {invitedEmails.map((email) => (
             <div className="category-row" key={email}>
               <span className="admin-email">{email}</span>
-              <button className="stock-icon-btn" onClick={() => removeAdminEmail(email)} aria-label="הסרת הרשאה">
+              <button className="stock-icon-btn" onClick={() => removeAdminEmail(email)} aria-label={t('admins:removeAdmin')}>
                 🗑
               </button>
             </div>
@@ -56,11 +58,11 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
           <input
             className="modal-input"
             type="email"
-            placeholder="כתובת Gmail להוספה"
+            placeholder={t('admins:emailPlaceholder')}
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
-          <button className="stock-icon-btn" onClick={handleAdd} aria-label="הוספת הרשאה">
+          <button className="stock-icon-btn" onClick={handleAdd} aria-label={t('admins:addAdmin')}>
             ➕
           </button>
         </div>
@@ -69,7 +71,7 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
 
         <div className="modal-actions">
           <button className="modal-btn primary" onClick={onClose}>
-            סגירה
+            {t('common:actions.close')}
           </button>
         </div>
       </div>

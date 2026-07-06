@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { addCategory, deleteCategory, updateCategory } from '../lib/firebase'
 import type { Category } from '../types'
 
@@ -8,6 +9,7 @@ interface CategoriesModalProps {
 }
 
 export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('📌')
   const [newColor, setNewColor] = useState('#a8a8a8')
@@ -15,7 +17,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
 
   const handleAdd = async () => {
     if (!newName.trim()) {
-      setError('חובה להזין שם קטגוריה')
+      setError(t('categories:nameRequired'))
       return
     }
     setError(null)
@@ -25,16 +27,16 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
       setNewName('')
       setNewIcon('📌')
     } catch (err) {
-      setError('הוספה נכשלה: ' + err.message)
+      setError(`${t('categories:addFailed')}: ${err.message}`)
     }
   }
 
   const handleDelete = async (cat: Category) => {
-    if (!window.confirm(`למחוק את הקטגוריה "${cat.name}"? פריטים קיימים בקטגוריה זו יעברו ל"אחר".`)) return
+    if (!window.confirm(t('categories:deleteConfirm', { categoryName: cat.name }))) return
     try {
       await deleteCategory(cat.key)
     } catch (err) {
-      setError('מחיקה נכשלה: ' + err.message)
+      setError(`${t('categories:deleteFailed')}: ${err.message}`)
     }
   }
 
@@ -54,14 +56,14 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
         updateCategory(neighbor.key, { order: currentOrder })
       ])
     } catch (err) {
-      setError('שינוי סדר נכשל: ' + err.message)
+      setError(`${t('categories:reorderFailed')}: ${err.message}`)
     }
   }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>ניהול קטגוריות</h2>
+        <h2>{t('categories:title')}</h2>
 
         <div className="category-rows">
           {categories.map((cat, index) => (
@@ -71,7 +73,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
                   className="stock-icon-btn"
                   onClick={() => handleMove(index, -1)}
                   disabled={index === 0}
-                  aria-label="הזזת קטגוריה למעלה"
+                  aria-label={t('categories:moveUp')}
                 >
                   ▲
                 </button>
@@ -79,7 +81,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
                   className="stock-icon-btn"
                   onClick={() => handleMove(index, 1)}
                   disabled={index === categories.length - 1}
-                  aria-label="הזזת קטגוריה למטה"
+                  aria-label={t('categories:moveDown')}
                 >
                   ▼
                 </button>
@@ -102,7 +104,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
                 onChange={(e) => updateCategory(cat.key, { color: e.target.value })}
               />
               {!cat.protected && (
-                <button className="stock-icon-btn" onClick={() => handleDelete(cat)} aria-label="מחיקת קטגוריה">
+                <button className="stock-icon-btn" onClick={() => handleDelete(cat)} aria-label={t('categories:deleteCategory')}>
                   🗑
                 </button>
               )}
@@ -113,13 +115,13 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
         <div className="category-row">
           <input
             className="modal-input category-icon-input"
-            placeholder="🆕"
+            placeholder={t('categories:newCategoryIconPlaceholder')}
             value={newIcon}
             onChange={(e) => setNewIcon(e.target.value)}
           />
           <input
             className="modal-input"
-            placeholder="שם קטגוריה חדשה"
+            placeholder={t('categories:newCategoryNamePlaceholder')}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
           />
@@ -129,7 +131,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
             value={newColor}
             onChange={(e) => setNewColor(e.target.value)}
           />
-          <button className="stock-icon-btn" onClick={handleAdd} aria-label="הוספת קטגוריה">
+          <button className="stock-icon-btn" onClick={handleAdd} aria-label={t('categories:addCategory')}>
             ➕
           </button>
         </div>
@@ -138,7 +140,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
 
         <div className="modal-actions">
           <button className="modal-btn primary" onClick={onClose}>
-            סגירה
+            {t('common:actions.close')}
           </button>
         </div>
       </div>

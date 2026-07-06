@@ -1,0 +1,35 @@
+{
+  "empty": "אין עדיין קבלות סרוקות",
+  "fallbackTitle": "קבלה",
+  "total": "סה\"כ: ₪{{amount}}",
+  "deleteBtn": "🗑 מחיקה",
+  "deleteConfirm": "למחוק את הקבלה מ-{{date}}?",
+  "deleteConfirmUnknownDate": "תאריך לא ידוע",
+  "queueProgress": "⏳ טוען קבלה {{current}} מתוך {{total}}...",
+  "queueLabel": "קבלה {{current}} מתוך {{total}} נטענה",
+  "urlPrompt": "הדביקו קישור לקבלה דיגיטלית",
+  "uploadFab": {
+    "ariaScan": "סריקת קבלה",
+    "ariaFromUrl": "הוספת קבלה מקישור"
+  },
+  "scanErrors": {
+    "imageReadFailed": "קריאת התמונה נכשלה: {{message}}",
+    "scanAutoFailed": "לא הצלחנו לקרוא את הקבלה אוטומטית — אפשר להזין ידנית",
+    "scanFailed": "סריקה נכשלה: {{message}} — אפשר להזין ידנית",
+    "urlScanAutoFailed": "לא הצלחנו לקרוא את הקבלה מהקישור — אפשר להזין ידנית",
+    "urlScanFailed": "קריאת הקישור נכשלה: {{message}} — אפשר להזין ידנית"
+  },
+  "reviewModal": {
+    "title": "בדיקת קבלה לפני שמירה",
+    "viewPdf": "📄 צפייה בקובץ ה-PDF שהועלה",
+    "imageAlt": "קבלה",
+    "viewOriginal": "🔗 צפייה בקבלה המקורית",
+    "storeNamePlaceholder": "שם החנות",
+    "productNamePlaceholder": "שם המוצר",
+    "removeRowAria": "הסרת שורה",
+    "addRow": "+ הוספת שורה",
+    "total": "סה\"כ",
+    "atLeastOneItem": "חובה להזין לפחות פריט אחד",
+    "saveFailed": "שמירה נכשלה: {{message}}"
+  }
+}
