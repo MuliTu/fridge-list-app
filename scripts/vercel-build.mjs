@@ -27,11 +27,17 @@ if (!existsSync('dist/client') || !existsSync('dist/server/server.js')) {
 }
 
 await cp('dist/client', `${OUT}/static`, { recursive: true })
-await cp('dist/server/server.js', `${FUNC}/server.mjs`)
+// The whole dist/server tree, not just server.js — server.js dynamically
+// import()s a handful of its own chunk files by relative path
+// (./assets/router-*.js etc, TanStack Router's route-level code splitting applies
+// to the SSR build too), so copying only server.js leaves those unresolvable at
+// runtime. Keep the original .js filenames (rather than renaming to .mjs) since
+// server.js's import() calls reference these exact relative paths/filenames.
+await cp('dist/server', FUNC, { recursive: true })
 
 await writeFile(
   `${FUNC}/index.mjs`,
-  `import handler from './server.mjs'
+  `import handler from './server.js'
 
 // Build Output API v3 Node functions use the traditional Node (req, res) signature,
 // not a Web-standard fetch handler — this adapts the two, rather than relying on
