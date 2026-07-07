@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import { getImageDataUrl } from '../lib/firebase'
+import { useDialogService } from '../hooks/DialogServiceContext'
 import type { GroceryItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
@@ -18,6 +19,7 @@ interface ItemDetailModalProps {
 
 export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onSave, onDelete }: ItemDetailModalProps) {
   const { t } = useTranslation()
+  const { confirm } = useDialogService()
   const [note, setNote] = useState(entry.note || '')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(entry.image_url || null)
@@ -56,7 +58,7 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(t('common:itemDetail.deleteConfirm', { itemName: entry.item }))) return
+    if (!(await confirm(t('common:itemDetail.deleteConfirm', { itemName: entry.item })))) return
     setDeleting(true)
     setError(null)
     try {

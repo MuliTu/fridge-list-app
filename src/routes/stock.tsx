@@ -15,6 +15,7 @@ import { useCategories } from '../hooks/useCategories'
 import { formatDateTime } from '../lib/formatDateTime'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useAuth } from '../hooks/AuthContext'
+import { useDialogService } from '../hooks/DialogServiceContext'
 import StockItemModal from '../components/StockItemModal'
 import type { StockItem } from '../types'
 
@@ -25,6 +26,7 @@ export const Route = createFileRoute('/stock')({
 function StockPage() {
   const { t } = useTranslation(['stock', 'common'])
   const { user, canEdit } = useAuth()
+  const { confirm, alert } = useDialogService()
   const [entries, setEntries] = useState<StockItem[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [editingItem, setEditingItem] = useState<StockItem | null>(null)
@@ -69,16 +71,16 @@ function StockPage() {
     try {
       await adjustStockQuantity(entry.key, entry.quantity + delta, user)
     } catch (err) {
-      window.alert(describeError(t('stock:actions.adjustFailed'), err))
+      await alert(describeError(t('stock:actions.adjustFailed'), err))
     }
   }
 
   const handleDelete = async (entry: StockItem) => {
-    if (!window.confirm(t('stock:actions.deleteConfirm', { name: entry.name }))) return
+    if (!(await confirm(t('stock:actions.deleteConfirm', { name: entry.name })))) return
     try {
       await deleteStockItem(entry.key)
     } catch (err) {
-      window.alert(describeError(t('stock:actions.deleteFailed'), err))
+      await alert(describeError(t('stock:actions.deleteFailed'), err))
     }
   }
 

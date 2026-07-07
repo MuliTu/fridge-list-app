@@ -15,6 +15,7 @@ import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useAuth } from '../hooks/AuthContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import { useDialogService } from '../hooks/DialogServiceContext'
 import ItemDetailModal from '../components/ItemDetailModal'
 import GroceryItemModal from '../components/GroceryItemModal'
 import RestockPrompt from '../components/RestockPrompt'
@@ -40,6 +41,7 @@ function ShoppingListPage() {
 
   const { user, canEdit, onSignIn } = useAuth()
   const { entries: allEntries } = useGroceriesFeed()
+  const { confirm, prompt } = useDialogService()
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
   const [restockMatch, setRestockMatch] = useState<StockItem | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
@@ -85,16 +87,16 @@ function ShoppingListPage() {
     handleToggleBought(entry)
   }
 
-  const handleCreateList = () => {
-    const name = window.prompt(t('shoppingList:newListPrompt'))
+  const handleCreateList = async () => {
+    const name = await prompt(t('shoppingList:newListPrompt'))
     const trimmed = name?.trim()
     if (!trimmed) return
     navigate({ search: { list: trimmed } })
   }
 
-  const handleDeleteList = () => {
+  const handleDeleteList = async () => {
     const count = visibleEntries.length
-    if (!window.confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count }))) return
+    if (!(await confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count })))) return
     deleteGroceryList(activeList)
     navigate({ search: { list: undefined } })
   }

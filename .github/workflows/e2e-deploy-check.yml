@@ -1,0 +1,35 @@
+name: E2E (post-deploy)
+
+# This project is connected to Vercel via its native GitHub integration (confirmed:
+# the git-branch-aliased domain fridge-list-app-git-main-*.vercel.app only exists for
+# git-linked projects) — Vercel's GitHub App creates a Deployment for every push and
+# fires `deployment_status` once it finishes, for both preview and production
+# deployments. Running here, not on `push`, means these e2e tests hit the actual
+# deployed app (real Firebase, real routing, real build output) instead of a
+# freshly-checked-out dev server — a meaningfully different, complementary check to
+# the unit/integration suite in test.yml.
+on:
+  deployment_status:
+
+jobs:
+  e2e:
+    if: github.event.deployment_status.state == 'success'
+    name: Playwright e2e against deployed URL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e tests against the deployed URL
+        env:
+          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+        run: npm run test:e2e

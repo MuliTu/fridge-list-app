@@ -3,17 +3,22 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import { DialogServiceProvider } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
 import CategoriesModal from './CategoriesModal'
 import AdminsModal from './AdminsModal'
+import ChangelogModal from './ChangelogModal'
 import { useCategories } from '../hooks/useCategories'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <GroceriesFeedProvider>
-      <LayoutContent>{children}</LayoutContent>
-    </GroceriesFeedProvider>
+    <DialogServiceProvider>
+      <GroceriesFeedProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </GroceriesFeedProvider>
+    </DialogServiceProvider>
   )
 }
 
@@ -22,9 +27,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
   useSyncHtmlLangDir()
   const { user, canEdit, onSignIn, onSignOut, authError } = useAuth()
   const { status, toast } = useGroceriesFeed()
-  const [showMenu, setShowMenu] = useState(false)
   const [showCategories, setShowCategories] = useState(false)
   const [showAdmins, setShowAdmins] = useState(false)
+  const [showChangelog, setShowChangelog] = useState(false)
   const { categories } = useCategories()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
@@ -43,36 +48,22 @@ function LayoutContent({ children }: { children: ReactNode }) {
           {user ? (
             <>
               {canEdit && (
-                <div className="menu-wrap">
-                  <button className="icon-btn" onClick={() => setShowMenu((v) => !v)} aria-label={t('menu.button')}>
-                    ⚙️
-                  </button>
-                  {showMenu && (
-                    <>
-                      <div className="menu-overlay" onClick={() => setShowMenu(false)} />
-                      <div className="menu-dropdown">
-                        <button
-                          className="menu-item"
-                          onClick={() => {
-                            setShowMenu(false)
-                            setShowCategories(true)
-                          }}
-                        >
-                          {t('menu.manageCategories')}
-                        </button>
-                        <button
-                          className="menu-item"
-                          onClick={() => {
-                            setShowMenu(false)
-                            setShowAdmins(true)
-                          }}
-                        >
-                          {t('menu.shareEditing')}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="icon-btn" aria-label={t('menu.button')}>
+                      ⚙️
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setShowCategories(true)}>
+                      {t('menu.manageCategories')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowAdmins(true)}>{t('menu.shareEditing')}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowChangelog(true)}>
+                      {t('menu.viewChangelog')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <span>
                 {user.displayName || user.email}
@@ -116,6 +107,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
       {showAdmins && <AdminsModal onClose={() => setShowAdmins(false)} />}
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
     </div>
   )
 }

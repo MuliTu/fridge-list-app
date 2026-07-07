@@ -7,6 +7,7 @@ import stockHe from './locales/he/stock.json'
 import receiptsHe from './locales/he/receipts.json'
 import categoriesHe from './locales/he/categories.json'
 import adminsHe from './locales/he/admins.json'
+import changelogHe from './locales/he/changelog.json'
 
 import commonEn from './locales/en/common.json'
 import shoppingListEn from './locales/en/shoppingList.json'
@@ -14,6 +15,7 @@ import stockEn from './locales/en/stock.json'
 import receiptsEn from './locales/en/receipts.json'
 import categoriesEn from './locales/en/categories.json'
 import adminsEn from './locales/en/admins.json'
+import changelogEn from './locales/en/changelog.json'
 
 export const SUPPORTED_LANGUAGES = ['he', 'en'] as const
 export const RTL_LANGUAGES = ['he']
@@ -26,7 +28,8 @@ const resources = {
     stock: stockHe,
     receipts: receiptsHe,
     categories: categoriesHe,
-    admins: adminsHe
+    admins: adminsHe,
+    changelog: changelogHe
   },
   en: {
     common: commonEn,
@@ -34,7 +37,8 @@ const resources = {
     stock: stockEn,
     receipts: receiptsEn,
     categories: categoriesEn,
-    admins: adminsEn
+    admins: adminsEn,
+    changelog: changelogEn
   }
 }
 
@@ -61,7 +65,7 @@ if (!i18n.isInitialized) {
     lng: 'he',
     fallbackLng: 'he',
     defaultNS: 'common',
-    ns: ['common', 'shoppingList', 'stock', 'receipts', 'categories', 'admins'],
+    ns: ['common', 'shoppingList', 'stock', 'receipts', 'categories', 'admins', 'changelog'],
     interpolation: { escapeValue: false }
   })
 }

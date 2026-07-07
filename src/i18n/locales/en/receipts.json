@@ -20,7 +20,8 @@
     "scanFailed": "Scan failed: {{message}} — you can enter it manually",
     "urlScanAutoFailed": "Couldn't read the receipt from the link — you can enter it manually",
     "urlScanFailed": "Failed to read the link: {{message}} — you can enter it manually",
-    "imageTooLarge": "The file is too large to save — the items were saved without the photo"
+    "imageTooLarge": "The file is too large to save — the items were saved without the photo",
+    "quotaExceeded": "We've hit today's AI quota for reading receipts — try again later or enter it manually"
   },
   "reviewModal": {
     "title": "Review receipt before saving",

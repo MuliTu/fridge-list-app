@@ -2,29 +2,27 @@ import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
-  addPurchasedGroceryItem,
-  adjustStockQuantity,
+  applyReceiptReconciliation,
   categorizeItem,
   deleteReceipt,
-  findStockItemByName,
-  findUnboughtGroceryItemByName,
+  getAllGroceryItems,
+  getAllStockItems,
   getImageDataUrl,
   onValue,
   receiptsRef,
   resizeImage,
   saveReceipt,
   scanReceipt,
-  scanReceiptFromUrl,
-  setBought
+  scanReceiptFromUrl
 } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { formatDateTime } from '../lib/formatDateTime'
+import { normalizeName } from '../lib/normalizeName'
 import { useAuth } from '../hooks/AuthContext'
+import { useDialogService } from '../hooks/DialogServiceContext'
 import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
 import ReceiptReconcileModal, { type ReconcileMatch } from '../components/ReceiptReconcileModal'
 import type { Receipt, ReceiptItem } from '../types'
-
-const normalizeName = (name?: string | null) => (name || '').trim().toLowerCase()
 
 const receiptTotal = (receipt: Receipt) =>
   receipt.total ?? (receipt.items || []).reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
@@ -36,6 +34,7 @@ export const Route = createFileRoute('/receipts')({
 function ReceiptsPage() {
   const { t } = useTranslation(['receipts', 'common'])
   const { user, canEdit } = useAuth()
+  const { confirm, prompt } = useDialogService()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -97,7 +96,9 @@ function ReceiptsPage() {
     try {
       const result = await scanReceipt(fileForScan as Blob & { type: string })
       if (result.error) {
-        setScanError(t('receipts:scanErrors.scanAutoFailed'))
+        setScanError(
+          t(result.message === 'quota_exceeded' ? 'receipts:scanErrors.quotaExceeded' : 'receipts:scanErrors.scanAutoFailed')
+        )
         setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
       } else {
         setReviewData({
@@ -136,7 +137,7 @@ function ReceiptsPage() {
   }
 
   const handleUrlSubmit = async () => {
-    const url = window.prompt(t('receipts:urlPrompt'))
+    const url = await prompt(t('receipts:urlPrompt'))
     const trimmed = url?.trim()
     if (!trimmed) return
     setScanning(true)
@@ -173,45 +174,63 @@ function ReceiptsPage() {
     setReviewData(null)
     setScanError(imageSkipped ? t('receipts:scanErrors.imageTooLarge') : null)
 
-    const matches: ReconcileMatch[] = await Promise.all(
-      data.items.map(async (item) => {
-        const [stockMatch, groceryMatch] = await Promise.all([
-          findStockItemByName(item.name),
-          findUnboughtGroceryItemByName(item.name)
-        ])
-        // Receipt line items don't carry a category. A stock match already has an
-        // authoritative one; otherwise, run the item name through the same Gemini
-        // categorization the manual "add item" flow uses (GroceryItemModal), instead
-        // of always dumping it into OTHER_CATEGORY_NAME.
-        let suggestedCategory = stockMatch?.category || null
-        if (!suggestedCategory) {
-          try {
-            const categorized = await categorizeItem(item.name)
-            suggestedCategory = categorized[0]?.category || null
-          } catch {
-            suggestedCategory = null
-          }
-        }
-        return { item, stockMatch, groceryMatch, suggestedCategory: suggestedCategory || OTHER_CATEGORY_NAME }
-      })
-    )
+    // One Firebase read each for the whole receipt, not one per item.
+    const [stockItems, groceryItems] = await Promise.all([getAllStockItems(), getAllGroceryItems()])
+    const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
+    const findGrocery = (name: string) =>
+      groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
+
+    // Receipt line items don't carry a category. A stock match already has an
+    // authoritative one; everything else goes through the same Gemini categorization
+    // the manual "add item" flow uses (GroceryItemModal) — but as a single batched
+    // call for every item that needs one, not one call per item.
+    const needsCategory = data.items.filter((item) => !findStock(item.name))
+    let categorizedPool: { item: string; category: string }[] = []
+    if (needsCategory.length > 0) {
+      try {
+        categorizedPool = await categorizeItem(needsCategory.map((i) => i.name).join(', '))
+      } catch {
+        categorizedPool = []
+      }
+    }
+    const takeCategory = (name: string) => {
+      const target = normalizeName(name)
+      const idx = categorizedPool.findIndex(
+        (c) => normalizeName(c.item).includes(target) || target.includes(normalizeName(c.item))
+      )
+      if (idx === -1) return null
+      return categorizedPool.splice(idx, 1)[0].category
+    }
+
+    const matches: ReconcileMatch[] = data.items.map((item) => {
+      const stockMatch = findStock(item.name)
+      const groceryMatch = findGrocery(item.name)
+      const suggestedCategory = stockMatch ? stockMatch.category : takeCategory(item.name) || OTHER_CATEGORY_NAME
+      return { item, stockMatch, groceryMatch, suggestedCategory }
+    })
 
     setReconcileMatches(matches)
   }
 
   const handleReconcileConfirm = (selections: { stock: boolean; grocery: boolean }[]) => {
+    const stockAdjustments: { key: string; quantity: number }[] = []
+    const groceryBoughtKeys: string[] = []
+    const newGroceryItems: { name: string; category: string }[] = []
+
     ;(reconcileMatches || []).forEach((m, i) => {
       if (selections[i]?.stock && m.stockMatch) {
-        adjustStockQuantity(m.stockMatch.key, m.stockMatch.quantity + (m.item.quantity || 1), user)
+        stockAdjustments.push({ key: m.stockMatch.key, quantity: m.stockMatch.quantity + (m.item.quantity || 1) })
       }
       if (selections[i]?.grocery) {
         if (m.groceryMatch) {
-          setBought(m.groceryMatch.key, true, user)
+          groceryBoughtKeys.push(m.groceryMatch.key)
         } else {
-          addPurchasedGroceryItem({ name: m.item.name, category: m.suggestedCategory }, user)
+          newGroceryItems.push({ name: m.item.name, category: m.suggestedCategory })
         }
       }
     })
+
+    applyReceiptReconciliation({ stockAdjustments, groceryBoughtKeys, newGroceryItems }, user)
     setReconcileMatches(null)
     advanceQueue()
   }
@@ -227,9 +246,9 @@ function ReceiptsPage() {
     advanceQueue()
   }
 
-  const handleDelete = (receipt: Receipt) => {
+  const handleDelete = async (receipt: Receipt) => {
     const date = formatDateTime(receipt.scanned_at) || t('receipts:deleteConfirmUnknownDate')
-    if (!window.confirm(t('receipts:deleteConfirm', { date }))) return
+    if (!(await confirm(t('receipts:deleteConfirm', { date })))) return
     deleteReceipt(receipt.key, receipt.image_ref)
   }
 
@@ -352,6 +371,7 @@ function ReceiptsPage() {
                 })
               : null
           }
+          scanErrorMessage={scanError}
           onClose={handleCloseReview}
           onSave={handleSaveReceipt}
         />

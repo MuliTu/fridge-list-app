@@ -6,6 +6,211 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.15.0] - 2026-07-07
+
+### Added
+- **Test infrastructure, from scratch: unit, integration, and e2e, plus two GitHub
+  Actions checks.** See `.claude/skills/senior-qa-jest` for the judgment behind these
+  choices.
+  - **Unit tests** (Jest + `ts-jest`, `jest.config.cjs`/`tsconfig.jest.json` — a
+    separate CommonJS-output tsconfig since the app itself is ESM/bundler-mode,
+    which Jest can't run directly): `normalizeName`, `formatDateTime`,
+    `categories.ts`'s constants, and the `useCollapsedSections` hook (localStorage
+    persistence + toggle behavior, including malformed-JSON fallback).
+  - Extracted `normalizeName` (previously duplicated verbatim in `firebase.ts` and
+    `receipts.tsx`) into a shared `src/lib/normalizeName.ts` — no behavior change,
+    done purely to make it testable in one place instead of two.
+  - **Integration tests** (`@testing-library/react` + `user-event`, Firebase/
+    react-i18next mocked at the module boundary — never touches the real
+    `n8n-vocal-2-db` project): `ShoppingListItemRow` (click/info-button/icon
+    rendering), `ListPicker` (pill selection, canEdit/hasUnbought gating), and
+    `CategoriesModal` (add validation, confirm-gated delete using the mocked
+    `useDialogService`).
+  - Two real Jest/Vite integration gotchas hit and fixed while wiring this up:
+    `ChangelogModal.tsx`'s `*.md?raw` import and the global `App.css` import both
+    needed `moduleNameMapper` stubs, since Jest has no concept of Vite's `?raw`
+    query suffix or raw CSS imports.
+  - **E2E tests** (`@playwright/test`, `playwright.config.ts`, `e2e/smoke.spec.ts`):
+    deliberately scoped to view-only flows only (header/tabs render, tab navigation,
+    sign-in button when logged out, language switch) — this app's edit actions
+    require real Google `signInWithPopup`, which isn't something these tests
+    automate; the dev auth bypass exists for interactive manual QA, not for baking
+    into an automated suite that might run against a real deployed URL.
+  - Found and fixed a real hydration race while writing the e2e tests: clicking
+    immediately after `page.goto()` on this SSR (TanStack Start) app can silently
+    no-op before client hydration finishes — confirmed directly, then fixed by
+    waiting for `networkidle` before interacting.
+  - `npm test` / `npm run test:watch` / `npm run test:coverage` (Jest) and
+    `npm run test:e2e` (Playwright) scripts.
+- **`.github/workflows/test.yml`**: runs on every push/PR — install, `tsc --noEmit`,
+  the full Jest suite, then `npm run build`.
+- **`.github/workflows/e2e-deploy-check.yml`**: triggers on GitHub's
+  `deployment_status` event and runs the Playwright suite against the actual
+  deployed URL. Confirmed this project is connected to Vercel via its native GitHub
+  integration (not CLI-only deploys) — the git-branch-aliased domain
+  (`fridge-list-app-git-main-*.vercel.app`) only exists for git-linked projects —
+  so Vercel's GitHub App will fire `deployment_status` for both preview and
+  production deployments, giving a real post-deploy check against the live app
+  (real Firebase, real build output) as a complement to the pre-merge unit/
+  integration suite.
+
+
+
+### Changed
+- Converted the remaining genuinely-native-looking UI to shadcn/ui. Surveyed the
+  whole app first (39 native elements across 8 files) and scoped this down
+  deliberately: FABs, list pills, tab links, stock +/- steppers, and icon-only
+  buttons (⚙️ ✎ 🗑 ℹ️ 📷, language switch, sign in/out) are left untouched — those
+  are plain `<button>` tags with full custom theming, matching this project's
+  existing documented convention (`.claude/skills/add-app-module`) of keeping
+  bespoke app-chrome shapes custom-styled rather than forcing them through shadcn.
+  What actually changed:
+  - **`window.confirm`/`window.prompt`/`window.alert`** (5/2/2 call sites across
+    `receipts.tsx`, `index.tsx`, `stock.tsx`, `ItemDetailModal.tsx`,
+    `CategoriesModal.tsx`) replaced with a new promise-based `useDialogService()`
+    (`src/hooks/DialogServiceContext.tsx`), backed by shadcn `AlertDialog`/`Dialog`
+    mounted once at the app root. Call sites barely changed shape (`if (!window.confirm(msg)) return`
+    → `if (!(await confirm(msg))) return`) — these were the most jarring native
+    elements in the app, since an OS-native popup completely breaks out of the dark
+    chalkboard theme. New `alert-dialog.tsx` shadcn primitive added (new
+    `@radix-ui/react-alert-dialog` dependency).
+  - **Raw `<input type="checkbox">`** in `ReceiptReconcileModal.tsx` → shadcn
+    `Checkbox` (new `checkbox.tsx` primitive, new `@radix-ui/react-checkbox`
+    dependency).
+  - **Hand-rolled settings menu** (`Layout.tsx`'s `.menu-overlay`/`.menu-dropdown`
+    divs) → shadcn `DropdownMenu` (new `dropdown-menu.tsx` primitive, new
+    `@radix-ui/react-dropdown-menu` dependency) — also deleted the now-dead
+    `.menu-wrap`/`.menu-overlay`/`.menu-dropdown`/`.menu-item` CSS.
+  - Left as native, deliberately, since shadcn has no equivalent: `<input
+    type="color">` (category color picker) and `<input type="file">` (photo/receipt
+    upload) — both are OS-native pickers with no meaningful shadcn substitute.
+  - Verified live in the browser: dropdown menu opens/positions correctly and closes
+    on item click; the new prompt dialog (receipt-from-URL) and confirm dialog
+    (stock item delete) both render correctly themed, don't hang the page (unlike
+    the old blocking native dialogs), and complete their action correctly on
+    confirm/cancel. `tsc --noEmit` + `npm run build` both pass clean.
+
+## [2.13.0] - 2026-07-07
+
+### Added
+- In-app changelog viewer: a new "📝 יומן שינויים"/"Changelog" item in the settings
+  menu (`⚙️`, same `canEdit`-gated menu as "Manage categories"/"Share editing") opens
+  `ChangelogModal`, which renders this very `CHANGELOG.md` file inside the app for
+  tracking — no need to open the repo to see version history. Imported via Vite's
+  `?raw` suffix (`import CHANGELOG_MD from '../../CHANGELOG.md?raw'`, new type
+  declaration added to `vite-env.d.ts`) so the file's content is bundled at build
+  time, not fetched at runtime. Rendered with a small hand-rolled markdown-to-HTML
+  parser (headers, `-` bullets with indented continuation lines, `**bold**`,
+  `` `code` ``, `[text](url)` links) instead of pulling in a markdown dependency —
+  this file's structure is simple and consistent enough not to need one. Left
+  untranslated/English (unlike the rest of the app's UI) since this file is written
+  for engineers, not end users, and translating years of technical changelog entries
+  wasn't in scope for a "for tracking" utility view. Verified live in the browser in
+  both languages: modal opens, content renders with correct formatting and scrolls
+  within the dialog, only the button label switches per-language.
+
+## [2.12.0] - 2026-07-07
+
+### Added
+- Fallback Gemini model for receipt scanning ("Receipt Scanner (Hebrew)" n8n
+  workflow): when the primary `gemini-2.5-flash` model hits its per-model free-tier
+  quota, both "Analyze Receipt" (image) and "Analyze Receipt PDF" now route their
+  error output to a second Gemini call on `gemini-2.0-flash` instead of failing
+  outright — free daily quotas are tracked per-model (confirmed via the 429 error's
+  `quotaDimensions.model` field), so this is a genuinely separate quota bucket on the
+  same existing API key, no new credential needed.
+- Had to work around a real gotcha discovered via the execution trace: a Gemini
+  node's `continueErrorOutput` item drops the original binary entirely (confirmed:
+  the error item is just `{ error: "<message>" }`, no binary), so the fallback
+  model's own call failed with "no binary file 'data' found" the first time this was
+  wired up naively. Fixed with two new Code nodes ("Rebuild Image (Fallback)"/
+  "Rebuild PDF (Fallback)") that reconstruct the binary straight from the original
+  webhook payload (`$('Receipt Webhook').first().json.body.image_base64`) via
+  `this.helpers.prepareBinaryData`, rather than relying on passthrough. Verified via
+  execution trace that the rebuilt binary is real (287 bytes, correct mimeType)
+  before reaching the fallback model.
+- Caught and fixed a wiring regression mid-implementation: an intermediate
+  `removeConnection` step accidentally dropped the **success** path from both
+  primary Gemini nodes to "Parse Receipt" (only the error path should have been
+  touched), which would have broken receipt scanning entirely, even for successful
+  Gemini calls. Caught via `n8n_get_workflow` structure check before it shipped;
+  fixed with two `addConnection` calls restoring `sourceIndex: 0` back to "Parse
+  Receipt".
+- Known limitation, not a code bug: the final live test also returned
+  `quota_exceeded` from the fallback model itself — most likely a per-minute burst
+  rate-limit from this session's own rapid repeated test calls to both models within
+  a few minutes, not evidence the fallback path is broken (the binary-rebuild step
+  was independently verified correct via the execution trace). Should self-resolve
+  once request pacing eases; not re-tested further in this session to avoid
+  compounding the same rate limit.
+
+## [2.11.0] - 2026-07-07
+
+### Fixed
+- Diagnosed a real production failure via n8n execution history: receipt scans were
+  failing with a generic `{"error":true,"message":"receipt scan upstream failed"}`
+  because the "Receipt Scanner (Hebrew)" n8n workflow's Gemini nodes ("Analyze
+  Receipt"/"Analyze Receipt PDF") had no error handling — any Gemini failure (most
+  commonly the shared free-tier quota of 20 requests/day being exhausted, confirmed
+  via `n8n_executions` showing a `429 RESOURCE_EXHAUSTED` from Google) killed the
+  workflow before it ever reached "Respond with Receipt", so n8n sent back an empty
+  `200` body instead of any JSON — which is what caused the app's
+  `response.json()` to throw `Unexpected end of JSON input` in the first place.
+  Fixed on the n8n side: both Gemini nodes now use `onError: "continueErrorOutput"`,
+  wired into "Parse Receipt", which detects the error shape and returns a real
+  `{ error: true, message: 'quota_exceeded' | 'gemini_failed', detail }` payload
+  instead of dying silently. Verified live against the real webhook (today's actual
+  exhausted quota) — response is now `{"error":true,"message":"quota_exceeded",...}`
+  instead of an empty body.
+- The app-side fallback for this case was *also* broken: `receipts.tsx` sets
+  `scanError` and opens the (empty) review modal in the same update whenever a scan
+  fails, but the toast that would show `scanError` was gated on `!reviewData` — so
+  the message never actually rendered, the modal just opened silently empty with no
+  indication of why. Fixed by passing the message into `ReceiptReviewModal` itself as
+  a new `scanErrorMessage` prop, shown as a banner inside the modal. Added a specific
+  `receipts:scanErrors.quotaExceeded` i18n string (he/en) for the quota case instead
+  of the generic "couldn't read automatically" message. Verified live: uploading a
+  receipt today (quota already exhausted) now shows "חרגנו ממכסת ה-AI היומית לזיהוי
+  קבלות — נסו שוב מאוחר יותר או הזינו ידנית" inside the review modal.
+
+## [2.10.0] - 2026-07-07
+
+### Added
+- Client-side action logging: every Firebase write triggered from the app itself —
+  adding/deleting/editing grocery items, toggling bought, stock add/adjust/update/
+  delete, receipt save/delete/reconciliation, category add/update/delete, admin
+  invite/removal — now logs a `[module] action: details` line via the same `logger`
+  (consola) already used for the backend server routes' webhook logging. These are
+  client-side Firebase SDK calls, not server routes, so the log would otherwise only
+  reach the browser console — a new `/api/client-log` server route
+  (`src/routes/api/client-log.tsx`) plus a `logClientAction()` helper in `firebase.ts`
+  forwards every one of these lines to the dev server's own terminal too (fire-and-
+  forget `fetch`, never blocks the actual write if the forwarding call fails).
+  Complements the existing `[scan-receipt]`/`[scan-receipt-url]`/`[categorize-item]`
+  request logs so every real user action is now visible in one place, distinct from
+  Vite's dev-server module-request noise in the Network tab. Verified live: adding a
+  stock item produced `[stock] addStockItem: ...` in both the browser console and the
+  `npm run dev` terminal.
+
+## [2.9.1] - 2026-07-07
+
+### Fixed
+- Saving a receipt with N line items was firing N separate `get(stockRef)` calls, N
+  separate `get(groceriesRef)` calls, and up to N separate Gemini categorization
+  requests — one full Firebase read and one Gemini call per item instead of doing it
+  once for the whole receipt. New `getAllStockItems`/`getAllGroceryItems` in
+  `firebase.ts` fetch each collection exactly once per receipt save, with matching
+  done locally in `receipts.tsx`; items needing categorization are now batched into a
+  **single** `categorizeItem()` call (all their names joined into one string), with
+  the returned `{item, category}` pairs matched back to each original line item via
+  normalized substring matching, falling back to `OTHER_CATEGORY_NAME` for any
+  straggler that can't be matched. Verified live: a 3-item receipt now fires exactly
+  one `/api/categorize-item` request instead of three (confirmed via network log).
+  This isn't just an efficiency nicety — Gemini's free tier caps at 20
+  requests/day shared across every n8n workflow (Siri, receipt scanning,
+  categorization); the old per-item behavior burned through that quota roughly N
+  times faster per receipt.
+
 ## [2.9.0] - 2026-07-06
 
 ### Added

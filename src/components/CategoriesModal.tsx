@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addCategory, deleteCategory, updateCategory } from '../lib/firebase'
+import { useDialogService } from '../hooks/DialogServiceContext'
 import type { Category } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
@@ -13,6 +14,7 @@ interface CategoriesModalProps {
 
 export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
   const { t } = useTranslation()
+  const { confirm } = useDialogService()
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('📌')
   const [newColor, setNewColor] = useState('#a8a8a8')
@@ -35,7 +37,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
   }
 
   const handleDelete = async (cat: Category) => {
-    if (!window.confirm(t('categories:deleteConfirm', { categoryName: cat.name }))) return
+    if (!(await confirm(t('categories:deleteConfirm', { categoryName: cat.name })))) return
     try {
       await deleteCategory(cat.key)
     } catch (err: any) {

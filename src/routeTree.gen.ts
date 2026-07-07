@@ -14,6 +14,7 @@ import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
+import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
 import { Route as ApiCategorizeItemRouteImport } from './routes/api/categorize-item'
 
 const StockRoute = StockRouteImport.update({
@@ -41,6 +42,11 @@ const ApiScanReceiptRoute = ApiScanReceiptRouteImport.update({
   path: '/api/scan-receipt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiClientLogRoute = ApiClientLogRouteImport.update({
+  id: '/api/client-log',
+  path: '/api/client-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCategorizeItemRoute = ApiCategorizeItemRouteImport.update({
   id: '/api/categorize-item',
   path: '/api/categorize-item',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/receipts': typeof ReceiptsRoute
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
+  '/api/client-log': typeof ApiClientLogRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/receipts': typeof ReceiptsRoute
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
+  '/api/client-log': typeof ApiClientLogRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/receipts': typeof ReceiptsRoute
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
+  '/api/client-log': typeof ApiClientLogRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/stock'
     | '/api/categorize-item'
+    | '/api/client-log'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/stock'
     | '/api/categorize-item'
+    | '/api/client-log'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/stock'
     | '/api/categorize-item'
+    | '/api/client-log'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   ReceiptsRoute: typeof ReceiptsRoute
   StockRoute: typeof StockRoute
   ApiCategorizeItemRoute: typeof ApiCategorizeItemRoute
+  ApiClientLogRoute: typeof ApiClientLogRoute
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
 }
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiScanReceiptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/client-log': {
+      id: '/api/client-log'
+      path: '/api/client-log'
+      fullPath: '/api/client-log'
+      preLoaderRoute: typeof ApiClientLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/categorize-item': {
       id: '/api/categorize-item'
       path: '/api/categorize-item'
@@ -160,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReceiptsRoute: ReceiptsRoute,
   StockRoute: StockRoute,
   ApiCategorizeItemRoute: ApiCategorizeItemRoute,
+  ApiClientLogRoute: ApiClientLogRoute,
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
 }

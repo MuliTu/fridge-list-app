@@ -7,3 +7,6 @@ dist
 .claude/scheduled_tasks.lock
 TODO.md
 .tanstack
+coverage
+test-results
+playwright-report

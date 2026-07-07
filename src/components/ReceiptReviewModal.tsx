@@ -18,6 +18,10 @@ export interface ReceiptReviewData {
 interface ReceiptReviewModalProps {
   data: ReceiptReviewData
   queueLabel?: string | null
+  // Why the auto-scan came up empty (quota exceeded, parse failure, etc.) — shown
+  // inside the modal itself, since the parent's own toast is suppressed whenever the
+  // scan failure also opens this modal (both state updates land in the same render).
+  scanErrorMessage?: string | null
   onClose: () => void
   onSave: (result: {
     store_name: string | null
@@ -27,7 +31,7 @@ interface ReceiptReviewModalProps {
   }) => Promise<unknown>
 }
 
-export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }: ReceiptReviewModalProps) {
+export default function ReceiptReviewModal({ data, queueLabel, scanErrorMessage, onClose, onSave }: ReceiptReviewModalProps) {
   const { t } = useTranslation(['receipts', 'common'])
   const isPdfBlob = data.imageBlob?.type === 'application/pdf'
   const [previewUrl] = useState<string | null>(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))
@@ -94,6 +98,7 @@ export default function ReceiptReviewModal({ data, queueLabel, onClose, onSave }
           <DialogTitle>{t('receipts:reviewModal.title')}</DialogTitle>
         </DialogHeader>
         {queueLabel && <div className="queue-label">{queueLabel}</div>}
+        {scanErrorMessage && <div className="text-sm text-destructive">{scanErrorMessage}</div>}
 
         {previewUrl ? (
           isPdfBlob ? (

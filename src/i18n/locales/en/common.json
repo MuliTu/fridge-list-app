@@ -1,6 +1,7 @@
 {
   "appTitle": "Household List",
   "appSubtitle": "Updates in real time",
+  "loading": "Loading...",
   "tabs": {
     "shoppingList": "Shopping List",
     "stock": "Stock",
@@ -15,7 +16,8 @@
   "menu": {
     "button": "Menu",
     "manageCategories": "🗂 Manage categories",
-    "shareEditing": "👥 Share editing"
+    "shareEditing": "👥 Share editing",
+    "viewChangelog": "📝 Changelog"
   },
   "actions": {
     "cancel": "Cancel",
@@ -25,7 +27,9 @@
     "deleting": "Deleting...",
     "add": "Add",
     "adding": "Adding...",
-    "close": "Close"
+    "close": "Close",
+    "confirm": "Confirm",
+    "ok": "OK"
   },
   "language": {
     "label": "Language",

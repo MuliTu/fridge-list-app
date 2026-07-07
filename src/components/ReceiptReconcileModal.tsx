@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { GroceryItem, ReceiptItem, StockItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
 
 export interface ReconcileMatch {
   item: ReceiptItem
@@ -45,11 +46,7 @@ export default function ReceiptReconcileModal({ matches, onClose, onConfirm }: R
               <div className="reconcile-item-name">{m.item.name}</div>
               {m.stockMatch && (
                 <label className="reconcile-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selections[i].stock}
-                    onChange={() => toggle(i, 'stock')}
-                  />
+                  <Checkbox checked={selections[i].stock} onCheckedChange={() => toggle(i, 'stock')} />
                   {t('receipts:reconcile.updateStock', {
                     quantity: m.item.quantity || 1,
                     unit: m.stockMatch.unit
@@ -57,7 +54,7 @@ export default function ReceiptReconcileModal({ matches, onClose, onConfirm }: R
                 </label>
               )}
               <label className="reconcile-checkbox">
-                <input type="checkbox" checked={selections[i].grocery} onChange={() => toggle(i, 'grocery')} />
+                <Checkbox checked={selections[i].grocery} onCheckedChange={() => toggle(i, 'grocery')} />
                 {t(m.groceryMatch ? 'receipts:reconcile.markPurchased' : 'receipts:reconcile.addAsPurchased')}
               </label>
             </div>

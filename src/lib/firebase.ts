@@ -3,7 +3,23 @@ import { getDatabase, ref, onValue, get, push, set, update, remove } from 'fireb
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore'
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
+import { logger } from './logger'
+import { normalizeName } from './normalizeName'
 import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
+
+// Logs client-side actions (grocery/stock/receipt/category/admin writes) to the
+// browser console AND forwards them to the dev server's terminal via /api/client-log
+// — these are Firebase SDK calls made in the browser, so without that hop they'd
+// never reach the terminal the way the scan-receipt/categorize-item route logs do.
+// Fire-and-forget: a logging failure must never block the actual action.
+const logClientAction = (message: string) => {
+  logger.success(message)
+  fetch('/api/client-log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, level: 'success' })
+  }).catch(() => {})
+}
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAcwoGM2xPNBF372qI9kqVsp72kUG-Errs',
@@ -73,8 +89,10 @@ const touchModified = (key: string, fields: Record<string, unknown>, user?: Auth
     modified_by: user?.email || null
   })
 
-export const setBought = (key: string, bought: boolean, user?: AuthUser | null) =>
-  touchModified(key, { bought }, user)
+export const setBought = (key: string, bought: boolean, user?: AuthUser | null) => {
+  logClientAction(`[groceries] setBought: key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
+  return touchModified(key, { bought }, user)
+}
 
 export const resizeImage = (file: File | Blob, maxDim = 1280, quality = 0.75): Promise<Blob> =>
   new Promise((resolve, reject) => {
@@ -114,10 +132,12 @@ export const saveItemDetails = async (
     fields.image_ref = key
   }
 
+  logClientAction(`[groceries] saveItemDetails: key=${key} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`)
   return touchModified(key, fields, user)
 }
 
 export const deleteItem = async (key: string, imageRef?: string | null) => {
+  logClientAction(`[groceries] deleteItem: key=${key}`)
   if (imageRef) await deleteImageDoc('groceryImages', imageRef)
   return remove(ref(db, `groceries/${key}`))
 }
@@ -134,8 +154,9 @@ const touchStock = (key: string, fields: Record<string, unknown>, user?: AuthUse
 export const addStockItem = (
   item: { name: string; category: string; quantity: number; unit: string; low_threshold: number },
   user?: AuthUser | null
-) =>
-  push(stockRef, {
+) => {
+  logClientAction(`[stock] addStockItem: name=${item.name} quantity=${item.quantity} by=${user?.email || 'anonymous'}`)
+  return push(stockRef, {
     name: item.name,
     category: item.category,
     quantity: item.quantity,
@@ -144,17 +165,26 @@ export const addStockItem = (
     updated_at: new Date().toISOString(),
     updated_by: user?.email || null
   })
+}
 
-export const adjustStockQuantity = (key: string, quantity: number, user?: AuthUser | null) =>
-  touchStock(key, { quantity: Math.max(0, quantity) }, user)
+export const adjustStockQuantity = (key: string, quantity: number, user?: AuthUser | null) => {
+  logClientAction(`[stock] adjustStockQuantity: key=${key} quantity=${quantity} by=${user?.email || 'anonymous'}`)
+  return touchStock(key, { quantity: Math.max(0, quantity) }, user)
+}
 
-export const updateStockItem = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
-  touchStock(key, fields, user)
+export const updateStockItem = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) => {
+  logClientAction(`[stock] updateStockItem: key=${key} fields=${Object.keys(fields).join(',')} by=${user?.email || 'anonymous'}`)
+  return touchStock(key, fields, user)
+}
 
-export const deleteStockItem = (key: string) => remove(ref(db, `stock/${key}`))
+export const deleteStockItem = (key: string) => {
+  logClientAction(`[stock] deleteStockItem: key=${key}`)
+  return remove(ref(db, `stock/${key}`))
+}
 
-export const addStockItemToShoppingList = (entry: { name: string; category: string }, user?: AuthUser | null) =>
-  push(groceriesRef, {
+export const addStockItemToShoppingList = (entry: { name: string; category: string }, user?: AuthUser | null) => {
+  logClientAction(`[groceries] addStockItemToShoppingList: name=${entry.name} by=${user?.email || 'anonymous'}`)
+  return push(groceriesRef, {
     item: entry.name,
     category: entry.category,
     bought: false,
@@ -162,13 +192,15 @@ export const addStockItemToShoppingList = (entry: { name: string; category: stri
     raw_text: 'מהמלאי',
     created_by: user?.email || null
   })
+}
 
 export const addGroceryItem = (
   item: { name: string; category: string },
   listName: string | null,
   user?: AuthUser | null
-) =>
-  push(groceriesRef, {
+) => {
+  logClientAction(`[groceries] addGroceryItem: name=${item.name} list=${listName || 'permanent'} by=${user?.email || 'anonymous'}`)
+  return push(groceriesRef, {
     item: item.name,
     category: item.category,
     bought: false,
@@ -177,6 +209,7 @@ export const addGroceryItem = (
     list_name: listName || null,
     created_by: user?.email || null
   })
+}
 
 // Same-origin path, not the n8n URL directly — /api/categorize-item (a TanStack Start
 // server route) keeps the webhook URL server-side only. Mirrors Siri's own
@@ -195,6 +228,7 @@ export const categorizeItem = async (text: string): Promise<{ item: string; cate
 }
 
 export const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
+  logClientAction(`[groceries] addPurchasedGroceryItem: name=${item.name} by=${user?.email || 'anonymous'}`)
   const now = new Date().toISOString()
   return push(groceriesRef, {
     item: item.name,
@@ -208,6 +242,62 @@ export const addPurchasedGroceryItem = (item: { name: string; category: string }
   })
 }
 
+// Applies every write from confirming the receipt-reconcile modal in at most two
+// Firebase calls (one multi-path update() per collection touched) instead of one
+// write per line item — a receipt with N items no longer means N separate
+// adjustStockQuantity/setBought/addPurchasedGroceryItem round-trips.
+export const applyReceiptReconciliation = (
+  ops: {
+    stockAdjustments: { key: string; quantity: number }[]
+    groceryBoughtKeys: string[]
+    newGroceryItems: { name: string; category: string }[]
+  },
+  user?: AuthUser | null
+) => {
+  const now = new Date().toISOString()
+  const email = user?.email || null
+  const writes: Promise<unknown>[] = []
+
+  logClientAction(
+    `[receipts] applyReceiptReconciliation: stockAdjustments=${ops.stockAdjustments.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
+  )
+
+  if (ops.stockAdjustments.length > 0) {
+    const stockUpdates: Record<string, unknown> = {}
+    ops.stockAdjustments.forEach(({ key, quantity }) => {
+      stockUpdates[`${key}/quantity`] = Math.max(0, quantity)
+      stockUpdates[`${key}/updated_at`] = now
+      stockUpdates[`${key}/updated_by`] = email
+    })
+    writes.push(update(stockRef, stockUpdates))
+  }
+
+  if (ops.groceryBoughtKeys.length > 0 || ops.newGroceryItems.length > 0) {
+    const groceryUpdates: Record<string, unknown> = {}
+    ops.groceryBoughtKeys.forEach((key) => {
+      groceryUpdates[`${key}/bought`] = true
+      groceryUpdates[`${key}/modified_at`] = now
+      groceryUpdates[`${key}/modified_by`] = email
+    })
+    ops.newGroceryItems.forEach((item) => {
+      const key = push(groceriesRef).key as string
+      groceryUpdates[key] = {
+        item: item.name,
+        category: item.category,
+        bought: true,
+        added_at: now,
+        modified_at: now,
+        modified_by: email,
+        raw_text: 'מקבלה',
+        created_by: email
+      }
+    })
+    writes.push(update(groceriesRef, groceryUpdates))
+  }
+
+  return Promise.all(writes)
+}
+
 export const deleteGroceryList = async (listName: string | null) => {
   const snapshot = await get(groceriesRef)
   const data = snapshot.val() || {}
@@ -216,10 +306,9 @@ export const deleteGroceryList = async (listName: string | null) => {
     if (entry.list_name === listName) updates[key] = null
   })
   if (Object.keys(updates).length === 0) return
+  logClientAction(`[groceries] deleteGroceryList: list=${listName || 'permanent'} items=${Object.keys(updates).length}`)
   return update(groceriesRef, updates)
 }
-
-const normalizeName = (name?: string | null) => (name || '').trim().toLowerCase()
 
 export const findStockItemByName = async (name: string): Promise<StockItem | null> => {
   const target = normalizeName(name)
@@ -239,6 +328,20 @@ export const findUnboughtGroceryItemByName = async (name: string): Promise<Groce
     ([, entry]: [string, any]) => normalizeName(entry.item) === target && !entry.bought
   )
   return match ? ({ key: match[0], ...(match[1] as object) } as GroceryItem) : null
+}
+
+// Batch variants for matching many names at once (e.g. every line item on a receipt) —
+// a single get() each instead of one Firebase read per item.
+export const getAllStockItems = async (): Promise<StockItem[]> => {
+  const snapshot = await get(stockRef)
+  const data = snapshot.val() || {}
+  return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+}
+
+export const getAllGroceryItems = async (): Promise<GroceryItem[]> => {
+  const snapshot = await get(groceriesRef)
+  const data = snapshot.val() || {}
+  return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
 }
 
 export const receiptsRef = ref(db, 'receipts')
@@ -300,10 +403,14 @@ export const saveReceipt = async (
     scanned_by: user?.email || null
   })
 
+  logClientAction(
+    `[receipts] saveReceipt: key=${key} store=${receipt.store_name || 'unknown'} items=${receipt.items.length} by=${user?.email || 'anonymous'}`
+  )
   return { key, imageSkipped }
 }
 
 export const deleteReceipt = async (key: string, imageRef?: string | null) => {
+  logClientAction(`[receipts] deleteReceipt: key=${key}`)
   if (imageRef) await deleteImageDoc('receiptImages', imageRef)
   return remove(ref(db, `receipts/${key}`))
 }
@@ -329,33 +436,45 @@ export const categoriesRef = ref(db, 'categories')
 export const seedCategoriesIfEmpty = async () => {
   const snapshot = await get(categoriesRef)
   if (snapshot.exists()) return
+  logClientAction('[categories] seedCategoriesIfEmpty: seeding default categories')
   await set(categoriesRef, DEFAULT_CATEGORIES)
 }
 
-export const addCategory = (category: { name: string; color: string; icon?: string; order?: number }) =>
-  push(categoriesRef, {
+export const addCategory = (category: { name: string; color: string; icon?: string; order?: number }) => {
+  logClientAction(`[categories] addCategory: name=${category.name}`)
+  return push(categoriesRef, {
     name: category.name,
     color: category.color,
     icon: category.icon || '📌',
     protected: false,
     order: typeof category.order === 'number' ? category.order : 0
   })
+}
 
-export const updateCategory = (key: string, fields: Record<string, unknown>) =>
-  update(ref(db, `categories/${key}`), fields)
+export const updateCategory = (key: string, fields: Record<string, unknown>) => {
+  logClientAction(`[categories] updateCategory: key=${key} fields=${Object.keys(fields).join(',')}`)
+  return update(ref(db, `categories/${key}`), fields)
+}
 
-export const deleteCategory = (key: string) => remove(ref(db, `categories/${key}`))
+export const deleteCategory = (key: string) => {
+  logClientAction(`[categories] deleteCategory: key=${key}`)
+  return remove(ref(db, `categories/${key}`))
+}
 
 export { OTHER_CATEGORY_NAME }
 
 export const adminsRef = ref(db, 'admins')
 
 export const addAdminEmail = (email: string) => {
-  const key = email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
-  return set(ref(db, `admins/${key}`), email.trim().toLowerCase())
+  const normalized = email.trim().toLowerCase()
+  logClientAction(`[admins] addAdminEmail: email=${normalized}`)
+  const key = normalized.replace(/[.#$[\]]/g, '_')
+  return set(ref(db, `admins/${key}`), normalized)
 }
 
 export const removeAdminEmail = (email: string) => {
-  const key = email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
+  const normalized = email.trim().toLowerCase()
+  logClientAction(`[admins] removeAdminEmail: email=${normalized}`)
+  const key = normalized.replace(/[.#$[\]]/g, '_')
   return remove(ref(db, `admins/${key}`))
 }

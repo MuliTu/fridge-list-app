@@ -64,19 +64,28 @@ Web app (receipt scanning, see module docs below)
        1. Receipt Webhook   – receives { image_base64: "<base64 JPEG>" }
        2. Base64 to Image   – Convert to File node (toBinary), turns the base64 string
                               into a binary field ("data") the Gemini node can read
-       3. Analyze Receipt   – Google Gemini node, resource=image/operation=analyze,
-                              binary input, same Gemini credential as the Siri flow,
-                              prompted to return one strict JSON object (store_name,
-                              items: [{name, price, quantity}], total) — no markdown
-       4. Parse Receipt     – Code node: extracts Gemini's raw text (same defensive
+       3. Is PDF?           – IF node, branches on mime_type
+       4. Analyze Receipt (or "Analyze Receipt PDF") – Google Gemini node
+                              (models/gemini-2.5-flash), binary input, same Gemini
+                              credential as the Siri flow, prompted to return one strict
+                              JSON object (store_name, items: [{name, price, quantity}],
+                              total) — no markdown. `onError: continueErrorOutput` routes
+                              any failure (most commonly quota exhaustion) to a
+                              same-credential fallback call on models/gemini-2.0-flash
+                              instead of dying silently — see the "Receipt scanning" module
+                              section below for why this exists and a real gotcha it hit
+                              (the error-output item drops the original binary entirely).
+       5. Parse Receipt     – Code node: extracts Gemini's raw text (same defensive
                               multi-shape parsing as "Parse Items"), strips markdown
-                              fences, JSON.parses it, returns { error: true, ... } on
-                              parse failure instead of throwing, so the web app can fall
-                              back to manual entry
-       5. Respond with Receipt – responds with the parsed JSON directly
-   ← web app receives { store_name, items, total } (or { error: true }) and opens the
-     review/edit screen — nothing is written to Firebase from n8n; the web app writes
-     to `/receipts` itself only after the user reviews/edits and confirms
+                              fences, JSON.parses it, returns { error: true, message,
+                              detail } on any failure (parse failure or the Gemini error
+                              shape above) instead of throwing, so the web app can fall
+                              back to manual entry and — for the quota case specifically —
+                              show a real "try later" message instead of a generic one
+       6. Respond with Receipt – responds with the parsed JSON (or error payload) directly
+   ← web app receives { store_name, items, total } (or { error: true, message, detail })
+     and opens the review/edit screen — nothing is written to Firebase from n8n; the web
+     app writes to `/receipts` itself only after the user reviews/edits and confirms
 
 Web app (receipt-from-a-URL, see module docs below — separate path from the photo flow)
    → POST /api/scan-receipt-url { url } (same-origin, not n8n directly)
@@ -321,6 +330,43 @@ review step before persisting was the most common mistake he'd seen elsewhere. I
 n8n call fails outright (network error, or Gemini's output didn't parse as JSON), the
 same review modal still opens, just empty — falling back to fully manual entry rather
 than a dead end.
+
+**Gemini quota fallback + graceful error surfacing** (v2.11.0–v2.12.0): a real production
+incident — the app suddenly returned a generic `{"error":true,"message":"receipt scan
+upstream failed"}` — was root-caused via `n8n_executions` (mode: error) to Google's free
+Gemini tier quota (20 req/day, shared across every n8n workflow using this credential)
+being exhausted. The underlying bug wasn't the quota itself, it was that "Analyze
+Receipt"/"Analyze Receipt PDF" had no error handling at all: any Gemini failure killed
+the whole execution *before* "Respond with Receipt" ran, so n8n fell back to an **empty
+200 body**, which is what made the app's `response.json()` throw `Unexpected end of JSON
+input` several layers away from the real cause. Fixed two ways, both in the n8n
+workflow:
+1. Both Gemini nodes now use `onError: "continueErrorOutput"` wired into "Parse
+   Receipt", which detects the error shape and returns a real
+   `{ error: true, message: 'quota_exceeded' | 'gemini_failed', detail }` payload.
+2. A same-credential fallback model (`models/gemini-2.0-flash`) runs on that error
+   output — Google's free-tier quota is tracked **per model** (confirmed via the 429
+   error's `quotaDimensions.model` field), so this is a genuinely separate quota bucket
+   on the same API key, not a new signup. Hit a real gotcha wiring this up:
+   `continueErrorOutput`'s output item drops the original binary entirely (confirmed via
+   execution trace — it's just `{ error: "<message>" }`), so two "Rebuild Image/PDF
+   (Fallback)" Code nodes reconstruct the binary from the original webhook payload
+   (`$('Receipt Webhook').first().json.body.image_base64`, via
+   `this.helpers.prepareBinaryData`) before the fallback Gemini call — relying on
+   passthrough silently fails with "no binary file 'data' found" instead.
+
+On the app side, `src/components/ReceiptReviewModal.tsx` takes a `scanErrorMessage` prop
+and shows it as an in-modal banner — this exists because the parent's own toast
+(`scanError && !reviewData`) turns out to be permanently suppressed for every scan
+failure, since `receipts.tsx` always sets both `scanError` and `reviewData` (the empty
+fallback) in the same update, so `!reviewData` is never true when it'd matter. A
+`quotaExceeded` i18n string (he/en) gives the quota case a specific, honest message
+instead of the generic "couldn't read automatically" one.
+
+Known gap, not fixed: the same missing-error-handling pattern (no `onError`, no
+fallback model) likely still exists in "Receipt URL Parser (Hebrew)" and "Categorize
+Grocery Item (Hebrew)" — only "Receipt Scanner (Hebrew)" was hardened, since that's the
+one actually reported failing.
 
 **Security note — why there's a proxy in front of this one webhook**: unlike the Siri
 webhook (only ever referenced in docs, never shipped to a browser), this one is called
@@ -607,6 +653,13 @@ technically still write directly via REST, same as before this session's changes
    open `{ ".read": true, ".write": true }` rule as `/groceries`/`/categories` — add it
    manually before the stock tab will work against the real database (see Firebase
    security rules above).
+7. **Gemini error handling/fallback only applied to one n8n workflow.** "Receipt
+   Scanner (Hebrew)" now has `onError: continueErrorOutput` + a same-credential
+   fallback model (see Receipt scanning module section above) — "Receipt URL Parser
+   (Hebrew)" and "Categorize Grocery Item (Hebrew)" likely still die silently on any
+   Gemini failure the same way Receipt Scanner used to, since they share the exact
+   same missing-error-handling pattern and the same shared Gemini quota. Not hardened
+   yet because they weren't the ones actually reported failing.
 
 ## Frontend app (fridge-list-app/)
 
@@ -622,9 +675,11 @@ from a plain Vite SPA in v2.0.0, restructured + converted to TS in v2.2.0 — se
 
 ```
 npm install
-npm run dev      # http://localhost:5173
-npm run build     # outputs dist/client + dist/server
-npx tsc --noEmit  # type check
+npm run dev          # http://localhost:5173
+npm run build         # outputs dist/client + dist/server
+npx tsc --noEmit      # type check
+npm test              # Jest unit + integration tests
+npm run test:e2e       # Playwright e2e (see Testing section below)
 ```
 
 Folder structure:
@@ -632,25 +687,39 @@ Folder structure:
   Router convention). `__root.tsx` is the document shell (`<html lang="he" dir="rtl">`,
   fonts, title, `App.css`); `index.tsx` (`/`), `stock.tsx` (`/stock`), `receipts.tsx`
   (`/receipts`) are the three tabs; `api/scan-receipt.tsx` + `api/scan-receipt-url.tsx`
-  are the receipt-scanning server routes (`server.handlers.POST`, Web-standard
-  `Request`/`Response`) — TanStack Start's dev server serves these natively, no separate
-  proxy plugin needed. `src/routeTree.gen.ts` is generated by the router's Vite plugin —
-  never edit it by hand, and don't be alarmed by verbose `page reload
-  src/routeTree.gen.ts` dev-server log lines; it's a known cosmetic watcher quirk in
-  some environments, doesn't affect the app (confirmed via direct browser checks) or
-  the production build.
+  + `api/categorize-item.tsx` + `api/client-log.tsx` are server routes
+  (`server.handlers.POST`, Web-standard `Request`/`Response`) — TanStack Start's dev
+  server serves these natively, no separate proxy plugin needed. `src/routeTree.gen.ts`
+  is generated by the router's Vite plugin — never edit it by hand, and don't be
+  alarmed by verbose `page reload src/routeTree.gen.ts` dev-server log lines; it's a
+  known cosmetic watcher quirk in some environments, doesn't affect the app (confirmed
+  via direct browser checks) or the production build.
 - `src/components/` — shared UI: the modals (`ItemDetailModal`, `GroceryItemModal`,
-  `StockItemModal`, `ReceiptReviewModal`, `CategoriesModal`, `AdminsModal`,
-  `RestockPrompt`) and `Layout` (header, tabs-as-`<Link>`s, settings menu, mounts
-  `GroceriesFeedProvider`).
+  `StockItemModal`, `ReceiptReviewModal`, `ReceiptReconcileModal`, `CategoriesModal`,
+  `AdminsModal`, `ChangelogModal`, `RestockPrompt`), `src/components/ui/` (shadcn
+  primitives — `button`, `dialog`, `alert-dialog`, `input`, `label`, `select`,
+  `textarea`, `checkbox`, `dropdown-menu`), and `Layout` (header, tabs-as-`<Link>`s,
+  settings menu via shadcn `DropdownMenu`, mounts `GroceriesFeedProvider` +
+  `DialogServiceProvider`).
 - `src/hooks/` — `AuthContext` (`useAuth`, Google-popup sign-in), `GroceriesFeedContext`
   (`useGroceriesFeed`, the single shared `/groceries` subscription driving the new-item
-  toast + status line visible across all three tabs), `useCategories`,
+  toast + status line visible across all three tabs), `DialogServiceContext`
+  (`useDialogService` — themed `confirm`/`prompt`/`alert` replacing
+  `window.confirm`/`prompt`/`alert`, see Design system section below), `useCategories`,
   `useCollapsedSections`.
 - `src/lib/` — `firebase.ts` (all Firebase reads/writes), `formatDateTime.ts`,
-  `categories.ts` (default categories + protected-"אחר" constant).
+  `categories.ts` (default categories + protected-"אחר" constant), `normalizeName.ts`
+  (shared dedup/matching helper, extracted out of `firebase.ts`/`receipts.tsx` for
+  unit-testability), `logger.ts` (see Logging section below).
 - `src/types.ts` — shared interfaces (`GroceryItem`, `StockItem`, `Category`, `Receipt`,
   `ReceiptItem`, `AuthUser`) reused across lib/hooks/components/routes.
+- `e2e/` — Playwright e2e specs (see Testing section below); test files elsewhere are
+  colocated `*.test.ts`/`*.test.tsx` next to their source, not in a separate tree.
+- `.github/workflows/` — CI (see Testing section below).
+
+The custom/temporary list picker on `/` is a `?list=` search param
+(`Route.useSearch()`/`Route.useNavigate()`) instead of local state, so a custom list is
+a shareable/refreshable URL.
 
 The custom/temporary list picker on `/` is a `?list=` search param
 (`Route.useSearch()`/`Route.useNavigate()`) instead of local state, so a custom list is
@@ -665,6 +734,39 @@ build regardless of what's in the env file.
 
 Important: this **must** be served over http(s), not opened as a `file://` URL — the
 Firebase SDK is loaded as an ES module, which browsers block on `file://`.
+
+## Logging (`src/lib/logger.ts`, `/api/client-log`)
+
+Server routes (`scan-receipt`, `scan-receipt-url`, `categorize-item`) log through
+`logger` (a thin `consola` wrapper, three levels only — `success`/`warn`/`error`,
+timestamped) — request received, upstream call attempted, upstream response/failure.
+Any new server route should log through this, not `console.log`, to keep one
+consistent, greppable format.
+
+Client-side Firebase writes (every mutating function in `src/lib/firebase.ts` — add/
+delete/edit grocery items, stock add/adjust/delete, receipt save/delete/reconcile,
+category add/update/delete, admin invite/removal) log through a `logClientAction()`
+helper that does two things: logs to the browser console immediately, **and**
+`fetch`s the message to `/api/client-log` (`src/routes/api/client-log.tsx`), a small
+server route that re-logs it through the same `logger` — so a client-side action
+shows up in the `npm run dev` terminal too, not just the browser console (a browser
+tab and the dev server are different processes; a plain `console.log` in a component
+never reaches the terminal on its own). Forwarding is fire-and-forget — a logging
+failure must never block the actual Firebase write.
+
+## In-app changelog viewer (`src/components/ChangelogModal.tsx`)
+
+A "📝 יומן שינויים"/"Changelog" item in the settings menu (`canEdit`-gated, same menu
+as "Manage categories"/"Share editing") opens a modal that renders this repo's own
+`CHANGELOG.md` **inside the app**, for tracking — imported via Vite's `?raw` suffix
+(`import CHANGELOG_MD from '../../CHANGELOG.md?raw'`, bundled at build time, type
+declared in `src/vite-env.d.ts`) and rendered with a small hand-rolled markdown-to-HTML
+parser (headers, `-` bullets with indented continuation lines, `**bold**`, `` `code` ``,
+`[text](url)` links) rather than a new markdown dependency — this file's structure is
+simple and consistent enough not to need one. Left untranslated/English on purpose
+(unlike the rest of the app's UI): this is a tracking utility for whoever's developing
+the app, not end-user-facing copy, and translating years of technical changelog
+entries wasn't worth it for that audience.
 
 ## i18n (Hebrew/English, RTL/LTR)
 
@@ -708,6 +810,51 @@ route's SSR path, out of scope for this pass.
 Conventions for using shadcn/ui and the chalkboard palette are now in
 `.claude/skills/add-app-module` — see that skill instead of here.
 
+As of v2.14.0, the native-HTML-to-shadcn conversion is done for everything that
+actually looks/behaves native: `window.confirm`/`prompt`/`alert` → a promise-based
+`useDialogService()` (`src/hooks/DialogServiceContext.tsx`, mounted once at the root)
+backed by shadcn `AlertDialog`/`Dialog`; the raw checkbox in `ReceiptReconcileModal` →
+shadcn `Checkbox`; the hand-rolled settings menu (`Layout.tsx`) → shadcn `DropdownMenu`.
+**Deliberately left alone**, matching this project's own bespoke-app-chrome precedent:
+FABs, list pills, tab links, the stock +/- stepper, icon-only action buttons (⚙️ ✎ 🗑
+ℹ️ 📷) — these are plain `<button>`s with full custom theming, not raw/unstyled HTML,
+and forcing them through shadcn was explicitly scoped out. Also left native, since
+shadcn has no equivalent: `<input type="color">` (category picker), `<input
+type="file">` (photo/receipt upload) — both are OS-native pickers.
+
+## Testing (Jest unit/integration, Playwright e2e, GitHub Actions)
+
+Added from scratch in v2.15.0 — see `.claude/skills/senior-qa-jest` for the judgment
+behind these choices (what's worth testing here, mocking strategy, avoiding brittle
+tests). Quick reference:
+
+- **Unit + integration**: Jest + `ts-jest` (`jest.config.cjs`, `tsconfig.jest.json` —
+  a separate CommonJS-output tsconfig, since the app itself is ESM/bundler-mode,
+  which Jest can't run directly) + `@testing-library/react`. `npm test` /
+  `npm run test:watch` / `npm run test:coverage`. Tests are colocated
+  (`*.test.ts`/`*.test.tsx` next to the source file). Firebase and `react-i18next`
+  are mocked at the module boundary — tests must **never** touch the real
+  `n8n-vocal-2-db` Firebase project. `src/lib/normalizeName.ts` was extracted out of
+  `firebase.ts`/`receipts.tsx` (previously duplicated verbatim in both) specifically
+  to make it unit-testable in one place.
+- **e2e**: Playwright (`playwright.config.ts`, `e2e/*.spec.ts`), `npm run test:e2e`.
+  Scoped to **view-only flows only** (header/tabs render, tab navigation, sign-in
+  button when logged out, language switch) — this app's edit actions need a real
+  Google `signInWithPopup`, which isn't automated here; the local dev auth bypass
+  (`.env.local`) is for interactive manual QA, not for baking into an automated
+  suite that might run against a real deployed URL. Known gotcha if you add more
+  e2e tests: this is an SSR (TanStack Start) app — clicking immediately after
+  `page.goto()` can silently no-op before client hydration finishes; wait for
+  `networkidle` first.
+- **CI**: `.github/workflows/test.yml` runs on every push/PR (type-check + Jest +
+  build). `.github/workflows/e2e-deploy-check.yml` triggers on GitHub's
+  `deployment_status` event and runs the Playwright suite against the actual
+  deployed URL — this project is confirmed connected to Vercel via its native
+  GitHub integration (the git-branch-aliased domain
+  `fridge-list-app-git-main-*.vercel.app` only exists for git-linked projects, not
+  CLI-only deploys), so Vercel's GitHub App does fire `deployment_status` for both
+  preview and production deploys.
+
 ## Session conventions
 
 Versioning discipline, verification steps, n8n/Firebase access rules, cost-consciousness,
@@ -715,3 +862,9 @@ i18n discipline, graceful degradation, and test-data hygiene are now codified as
 see `.claude/skills/release-bump`, `.claude/skills/firebase-data-model`, and
 `.claude/skills/n8n-groceries-workflow`. Read those before making changes instead of
 looking for this info here.
+
+Senior-level judgment for frontend code, backend/server-route + n8n code, and Jest
+testing is codified in `.claude/skills/senior-frontend`, `.claude/skills/senior-backend`,
+and `.claude/skills/senior-qa-jest` respectively — consult these for *judgment calls*
+(is this the right abstraction, is this error handling complete, is this worth testing),
+as distinct from the other skills above which are more reference/procedure-oriented.

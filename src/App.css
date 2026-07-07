@@ -276,6 +276,41 @@ h1 {
   min-height: 0;
 }
 
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.skeleton-block {
+  background: rgba(244, 241, 232, 0.14);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-panel-header {
+  height: 18px;
+  width: 45%;
+  margin-bottom: 12px;
+}
+
+.skeleton-row {
+  height: 15px;
+  margin: 10px 0;
+}
+
+.skeleton-row:nth-child(3) {
+  width: 85%;
+}
+
+.skeleton-row:nth-child(4) {
+  width: 65%;
+}
+
 .panel h2 {
   font-family: 'Secular One', sans-serif;
   font-size: 17px;
@@ -908,6 +943,60 @@ h1 {
   margin: 0;
 }
 
+.changelog-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+
+.changelog-body h1 {
+  font-size: 15px;
+  color: var(--chalk);
+  margin: 0 0 6px;
+}
+
+.changelog-body h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--chalk);
+  margin: 16px 0 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--board-edge);
+}
+
+.changelog-body h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.changelog-body h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--chalk-dim);
+  margin: 8px 0 2px;
+}
+
+.changelog-body ul {
+  margin: 0 0 4px;
+  padding-inline-start: 18px;
+}
+
+.changelog-body li {
+  margin: 3px 0;
+}
+
+.changelog-body code {
+  background: var(--board-edge);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 12px;
+}
+
+.changelog-body a {
+  color: var(--chalk);
+}
+
 @media (min-width: 640px) {
   .modal-backdrop {
     align-items: center;
@@ -977,51 +1066,6 @@ h1 {
 .item-info-btn {
   margin-inline-start: auto;
   font-size: 13px;
-}
-
-.menu-wrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.menu-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-}
-
-.menu-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  inset-inline-end: 0;
-  background: var(--board);
-  border: 1px solid rgba(244, 241, 232, 0.2);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  min-width: 170px;
-  overflow: hidden;
-  z-index: 11;
-}
-
-.menu-item {
-  background: none;
-  border: none;
-  color: var(--chalk);
-  text-align: start;
-  padding: 10px 14px;
-  font-family: 'Rubik', sans-serif;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.menu-item:hover {
-  background: rgba(244, 241, 232, 0.08);
-}
-
-.menu-item + .menu-item {
-  border-top: 1px solid rgba(244, 241, 232, 0.1);
 }
 
 .queue-label {

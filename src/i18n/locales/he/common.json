@@ -1,6 +1,7 @@
 {
   "appTitle": "רשימת הבית",
   "appSubtitle": "מתעדכן בזמן אמת",
+  "loading": "טוען...",
   "tabs": {
     "shoppingList": "רשימת קניות",
     "stock": "מלאי",
@@ -15,7 +16,8 @@
   "menu": {
     "button": "תפריט",
     "manageCategories": "🗂 ניהול קטגוריות",
-    "shareEditing": "👥 שיתוף עריכה"
+    "shareEditing": "👥 שיתוף עריכה",
+    "viewChangelog": "📝 יומן שינויים"
   },
   "actions": {
     "cancel": "ביטול",
@@ -25,7 +27,9 @@
     "deleting": "מוחק...",
     "add": "הוספה",
     "adding": "מוסיף...",
-    "close": "סגירה"
+    "close": "סגירה",
+    "confirm": "אישור",
+    "ok": "אוקיי"
   },
   "language": {
     "label": "שפה",
