@@ -6,6 +6,7 @@
   "deleteConfirm": "למחוק את הקבלה מ-{{date}}?",
   "deleteConfirmUnknownDate": "תאריך לא ידוע",
   "loading": "⏳ סורק את הקבלה...",
+  "processing": "⏳ מעבד את הקבלה...",
   "queueProgress": "⏳ טוען קבלה {{current}} מתוך {{total}}...",
   "queueLabel": "קבלה {{current}} מתוך {{total}} נטענה",
   "urlPrompt": "הדביקו קישור לקבלה דיגיטלית",
@@ -38,11 +39,15 @@
   },
   "reconcile": {
     "title": "עדכון מלאי ורשימת קניות",
+    "foundCount": "נמצאו {{count}} מוצרים בקבלה",
     "description": "כל פריט מהקבלה יתעדכן במלאי ו/או ברשימת הקניות. אפשר לבטל סימון לפריטים שלא רוצים לעדכן:",
     "updateStock": "עדכון מלאי (+{{quantity}} {{unit}})",
+    "addNewStock": "הוספה למלאי כפריט חדש (כמות: {{quantity}})",
     "markPurchased": "סימון כנרכש ברשימת הקניות",
     "addAsPurchased": "הוספה לרשימת הקניות כנרכש",
     "skipAll": "דילוג",
-    "apply": "עדכון"
+    "apply": "עדכון",
+    "applying": "מעדכן...",
+    "applyFailed": "העדכון נכשל: {{message}} — נסו שוב"
   }
 }
