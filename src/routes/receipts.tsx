@@ -27,6 +27,46 @@ import type { Receipt, ReceiptItem } from '../types'
 const receiptTotal = (receipt: Receipt) =>
   receipt.total ?? (receipt.items || []).reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
 
+// Shared by the post-save reconcile step and the on-demand "add to stock" button on
+// an already-saved receipt card — both need the exact same stock/grocery matching +
+// categorization, just triggered at a different time.
+const buildReconcileMatches = async (items: ReceiptItem[]): Promise<ReconcileMatch[]> => {
+  // One Firebase read each for the whole receipt, not one per item.
+  const [stockItems, groceryItems] = await Promise.all([getAllStockItems(), getAllGroceryItems()])
+  const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
+  const findGrocery = (name: string) =>
+    groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
+
+  // Receipt line items don't carry a category. A stock match already has an
+  // authoritative one; everything else goes through the same Gemini categorization
+  // the manual "add item" flow uses (GroceryItemModal) — but as a single batched
+  // call for every item that needs one, not one call per item.
+  const needsCategory = items.filter((item) => !findStock(item.name))
+  let categorizedPool: { item: string; category: string }[] = []
+  if (needsCategory.length > 0) {
+    try {
+      categorizedPool = await categorizeItem(needsCategory.map((i) => i.name).join(', '))
+    } catch {
+      categorizedPool = []
+    }
+  }
+  const takeCategory = (name: string) => {
+    const target = normalizeName(name)
+    const idx = categorizedPool.findIndex(
+      (c) => normalizeName(c.item).includes(target) || target.includes(normalizeName(c.item))
+    )
+    if (idx === -1) return null
+    return categorizedPool.splice(idx, 1)[0].category
+  }
+
+  return items.map((item) => {
+    const stockMatch = findStock(item.name)
+    const groceryMatch = findGrocery(item.name)
+    const suggestedCategory = stockMatch ? stockMatch.category : takeCategory(item.name) || OTHER_CATEGORY_NAME
+    return { item, stockMatch, groceryMatch, suggestedCategory }
+  })
+}
+
 export const Route = createFileRoute('/receipts')({
   component: ReceiptsPage
 })
@@ -178,44 +218,20 @@ function ReceiptsPage() {
     setReviewData(null)
     setScanError(imageSkipped ? t('receipts:scanErrors.imageTooLarge') : null)
     setProcessingReceipt(true)
-
     try {
-      // One Firebase read each for the whole receipt, not one per item.
-      const [stockItems, groceryItems] = await Promise.all([getAllStockItems(), getAllGroceryItems()])
-      const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
-      const findGrocery = (name: string) =>
-        groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
+      setReconcileMatches(await buildReconcileMatches(data.items))
+    } finally {
+      setProcessingReceipt(false)
+    }
+  }
 
-      // Receipt line items don't carry a category. A stock match already has an
-      // authoritative one; everything else goes through the same Gemini categorization
-      // the manual "add item" flow uses (GroceryItemModal) — but as a single batched
-      // call for every item that needs one, not one call per item.
-      const needsCategory = data.items.filter((item) => !findStock(item.name))
-      let categorizedPool: { item: string; category: string }[] = []
-      if (needsCategory.length > 0) {
-        try {
-          categorizedPool = await categorizeItem(needsCategory.map((i) => i.name).join(', '))
-        } catch {
-          categorizedPool = []
-        }
-      }
-      const takeCategory = (name: string) => {
-        const target = normalizeName(name)
-        const idx = categorizedPool.findIndex(
-          (c) => normalizeName(c.item).includes(target) || target.includes(normalizeName(c.item))
-        )
-        if (idx === -1) return null
-        return categorizedPool.splice(idx, 1)[0].category
-      }
-
-      const matches: ReconcileMatch[] = data.items.map((item) => {
-        const stockMatch = findStock(item.name)
-        const groceryMatch = findGrocery(item.name)
-        const suggestedCategory = stockMatch ? stockMatch.category : takeCategory(item.name) || OTHER_CATEGORY_NAME
-        return { item, stockMatch, groceryMatch, suggestedCategory }
-      })
-
-      setReconcileMatches(matches)
+  // On-demand equivalent for a receipt that's already saved (skipped the reconcile
+  // step originally, or was saved before this feature existed) — same matching,
+  // same modal, just triggered from the receipt card instead of right after a scan.
+  const handleAddReceiptToStock = async (receipt: Receipt) => {
+    setProcessingReceipt(true)
+    try {
+      setReconcileMatches(await buildReconcileMatches(receipt.items || []))
     } finally {
       setProcessingReceipt(false)
     }
@@ -345,9 +361,18 @@ function ReceiptsPage() {
                 {t('receipts:total', { amount: receiptTotal(receipt).toFixed(2) })}
               </div>
               {canEdit && (
-                <button className="stock-icon-btn stock-delete-btn" onClick={() => handleDelete(receipt)}>
-                  {t('receipts:deleteBtn')}
-                </button>
+                <div className="receipt-card-actions">
+                  <button
+                    className="stock-icon-btn"
+                    onClick={() => handleAddReceiptToStock(receipt)}
+                    disabled={processingReceipt}
+                  >
+                    {t('receipts:addToStockBtn')}
+                  </button>
+                  <button className="stock-icon-btn stock-delete-btn" onClick={() => handleDelete(receipt)}>
+                    {t('receipts:deleteBtn')}
+                  </button>
+                </div>
               )}
             </section>
           ))}
