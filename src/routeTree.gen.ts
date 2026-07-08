@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
 import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
@@ -30,6 +31,11 @@ const ReceiptsRoute = ReceiptsRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSendInviteEmailRoute = ApiSendInviteEmailRouteImport.update({
+  id: '/api/send-invite-email',
+  path: '/api/send-invite-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiScanReceiptUrlRoute = ApiScanReceiptUrlRouteImport.update({
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/api/client-log': typeof ApiClientLogRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
+  '/api/send-invite-email': typeof ApiSendInviteEmailRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/api/client-log': typeof ApiClientLogRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
+  '/api/send-invite-email': typeof ApiSendInviteEmailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/api/client-log': typeof ApiClientLogRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
+  '/api/send-invite-email': typeof ApiSendInviteEmailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/api/client-log'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
+    | '/api/send-invite-email'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/api/client-log'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
+    | '/api/send-invite-email'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/client-log'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
+    | '/api/send-invite-email'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   ApiClientLogRoute: typeof ApiClientLogRoute
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
+  ApiSendInviteEmailRoute: typeof ApiSendInviteEmailRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/send-invite-email': {
+      id: '/api/send-invite-email'
+      path: '/api/send-invite-email'
+      fullPath: '/api/send-invite-email'
+      preLoaderRoute: typeof ApiSendInviteEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/scan-receipt-url': {
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiClientLogRoute: ApiClientLogRoute,
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
+  ApiSendInviteEmailRoute: ApiSendInviteEmailRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

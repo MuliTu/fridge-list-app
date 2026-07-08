@@ -5,6 +5,7 @@
   "emailPlaceholder": "כתובת Gmail להוספה",
   "invalidEmail": "כתובת אימייל לא תקינה",
   "addFailed": "הוספה נכשלה",
+  "emailNotSent": "ההרשאה נוספה, אך לא הצלחנו לשלוח מייל הזמנה",
   "removeAdmin": "הסרת הרשאה",
   "addAdmin": "הוספת הרשאה"
 }
