@@ -3,7 +3,7 @@ name: "add-app-module"
 description: "Add a new route, tab, or feature module to the fridge-list-app TanStack Start frontend, following this project's existing structure, auth, and design-system conventions. Use when building a new screen or significant feature in the React app itself (not an n8n workflow change)."
 ---
 
-fridge-list-app's frontend is **TanStack Start** (React + TanStack Router, file-based routing, Vite/Nitro), TypeScript throughout (`strict: false`, `strictNullChecks: true`). Follow the existing structure rather than introducing a new pattern.
+fridge-list-app's frontend is **TanStack Start** (React + TanStack Router, file-based routing, Vite-native SSR — this version does **not** use Nitro, see `.claude/skills/vercel-deployment` if that assumption resurfaces anywhere), TypeScript throughout (`strict: false`, `strictNullChecks: true`). Follow the existing structure rather than introducing a new pattern.
 
 ## Folder conventions
 
@@ -19,16 +19,19 @@ Viewing is always open (no sign-in required) — realtime `onValue` subscription
 
 ## Design system
 
-Use shadcn/ui primitives from `src/components/ui/` (`Button`, `Dialog`, `Input`, `Textarea`, `Label`, `Select`) for standard form controls and modals — don't hand-roll new `.modal-backdrop`/native `<input>` markup, that pattern was deliberately migrated away from. Bespoke app-chrome shapes (FAB, pills, tab links) are the one exception left as custom-styled elements; match that precedent only for genuinely bespoke shapes, not for ordinary buttons/inputs.
-
-Tailwind v4 CSS-first config lives in `src/App.css`'s `@theme inline` block, mapped onto this app's existing chalkboard palette variables (`--board`, `--board-edge`, `--chalk`, `--chalk-dim`) — don't introduce shadcn's default look, keep new components on the existing palette.
+See `.claude/skills/shadcn-design-system` for the full picture (available primitives,
+the bespoke-chrome-vs-shadcn line, the `useDialogService()` pattern) — don't hand-roll
+new `.modal-backdrop`/native `<input>` markup or a one-off `window.confirm`, both
+were deliberately migrated away from.
 
 ## Required for any new module
 
-1. **i18n** — see the `add-bilingual-string` skill; every new string needs `he` + `en` entries.
+1. **i18n** — see `.claude/skills/add-bilingual-string`; every new string needs `he` + `en` entries.
 2. **Realtime data, not one-shot fetch** — if the module shows live household data, subscribe via `onValue`, matching how `/groceries`, `/stock`, `/receipts` already work; don't add a server loader for this kind of data (SSR here only renders the static shell).
 3. **Graceful degradation** — if an automated step (AI extraction, image upload, network call) fails, fall back to a manual/default path rather than blocking the user or losing their input. This is a consistent, deliberate pattern across the whole app.
-4. **Versioning** — once the module works, use the `release-bump` skill (package.json version + CHANGELOG.md + TODO.md).
+4. **Tests** — see `.claude/skills/senior-qa-jest` (unit/integration) and `.claude/skills/playwright-e2e` (e2e) for what's actually worth testing and how to mock this app's dependencies.
+5. **Versioning** — once the module works, use `.claude/skills/release-bump` (package.json version + CHANGELOG.md + TODO.md).
+6. **Judgment calls** — `.claude/skills/senior-frontend` for component/state-design questions, `.claude/skills/senior-backend` if the module touches a server route or n8n.
 
 ## Verify before calling it done
 

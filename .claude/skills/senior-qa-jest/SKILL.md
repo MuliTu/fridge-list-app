@@ -3,16 +3,17 @@ name: "senior-qa-jest"
 description: "Apply senior QA engineering judgment to fridge-list-app using Jest — what's actually worth testing in this codebase, how to mock Firebase/react-i18next/TanStack Router without ever touching the real project, and how to structure test suites. Use whenever writing, reviewing, or planning tests for this app, setting up Jest for the first time, or the user mentions unit tests, test coverage, mocking Firebase, or Jest specifically."
 ---
 
-fridge-list-app has no test suite yet — `TODO.md`'s "Unreleased" section names Vitest + Playwright + Firebase Emulator Suite as the eventual plan, but this skill targets **Jest specifically** per explicit instruction. Jest and Vitest share a near-identical `describe`/`it`/`expect`/mock API, so everything here about *what* to test and *how* to mock is portable if the project ever consolidates on Vitest — only the config/runner specifics below are Jest-only.
+fridge-list-app's Jest infra is already set up (`jest.config.cjs`, `tsconfig.jest.json`, `src/test/`) — this skill covers *what* to test and *how* to mock, matching what's already there. It targets **Jest specifically** per explicit instruction, even though `TODO.md`'s history shows Vitest was the originally-planned tool — Jest and Vitest share a near-identical `describe`/`it`/`expect`/mock API, so everything here about *what*/*how* is portable if that ever changes; only the config/runner specifics below are Jest-only. See `.claude/skills/playwright-e2e` for e2e tests — a different tool, different failure modes, don't conflate the two.
 
-## First: there is no test infra yet — set it up before writing tests
+## Gotchas specific to this repo (already solved, know them before debugging a new test failure)
 
-If `package.json` has no `jest`/`ts-jest`/`@testing-library/react` in `devDependencies`, that has to be added first, not assumed. This project is ESM (`"type": "module"`), TypeScript with `moduleResolution: "bundler"`, and Vite-bundled — that combination has two concrete Jest gotchas specific to *this* repo, not generic Jest setup boilerplate:
+This project is ESM (`"type": "module"`), TypeScript with `moduleResolution: "bundler"`, and Vite-bundled — real, already-hit issues, not generic Jest setup boilerplate:
 
-1. **`ChangelogModal.tsx` imports `../../CHANGELOG.md?raw`** — a Vite-only import suffix, declared for TypeScript via a `declare module '*.md?raw'` block in `src/vite-env.d.ts`. Jest has no idea what to do with the `?raw` query string; it needs a `moduleNameMapper` entry that strips the suffix and resolves to the real file (or mocks it to a fixed string) — without this, any test that imports `Layout.tsx` (which imports `ChangelogModal`) fails to even load.
-2. **CSS import** (`App.css`, imported from `__root.tsx`) needs a `moduleNameMapper` stub (e.g. `identity-obj-proxy` or a manual mock returning `{}`) — components rendered in tests generally shouldn't drag their whole CSS import chain in, but if a test imports something that transitively imports `App.css`, an unhandled `.css` import will throw.
+1. **`ChangelogModal.tsx` imports `../../CHANGELOG.md?raw`** — a Vite-only import suffix. `jest.config.cjs`'s `moduleNameMapper` redirects it to a mock string (`src/test/mocks/rawFileMock.ts`) — without this, any test importing `Layout.tsx` (which imports `ChangelogModal`) fails to load.
+2. **CSS imports** (`App.css`) — mapped to an empty-object mock the same way.
+3. **`@tanstack/react-router` needs `TextEncoder`/`TextDecoder` at import time** (its SSR stream serializer) — jsdom's test environment doesn't provide these globally by default. `src/test/setupTests.ts` polyfills both from `node:util`. Without this, any test importing a route file (e.g. `receipts.tsx`) fails at import with `ReferenceError: TextEncoder is not defined`, before it even gets to rendering anything.
 
-Use `ts-jest` (this project already has `typescript` as a dependency) or `@swc/jest`, `testEnvironment: 'jsdom'`, and `@testing-library/react` + `@testing-library/jest-dom` for component tests. Don't reach for `create-react-app`-style presets or `babel-jest` unless `ts-jest` proves awkward with the project's `tsconfig.json` (`isolatedModules: true` is already set, which `ts-jest` needs to know about).
+The app itself uses ESM/bundler-mode TypeScript, which Jest can't run directly — `tsconfig.jest.json` is a separate CommonJS-output config (`extends` the real `tsconfig.json`, overrides `module`/`moduleResolution`/`rootDir`) used only by `ts-jest`, specifically so Jest tests don't need the app's own build pipeline.
 
 ## What's actually worth testing here
 

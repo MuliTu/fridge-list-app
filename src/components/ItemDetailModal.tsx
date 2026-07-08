@@ -86,7 +86,6 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={(e) => setImageFile(e.target.files?.[0] || null)}
               />
             </label>
