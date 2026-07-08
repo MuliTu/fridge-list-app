@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ADMIN_EMAILS, addAdminEmail, adminsRef, onValue, removeAdminEmail } from '../lib/firebase'
+import { ADMIN_EMAILS, addAdminEmail, adminsRef, onValue, removeAdminEmail, sendInviteEmail } from '../lib/firebase'
+import { useAuth } from '../hooks/AuthContext'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -11,9 +12,11 @@ interface AdminsModalProps {
 
 export default function AdminsModal({ onClose }: AdminsModalProps) {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [invitedEmails, setInvitedEmails] = useState<string[]>([])
   const [newEmail, setNewEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [emailWarning, setEmailWarning] = useState<string | null>(null)
 
   useEffect(() => onValue(adminsRef, (snapshot) => setInvitedEmails(Object.values(snapshot.val() || {}))), [])
 
@@ -24,9 +27,14 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
       return
     }
     setError(null)
+    setEmailWarning(null)
     try {
       await addAdminEmail(trimmed)
       setNewEmail('')
+      // Best-effort — the invite itself already succeeded above regardless of
+      // whether this email actually sends (e.g. SMTP not configured yet).
+      const result = await sendInviteEmail(trimmed, user?.email)
+      if (result.error) setEmailWarning(t('admins:emailNotSent'))
     } catch (err: any) {
       setError(`${t('admins:addFailed')}: ${err.message}`)
     }
@@ -82,6 +90,7 @@ export default function AdminsModal({ onClose }: AdminsModalProps) {
         </div>
 
         {error && <div className="text-sm text-destructive">{error}</div>}
+        {emailWarning && <div className="text-sm text-muted-foreground">{emailWarning}</div>}
 
         <DialogFooter>
           <Button onClick={onClose}>{t('common:actions.close')}</Button>
