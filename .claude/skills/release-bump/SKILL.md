@@ -1,6 +1,6 @@
 ---
 name: "release-bump"
-description: "Apply this project's versioning discipline after any notable code change: bump package.json's version, add a CHANGELOG.md entry, and update TODO.md. Use when a feature, fix, or other shippable change to fridge-list-app is complete and about to be marked done."
+description: "Apply this project's versioning discipline after any notable code change: bump package.json's version and add a one-sentence CHANGELOG.md entry. Use when a feature, fix, or other shippable change to fridge-list-app is complete and about to be marked done."
 ---
 
 This project (fridge-list-app) requires every notable change to be versioned. Follow this exactly — see `CLAUDE.md`'s "Working conventions" section for the source of these rules.
@@ -19,16 +19,11 @@ Edit the `version` field only — don't touch anything else unless the change it
 
 ## 3. Add a CHANGELOG.md entry
 
-Open `CHANGELOG.md` and add a new entry **at the top** (newest first). Match the existing entry format already in the file (check a couple of existing entries first). Double-check you didn't create a duplicate or out-of-order entry — this has happened before in this project.
+Open `CHANGELOG.md` and add a new entry **at the top** (newest first), under the standard `## [x.y.z] - DATE` heading with a `### Added`/`### Fixed`/etc. section. Keep each change to **one concise sentence** — a single bullet that says what shipped, not a paragraph of implementation detail or verification notes (the "why" lives in `CONVERSATION.md`, deeper reference in `CLAUDE.md`). One version can list several one-sentence bullets if it shipped several distinct things. Double-check you didn't create a duplicate or out-of-order entry — this has happened before in this project.
 
-## 4. Update TODO.md
+Do **not** maintain `TODO.md` as part of the release process (this step was dropped 2026-07-09 per user request) — leave the file untouched.
 
-`TODO.md` is the local-only, gitignored working checklist. It mirrors shipped versions as checked-off items, plus an "Unreleased — Next up" section for what's not started yet.
-
-- If the item you just shipped was listed under "Unreleased", check it off and move it under the new version heading.
-- If it wasn't listed, add it directly as a checked-off item under the new version.
-
-## 5. Verify before calling it done
+## 4. Verify before calling it done
 
 Run, and confirm both pass clean:
 
@@ -39,7 +34,7 @@ npm run build
 
 For anything observable in the browser, actually drive it (not just read the code) and check real DOM/console/network state.
 
-## 6. Do not commit
+## 5. Do not commit
 
 Never run `git commit` unless the user explicitly asks for it, even mid-way through a versioned feature.
 
@@ -49,6 +44,6 @@ Never run `git commit` unless the user explicitly asks for it, even mid-way thro
 
 This project's branch+PR workflow (see `CLAUDE.md`) means several branches can legitimately be open at once, so this isn't a one-off — treat it as expected, not a surprise each time:
 
-- Do the version bump (step 1-4 above) as one of the **last** things before a PR is ready, not right after starting the feature. The longer a branch sits open before its version bump lands, the more likely another PR bumps first.
+- Do the version bump (steps 1-3 above) as one of the **last** things before a PR is ready, not right after starting the feature. The longer a branch sits open before its version bump lands, the more likely another PR bumps first.
 - **Immediately before opening the PR** (and again immediately before merging, if the PR sat open for a while), re-run `git fetch origin && git show origin/main:package.json` to get the true current version — don't trust a version number decided earlier in the session if any time has passed.
-- If a conflict still happens anyway (another PR merged in the gap between your check and your merge — always possible, not just theoretical), resolve it by keeping the already-merged entry as-is and renumbering your own bump to land *after* it — never renumber or edit an entry that's already on `main`, since that rewrites shipped history. Re-run the verification in step 5 after resolving, since the version string itself changed.
+- If a conflict still happens anyway (another PR merged in the gap between your check and your merge — always possible, not just theoretical), resolve it by keeping the already-merged entry as-is and renumbering your own bump to land *after* it — never renumber or edit an entry that's already on `main`, since that rewrites shipped history. Re-run the verification in step 4 after resolving, since the version string itself changed.

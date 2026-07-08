@@ -6,6 +6,7 @@ interface GroceriesFeedValue {
   entries: GroceryItem[]
   status: string
   toast: string | null
+  isLoading: boolean
 }
 
 const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
@@ -17,6 +18,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<GroceryItem[]>([])
   const [status, setStatus] = useState('מתחבר...')
   const [toast, setToast] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const knownKeys = useRef(new Set<string>())
   const firstLoad = useRef(true)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -47,6 +49,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
         }
 
         firstLoad.current = false
+        setIsLoading(false)
         setEntries(nextEntries)
         setStatus('עודכן לאחרונה: ' + new Date().toLocaleTimeString('he-IL'))
       },
@@ -61,7 +64,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  return <GroceriesFeedContext.Provider value={{ entries, status, toast }}>{children}</GroceriesFeedContext.Provider>
+  return <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>{children}</GroceriesFeedContext.Provider>
 }
 
 export function useGroceriesFeed() {

@@ -17,6 +17,7 @@ import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useAuth } from '../hooks/AuthContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import StockItemModal from '../components/StockItemModal'
+import ListSkeleton from '../components/ListSkeleton'
 import type { StockItem } from '../types'
 
 export const Route = createFileRoute('/stock')({
@@ -28,6 +29,7 @@ function StockPage() {
   const { user, canEdit } = useAuth()
   const { confirm, alert } = useDialogService()
   const [entries, setEntries] = useState<StockItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [editingItem, setEditingItem] = useState<StockItem | null>(null)
   const { isCollapsed, toggle } = useCollapsedSections()
@@ -38,6 +40,7 @@ function StockPage() {
       onValue(stockRef, (snapshot) => {
         const data = snapshot.val() || {}
         setEntries(Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry })))
+        setIsLoading(false)
       }),
     []
   )
@@ -90,7 +93,9 @@ function StockPage() {
 
   return (
     <div className="stock-view">
-      {isEmpty ? (
+      {isLoading && isEmpty ? (
+        <ListSkeleton variant="grid" sections={3} rows={3} />
+      ) : isEmpty ? (
         <div className="all-empty">{canEdit ? t('stock:emptyAddFirst') : t('stock:emptyViewOnly')}</div>
       ) : (
         <div className="board-grid">

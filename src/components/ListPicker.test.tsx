@@ -16,7 +16,8 @@ const baseProps = {
   onSelectList: jest.fn(),
   onCreateList: jest.fn(),
   onDeleteList: jest.fn(),
-  onShareMissing: jest.fn()
+  onShareMissing: jest.fn(),
+  onBulkUpload: jest.fn()
 }
 
 describe('ListPicker', () => {

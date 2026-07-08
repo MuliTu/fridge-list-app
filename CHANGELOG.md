@@ -6,6 +6,12 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.18.0] - 2026-07-09
+
+### Added
+- Bulk item import on the shopping list: a "📥 ייבוא רשימה" pill opens `BulkUploadModal` to paste or upload a `.csv`/`.txt` list (one item per line, optional `name,category`), auto-categorizes uncategorized items via a batched `categorizeItem()` call with per-item "אחר" fallback, and requires a review stage before adding each row to the active list.
+- Loading skeleton (`ListSkeleton`) on first load across all three tabs, driven by an `isLoading` flag, so the "empty list" message no longer flashes before the first Firebase snapshot arrives.
+
 ## [2.17.0] - 2026-07-08
 
 ### Added
@@ -30,6 +36,7 @@ Full design/decision history (why, not just what) lives in
   Nodemailer was the chosen approach) and set as env vars locally (`.env.local`) and
   in Vercel's project settings — a manual step outside this codebase, same category
   as the Firebase Console rule changes elsewhere in this project.
+
 ## [2.16.3] - 2026-07-08
 
 ### Fixed
