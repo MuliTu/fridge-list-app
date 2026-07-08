@@ -32,17 +32,31 @@ fridge-list-app talks directly to Firebase from the browser (`src/lib/firebase.t
 }
 ```
 
-**`/stock` and `/admins` rules are now applied** (confirmed directly this session —
-real stock item add/delete through the live UI succeeded, no permission errors) —
-the JSON block above is stale, showing only the original two paths; treat `/stock`,
-`/receipts`, and (implicitly, since editing works end-to-end) `/admins` as also
-open for read/write in practice, but re-verify via a direct REST read/write rather
-than trusting this note if it matters for a specific change — nobody has pulled the
-actual live rules JSON to confirm the exact current state, only inferred it from
-successful app behavior. `/admins` controls who can edit everything else, so it
-*should* eventually get a tighter rule than the others (recommended:
-`"admins": { ".read": true, ".write": "auth != null" }` instead of fully open) —
-unclear whether that tightening has happened; don't assume either way.
+**`/stock` and `/receipts` rules are applied** (confirmed directly — real stock/receipt
+reads and writes through the live UI succeed, no permission errors).
+
+**`/admins` has NO rule applied at all — confirmed empirically via a direct
+unauthenticated `GET .../admins.json`, which returns `{"error":"Permission denied"}`**
+while the same request against `/groceries`, `/stock`, and `/categories` returns real
+data (or `null` for empty, never a permission error). This means `/admins` is still
+inheriting the root `.read: false, .write: false` deny-all default — not even a signed-in
+admin can read or write it, which is the root cause of the "permission denied when
+inviting" bug (reported 2026-07-08). The earlier note in this file claiming `/admins`
+"is now applied" was wrong — it was inferred from "editing works end-to-end" elsewhere
+in the app, not verified for this specific path. **You cannot fix this from the
+codebase** (no admin/service-account credentials) — hand the user this exact rule to
+paste into Console → Realtime Database → Rules, then re-verify with the same
+unauthenticated `GET .../admins.json` check (should return real data or `null`, never
+a permission error, once applied):
+
+```json
+"admins": { ".read": true, ".write": "auth != null" }
+```
+
+`auth != null` (not fully open) is deliberate here, unlike the other paths — `/admins`
+controls who can edit everything else, so requiring *some* signed-in Google account
+(even though it doesn't fully close the privilege-escalation gap — any Google account
+holder could still add themselves) is strictly better than wide-open write.
 
 **You cannot apply Console-level rule changes from this codebase** — no admin/service-account credentials, no Firebase CLI. Hand the user the exact rule snippet and ask them to apply it, then verify via a direct REST query once they confirm.
 
