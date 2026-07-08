@@ -6,6 +6,19 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.15.2] - 2026-07-08
+
+### Added
+- `.github/workflows/auto-update-pr-branches.yml`: whenever `main` changes, merges it
+  into every open PR branch automatically (the REST API's `update-branch` endpoint —
+  a real merge commit, never a force-push; simply skips a PR if the merge would
+  conflict, left for manual resolution). Exists because this repo has no branch
+  protection available (private repo, free GitHub plan), so nothing else keeps PR
+  branches current — confirmed directly this session: PR #2 and #4's post-deploy e2e
+  checks stayed stuck on an already-fixed bug simply because their branches hadn't
+  picked up the fix from PR #3 yet, and updating them required a manual `git merge
+  origin/main` + push on each.
+
 ## [2.15.1] - 2026-07-08
 
 ### Fixed
