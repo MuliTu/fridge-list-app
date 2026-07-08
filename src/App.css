@@ -646,6 +646,22 @@ h1 {
   min-width: 0;
 }
 
+.bulk-review-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.bulk-review-name {
+  flex: 2;
+  min-width: 0;
+}
+
+.bulk-review-category {
+  flex: 1;
+  min-width: 0;
+}
+
 .reconcile-list {
   display: flex;
   flex-direction: column;

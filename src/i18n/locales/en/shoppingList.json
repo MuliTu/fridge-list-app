@@ -3,7 +3,24 @@
     "permanentList": "Permanent list",
     "newList": "+ New list",
     "deleteList": "🗑 Delete list",
-    "shareMissing": "📤 Share what's missing"
+    "shareMissing": "📤 Share what's missing",
+    "bulkUpload": "📥 Import list"
+  },
+  "bulkUpload": {
+    "title": "Import items",
+    "instructions": "Paste a list — one item per line — or upload a CSV file. You can add a category after a comma (e.g. milk, Dairy). Items without a category are categorized automatically.",
+    "placeholder": "milk\nbread\ntomatoes, Vegetables & fruit",
+    "chooseFile": "📄 Choose file",
+    "parse": "Continue",
+    "categorizing": "Categorizing items...",
+    "empty": "No items found",
+    "namePlaceholder": "Item name",
+    "removeRow": "Remove row",
+    "addRow": "+ Add row",
+    "back": "Back",
+    "saveCount": "Add ({{count}})",
+    "addFailed": "Adding failed",
+    "fileReadFailed": "Failed to read the file: {{message}}"
   },
   "newListPrompt": "Name of the new list (e.g. party)",
   "deleteListConfirm": "Delete the list \"{{listName}}\" and all {{count}} items in it? This cannot be undone.",
