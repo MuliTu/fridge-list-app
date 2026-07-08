@@ -45,6 +45,24 @@ merge to `main` (and trigger a production deploy) with zero human review. This i
 intentional, not a bug to route around. Open the PR, then stop and ask the user to
 review/merge it, or to explicitly say they're waiving review for that one PR.
 
+**Native GitHub auto-merge doesn't work here either — confirmed empirically, don't
+retry it.** `PATCH repos/MuliTu/fridge-list-app` with `allow_auto_merge=true` silently
+no-ops (response still shows `allow_auto_merge: false`), and GitHub's own docs explain
+why: the auto-merge button only does anything when a PR *can't* merge immediately —
+it needs branch protection (required reviews or required status checks) to give it
+something to wait for. This repo can't have branch protection at all (same private +
+free-plan gate as above), so there's nothing for auto-merge to hook into. A CI-bot
+workaround (a workflow that runs `gh pr merge --auto` once the Test check succeeds) was
+considered and explicitly declined by the user (2026-07-08) — it would merge PRs with
+zero human review, reversing the policy above. **The user merges PRs manually** —
+confirmed the GitHub mobile app works fine for this (same merge button/strategy picker
+as desktop), so "on my phone" is a real option, not just desktop `gh`/web UI.
+
+If the version/CHANGELOG-conflict problem this manual flow used to hit comes up again,
+see `.claude/skills/release-bump`'s "Avoiding version conflicts between parallel PRs"
+section — that's the actual fix for PRs going stale/conflicting while waiting on manual
+review, not auto-merge.
+
 ## Branch/PR workflow
 
 Per the user's explicit instruction (2026-07-07 onward): feature branch + PR, not
