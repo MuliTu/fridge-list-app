@@ -525,6 +525,11 @@ h1 {
   margin-inline-start: auto;
 }
 
+.receipt-card-actions {
+  display: flex;
+  align-items: center;
+}
+
 .fab-add-btn {
   position: absolute;
   bottom: 16px;
