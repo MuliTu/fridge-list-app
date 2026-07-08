@@ -5,6 +5,7 @@
   "emailPlaceholder": "Gmail address to add",
   "invalidEmail": "Invalid email address",
   "addFailed": "Add failed",
+  "emailNotSent": "Permission added, but the invite email couldn't be sent",
   "removeAdmin": "Remove permission",
   "addAdmin": "Add permission"
 }

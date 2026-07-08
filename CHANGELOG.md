@@ -6,6 +6,30 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.17.0] - 2026-07-08
+
+### Added
+- Invited editors now get a real email with a real, stable link — new
+  `/api/send-invite-email` server route (Nodemailer over SMTP, credentials read from
+  `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM` env vars) fired from
+  `AdminsModal` right after `addAdminEmail` succeeds. Points at the stable custom
+  domain (`https://fridge-list-app.vercel.app`), same one `e2e-deploy-check.yml`
+  already hardcodes, instead of a per-deployment or localhost URL.
+- Deliberately fails soft, never blocks the invite itself: the Firebase write
+  (the actual permission grant) has already succeeded before this route is even
+  called, so a missing/misconfigured SMTP env var (expected until it's provisioned —
+  a real secret this codebase can't generate on its own) returns a clear
+  `smtp_not_configured` response instead of throwing, and the modal shows a soft
+  "permission added, but the email couldn't be sent" notice rather than failing the
+  whole action.
+- Verified: `nodemailer` bundles server-side only (confirmed absent from
+  `dist/client`, present in `dist/server`) — never shipped to the browser. Direct
+  API check against the built server route (no SMTP configured yet) returned the
+  expected 503 + `smtp_not_configured`, logged correctly server-side.
+- **Not yet done**: SMTP credentials still need to be provisioned (Gmail SMTP via
+  Nodemailer was the chosen approach) and set as env vars locally (`.env.local`) and
+  in Vercel's project settings — a manual step outside this codebase, same category
+  as the Firebase Console rule changes elsewhere in this project.
 ## [2.16.3] - 2026-07-08
 
 ### Fixed
