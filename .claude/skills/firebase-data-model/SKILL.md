@@ -32,7 +32,17 @@ fridge-list-app talks directly to Firebase from the browser (`src/lib/firebase.t
 }
 ```
 
-`/stock` and `/receipts` need the same open rule added (not yet applied as of the last CLAUDE.md update — check the live Console state before assuming). `/admins` needs a **tighter** rule than the others since it controls who can edit everything: recommended `"admins": { ".read": true, ".write": "auth != null" }`, not fully open.
+**`/stock` and `/admins` rules are now applied** (confirmed directly this session —
+real stock item add/delete through the live UI succeeded, no permission errors) —
+the JSON block above is stale, showing only the original two paths; treat `/stock`,
+`/receipts`, and (implicitly, since editing works end-to-end) `/admins` as also
+open for read/write in practice, but re-verify via a direct REST read/write rather
+than trusting this note if it matters for a specific change — nobody has pulled the
+actual live rules JSON to confirm the exact current state, only inferred it from
+successful app behavior. `/admins` controls who can edit everything else, so it
+*should* eventually get a tighter rule than the others (recommended:
+`"admins": { ".read": true, ".write": "auth != null" }` instead of fully open) —
+unclear whether that tightening has happened; don't assume either way.
 
 **You cannot apply Console-level rule changes from this codebase** — no admin/service-account credentials, no Firebase CLI. Hand the user the exact rule snippet and ask them to apply it, then verify via a direct REST query once they confirm.
 
