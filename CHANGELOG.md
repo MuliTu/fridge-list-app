@@ -6,6 +6,16 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.15.3] - 2026-07-08
+
+### Added
+- App version now shown in the bottom-center status line (`Layout.tsx`), appended
+  after the existing "last updated" text (e.g. "עודכן לאחרונה: 10:04 · v2.15.3") —
+  sourced directly from `package.json` via a Vite-resolved import, no new build step
+  or env var. Purpose: makes it possible to tell at a glance which build a given
+  tablet/phone is actually running, for support/debugging (e.g. confirming a device
+  picked up a deploy). Visible on every tab since `Layout` wraps all routes.
+
 ## [2.15.2] - 2026-07-08
 
 ### Added
