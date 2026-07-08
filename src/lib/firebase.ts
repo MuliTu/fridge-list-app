@@ -5,6 +5,7 @@ import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
 import { logger } from './logger'
 import { normalizeName } from './normalizeName'
+import { StockUnit } from './units'
 import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
 
 // Logs client-side actions (grocery/stock/receipt/category/admin writes) to the
@@ -249,6 +250,7 @@ export const addPurchasedGroceryItem = (item: { name: string; category: string }
 export const applyReceiptReconciliation = (
   ops: {
     stockAdjustments: { key: string; quantity: number }[]
+    newStockItems: { name: string; category: string; quantity: number }[]
     groceryBoughtKeys: string[]
     newGroceryItems: { name: string; category: string }[]
   },
@@ -259,15 +261,33 @@ export const applyReceiptReconciliation = (
   const writes: Promise<unknown>[] = []
 
   logClientAction(
-    `[receipts] applyReceiptReconciliation: stockAdjustments=${ops.stockAdjustments.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
+    `[receipts] applyReceiptReconciliation: stockAdjustments=${ops.stockAdjustments.length} newStockItems=${ops.newStockItems.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
   )
 
-  if (ops.stockAdjustments.length > 0) {
+  if (ops.stockAdjustments.length > 0 || ops.newStockItems.length > 0) {
     const stockUpdates: Record<string, unknown> = {}
     ops.stockAdjustments.forEach(({ key, quantity }) => {
       stockUpdates[`${key}/quantity`] = Math.max(0, quantity)
       stockUpdates[`${key}/updated_at`] = now
       stockUpdates[`${key}/updated_by`] = email
+    })
+    // No existing stock item matched this receipt line — create a fresh one instead
+    // of silently dropping it, which is what used to happen (a product never
+    // tracked in stock before could never end up in stock via a receipt scan, no
+    // matter what the user selected, since there was no code path that created one).
+    // Unit/low_threshold aren't knowable from a receipt line item, so they fall back
+    // to the same defaults StockItemModal itself uses for a brand-new item.
+    ops.newStockItems.forEach((item) => {
+      const key = push(stockRef).key as string
+      stockUpdates[key] = {
+        name: item.name,
+        category: item.category,
+        quantity: Math.max(0, item.quantity),
+        unit: StockUnit.Piece,
+        low_threshold: 1,
+        updated_at: now,
+        updated_by: email
+      }
     })
     writes.push(update(stockRef, stockUpdates))
   }

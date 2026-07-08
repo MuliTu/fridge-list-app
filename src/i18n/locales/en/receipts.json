@@ -6,6 +6,7 @@
   "deleteConfirm": "Delete the receipt from {{date}}?",
   "deleteConfirmUnknownDate": "unknown date",
   "loading": "⏳ Scanning receipt...",
+  "processing": "⏳ Processing receipt...",
   "queueProgress": "⏳ Loading receipt {{current}} of {{total}}...",
   "queueLabel": "Receipt {{current}} of {{total}} loaded",
   "urlPrompt": "Paste a link to a digital receipt",
@@ -38,11 +39,15 @@
   },
   "reconcile": {
     "title": "Update stock & shopping list",
+    "foundCount": "Found {{count}} products on this receipt",
     "description": "Every item from this receipt will be synced to stock and/or the shopping list. Uncheck anything you don't want updated:",
     "updateStock": "Update stock (+{{quantity}} {{unit}})",
+    "addNewStock": "Add to stock as a new item (quantity: {{quantity}})",
     "markPurchased": "Mark as purchased on the shopping list",
     "addAsPurchased": "Add to shopping list as purchased",
     "skipAll": "Skip",
-    "apply": "Update"
+    "apply": "Update",
+    "applying": "Updating...",
+    "applyFailed": "Update failed: {{message}} — try again"
   }
 }
