@@ -8,13 +8,25 @@ name: E2E (post-deploy)
 # deployed app (real Firebase, real routing, real build output) instead of a
 # freshly-checked-out dev server — a meaningfully different, complementary check to
 # the unit/integration suite in test.yml.
+#
+# Only runs for Production deployments, against the fixed custom domain
+# (fridge-list-app.vercel.app), not the deployment_status payload's own
+# environment_url/target_url. Confirmed the hard way (every run failed identically
+# until this was root-caused): that per-deployment URL is behind Vercel's Deployment
+# Protection auth wall for BOTH preview and production targets — a plain curl against
+# it 302-redirects to Vercel's login page, while the stable production domain is
+# genuinely public (confirmed separately, matching this app's own "viewing never
+# requires auth" design in CLAUDE.md). Preview deployments have no equivalent public
+# URL, so they're skipped here rather than producing another guaranteed-red check —
+# giving them real e2e coverage would need Vercel's "Protection Bypass for
+# Automation" secret wired in as a GitHub Actions secret, not set up yet.
 on:
   deployment_status:
 
 jobs:
   e2e:
-    if: github.event.deployment_status.state == 'success'
-    name: Playwright e2e against deployed URL
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
+    name: Playwright e2e against production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +41,7 @@ jobs:
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run e2e tests against the deployed URL
+      - name: Run e2e tests against production
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          E2E_BASE_URL: https://fridge-list-app.vercel.app
         run: npm run test:e2e
