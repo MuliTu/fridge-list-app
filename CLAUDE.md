@@ -868,3 +868,23 @@ testing is codified in `.claude/skills/senior-frontend`, `.claude/skills/senior-
 and `.claude/skills/senior-qa-jest` respectively — consult these for *judgment calls*
 (is this the right abstraction, is this error handling complete, is this worth testing),
 as distinct from the other skills above which are more reference/procedure-oriented.
+
+**Git workflow: branch + PR, not direct pushes to `main`** (as of 2026-07-07). Once a
+change is ready to commit, create a feature branch (`git checkout -b <descriptive-name>`),
+commit there, push the branch, and open a pull request (`gh pr create`) instead of
+committing straight to `main`. This repo is connected to Vercel's native GitHub
+integration (confirmed — the git-branch-aliased domain `fridge-list-app-git-main-*
+.vercel.app` only exists for git-linked projects), so a PR branch also gets its own
+preview deployment automatically, which is a real benefit of this flow, not just
+process for its own sake. Still only commit when the user has actually asked for
+it — this changes *where* the commit goes (a branch, then a PR), not whether to commit
+unprompted; see the general git-safety rules for that. Only exception worth checking
+with the user about case-by-case: a genuinely urgent production-down fix, where going
+straight to `main` might be the right call — don't assume that exception applies
+without asking.
+
+**Don't merge your own PRs.** Confirmed directly: Claude Code's own auto-mode
+classifier blocks `gh pr merge` on a PR Claude authored, specifically because
+merging without any human review defeats the point of this workflow. Open the PR and
+stop there — ask the user to review and merge (or explicitly say they want to waive
+review for that specific PR).
