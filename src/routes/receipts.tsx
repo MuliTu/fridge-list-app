@@ -341,7 +341,6 @@ function ReceiptsPage() {
             <input
               type="file"
               accept="image/*,application/pdf"
-              capture="environment"
               multiple
               disabled={scanning}
               onChange={(e) => handleFilesSelected(e.target.files)}
