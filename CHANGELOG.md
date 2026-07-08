@@ -6,6 +6,24 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.15.1] - 2026-07-08
+
+### Fixed
+- `.github/workflows/e2e-deploy-check.yml` had failed on every single run since it was
+  added (4/4) — root-caused by checking `gh run list`/`gh run view --log-failed` after
+  the user asked about outstanding work, not something that had been verified before.
+  The `deployment_status` webhook's `environment_url`/`target_url` fields point at the
+  unique per-deployment URL (e.g. `fridge-list-xxxxx-muliteam.vercel.app`), which is
+  behind Vercel's Deployment Protection auth wall for **both** preview and production
+  targets — confirmed with a plain `curl` (no Vercel-authenticated tooling): a 302
+  redirect to Vercel's own login page, matching the `geist`-font HTML Playwright's
+  error output was actually seeing instead of this app. The stable custom domain
+  (`fridge-list-app.vercel.app`) is genuinely public, separately confirmed the same
+  way. Fixed by hardcoding that URL for the e2e run and scoping the job to Production
+  deployments only (`github.event.deployment.environment == 'Production'`) — preview
+  deployments have no equivalent public URL without additionally wiring up Vercel's
+  "Protection Bypass for Automation" secret, not done here.
+
 ## [2.15.0] - 2026-07-07
 
 ### Added
