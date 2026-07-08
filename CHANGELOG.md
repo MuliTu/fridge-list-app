@@ -6,6 +6,46 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.16.0] - 2026-07-08
+
+### Fixed
+- **Reported bug, confirmed live against production data**: after scanning a receipt
+  and confirming the reconcile step, items appeared in neither the shopping list nor
+  stock. Reproduced directly — a real 12-item receipt already saved in production had
+  left both the shopping list and stock completely empty. Root cause:
+  `handleReconcileConfirm` called `applyReceiptReconciliation(...)` without `await`
+  and with no `.catch()` at all — if the Firebase write failed for any reason
+  (permission error, network blip), the reconcile modal still closed and the upload
+  queue still advanced exactly as if it had succeeded, with zero indication anything
+  went wrong. Fixed: the write is now awaited, and a failure shows a real error
+  (`receipts:reconcile.applyFailed`) via `useDialogService`'s themed alert instead of
+  failing silently.
+- **Confirmed gap, also part of "nor in stock"**: a receipt line item with no
+  existing stock match could never end up in stock, no matter what was selected in
+  the reconcile modal — `ReceiptReconcileModal` only ever showed a stock checkbox
+  when a match already existed, and `applyReceiptReconciliation` had no code path to
+  create a new stock entry. Fixed: the stock checkbox now always shows (labeled
+  differently — "add as new item" vs. "update stock" — and defaulting **unchecked**
+  for new items, since creating a new stock entry is a bigger commitment than bumping
+  an existing one), and confirming creates a real new `/stock` entry (defaulting to
+  `StockUnit.Piece`/`low_threshold: 1`, matching `StockItemModal`'s own defaults for
+  a brand-new item, since a receipt line item doesn't carry unit/threshold info).
+
+### Added
+- Loading indicator for the gap between clicking "save" on the receipt review screen
+  and the reconcile modal appearing (Firebase reads + a categorization call) — this
+  previously had no feedback at all, the UI just sat there.
+- `ReceiptReconcileModal` now shows "found N products on this receipt" and disables
+  its buttons with an "updating..." state while the (now-awaited) write is in flight,
+  instead of the button staying interactive during a write that used to be
+  fire-and-forget.
+- 6 new tests for `ReceiptReconcileModal` covering the new stock-checkbox defaults,
+  the found-count display, the saving state, and — importantly — that a rejected
+  `onConfirm` re-enables the form instead of leaving it stuck (caught and fixed a
+  real unhandled-rejection bug in the modal itself while writing this test: the
+  original `try { } finally { }` had no `catch`, so a rejection would propagate
+  past the finally block instead of being handled).
+
 ## [2.15.2] - 2026-07-08
 
 ### Added

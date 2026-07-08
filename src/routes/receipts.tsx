@@ -34,11 +34,15 @@ export const Route = createFileRoute('/receipts')({
 function ReceiptsPage() {
   const { t } = useTranslation(['receipts', 'common'])
   const { user, canEdit } = useAuth()
-  const { confirm, prompt } = useDialogService()
+  const { confirm, prompt, alert } = useDialogService()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [reviewData, setReviewData] = useState<ReceiptReviewData | null>(null)
+  // Distinct from `scanning` (OCR) — covers the gap between clicking "save" on the
+  // review screen and the reconcile modal appearing (Firebase reads + a
+  // categorization call), which previously had no loading feedback at all.
+  const [processingReceipt, setProcessingReceipt] = useState(false)
   const [reconcileMatches, setReconcileMatches] = useState<ReconcileMatch[] | null>(null)
   const [queue, setQueue] = useState<File[]>([])
   const [queueIndex, setQueueIndex] = useState(0)
@@ -173,53 +177,67 @@ function ReceiptsPage() {
     const { imageSkipped } = await saveReceipt(data, reviewData!.imageBlob, user)
     setReviewData(null)
     setScanError(imageSkipped ? t('receipts:scanErrors.imageTooLarge') : null)
+    setProcessingReceipt(true)
 
-    // One Firebase read each for the whole receipt, not one per item.
-    const [stockItems, groceryItems] = await Promise.all([getAllStockItems(), getAllGroceryItems()])
-    const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
-    const findGrocery = (name: string) =>
-      groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
+    try {
+      // One Firebase read each for the whole receipt, not one per item.
+      const [stockItems, groceryItems] = await Promise.all([getAllStockItems(), getAllGroceryItems()])
+      const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
+      const findGrocery = (name: string) =>
+        groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
 
-    // Receipt line items don't carry a category. A stock match already has an
-    // authoritative one; everything else goes through the same Gemini categorization
-    // the manual "add item" flow uses (GroceryItemModal) — but as a single batched
-    // call for every item that needs one, not one call per item.
-    const needsCategory = data.items.filter((item) => !findStock(item.name))
-    let categorizedPool: { item: string; category: string }[] = []
-    if (needsCategory.length > 0) {
-      try {
-        categorizedPool = await categorizeItem(needsCategory.map((i) => i.name).join(', '))
-      } catch {
-        categorizedPool = []
+      // Receipt line items don't carry a category. A stock match already has an
+      // authoritative one; everything else goes through the same Gemini categorization
+      // the manual "add item" flow uses (GroceryItemModal) — but as a single batched
+      // call for every item that needs one, not one call per item.
+      const needsCategory = data.items.filter((item) => !findStock(item.name))
+      let categorizedPool: { item: string; category: string }[] = []
+      if (needsCategory.length > 0) {
+        try {
+          categorizedPool = await categorizeItem(needsCategory.map((i) => i.name).join(', '))
+        } catch {
+          categorizedPool = []
+        }
       }
-    }
-    const takeCategory = (name: string) => {
-      const target = normalizeName(name)
-      const idx = categorizedPool.findIndex(
-        (c) => normalizeName(c.item).includes(target) || target.includes(normalizeName(c.item))
-      )
-      if (idx === -1) return null
-      return categorizedPool.splice(idx, 1)[0].category
-    }
+      const takeCategory = (name: string) => {
+        const target = normalizeName(name)
+        const idx = categorizedPool.findIndex(
+          (c) => normalizeName(c.item).includes(target) || target.includes(normalizeName(c.item))
+        )
+        if (idx === -1) return null
+        return categorizedPool.splice(idx, 1)[0].category
+      }
 
-    const matches: ReconcileMatch[] = data.items.map((item) => {
-      const stockMatch = findStock(item.name)
-      const groceryMatch = findGrocery(item.name)
-      const suggestedCategory = stockMatch ? stockMatch.category : takeCategory(item.name) || OTHER_CATEGORY_NAME
-      return { item, stockMatch, groceryMatch, suggestedCategory }
-    })
+      const matches: ReconcileMatch[] = data.items.map((item) => {
+        const stockMatch = findStock(item.name)
+        const groceryMatch = findGrocery(item.name)
+        const suggestedCategory = stockMatch ? stockMatch.category : takeCategory(item.name) || OTHER_CATEGORY_NAME
+        return { item, stockMatch, groceryMatch, suggestedCategory }
+      })
 
-    setReconcileMatches(matches)
+      setReconcileMatches(matches)
+    } finally {
+      setProcessingReceipt(false)
+    }
   }
 
-  const handleReconcileConfirm = (selections: { stock: boolean; grocery: boolean }[]) => {
+  const handleReconcileConfirm = async (selections: { stock: boolean; grocery: boolean }[]) => {
     const stockAdjustments: { key: string; quantity: number }[] = []
+    const newStockItems: { name: string; category: string; quantity: number }[] = []
     const groceryBoughtKeys: string[] = []
     const newGroceryItems: { name: string; category: string }[] = []
 
     ;(reconcileMatches || []).forEach((m, i) => {
-      if (selections[i]?.stock && m.stockMatch) {
-        stockAdjustments.push({ key: m.stockMatch.key, quantity: m.stockMatch.quantity + (m.item.quantity || 1) })
+      if (selections[i]?.stock) {
+        if (m.stockMatch) {
+          stockAdjustments.push({ key: m.stockMatch.key, quantity: m.stockMatch.quantity + (m.item.quantity || 1) })
+        } else {
+          // No existing stock item for this product — create a new one instead of
+          // silently dropping it, which is what used to happen here (a product
+          // never previously tracked in stock could never end up in stock via a
+          // receipt scan, no matter what was selected).
+          newStockItems.push({ name: m.item.name, category: m.suggestedCategory, quantity: m.item.quantity || 1 })
+        }
       }
       if (selections[i]?.grocery) {
         if (m.groceryMatch) {
@@ -230,7 +248,17 @@ function ReceiptsPage() {
       }
     })
 
-    applyReceiptReconciliation({ stockAdjustments, groceryBoughtKeys, newGroceryItems }, user)
+    // Previously fire-and-forget with no error handling at all — a failed write
+    // (permission error, network blip) closed the modal and advanced the queue
+    // exactly the same as success, with zero indication anything went wrong. That's
+    // the most likely explanation for "I approved the products but don't see them
+    // anywhere": the write silently failed and nothing told the user.
+    try {
+      await applyReceiptReconciliation({ stockAdjustments, newStockItems, groceryBoughtKeys, newGroceryItems }, user)
+    } catch (err: any) {
+      await alert(t('receipts:reconcile.applyFailed', { message: err.message }))
+      return
+    }
     setReconcileMatches(null)
     advanceQueue()
   }
@@ -356,6 +384,8 @@ function ReceiptsPage() {
             : t('receipts:loading')}
         </div>
       )}
+
+      {processingReceipt && <div className="toast">{t('receipts:processing')}</div>}
 
       {scanError && !reviewData && <div className="toast">{scanError}</div>}
 
