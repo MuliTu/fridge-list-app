@@ -7,7 +7,7 @@ This project (fridge-list-app) requires every notable change to be versioned. Fo
 
 ## 1. Decide the version bump
 
-Read the current version from `package.json`.
+Read the current version from **`origin/main`'s `package.json`** (`git fetch origin && git show origin/main:package.json`), not just the local working copy — with the branch+PR workflow, other PRs merge into `main` independently of whatever branch you're on, so the local copy can be stale the moment another PR lands. This matters most right before you open or merge a PR (see "Avoiding version conflicts between parallel PRs" below) — a quick local read is fine earlier in a session when you're not about to finalize anything yet.
 
 - **Patch** (`x.y.Z+1`) — bug fix, small tweak, no new user-facing capability.
 - **Minor** (`x.Y+1.0`) — new feature or module (e.g. a new module, a new field, a new UI capability).
@@ -42,3 +42,13 @@ For anything observable in the browser, actually drive it (not just read the cod
 ## 6. Do not commit
 
 Never run `git commit` unless the user explicitly asks for it, even mid-way through a versioned feature.
+
+## Avoiding version conflicts between parallel PRs
+
+`package.json`'s `version` field and the top of `CHANGELOG.md` are both single, specific lines — if two PR branches each bump them starting from the same base version, whichever merges second gets a real merge conflict on both files (this happened for real: PR #6 and PR #8 both branched from `2.15.2`, both bumped to their own next number, and PR #8 conflicted after PR #6 merged first).
+
+This project's branch+PR workflow (see `CLAUDE.md`) means several branches can legitimately be open at once, so this isn't a one-off — treat it as expected, not a surprise each time:
+
+- Do the version bump (step 1-4 above) as one of the **last** things before a PR is ready, not right after starting the feature. The longer a branch sits open before its version bump lands, the more likely another PR bumps first.
+- **Immediately before opening the PR** (and again immediately before merging, if the PR sat open for a while), re-run `git fetch origin && git show origin/main:package.json` to get the true current version — don't trust a version number decided earlier in the session if any time has passed.
+- If a conflict still happens anyway (another PR merged in the gap between your check and your merge — always possible, not just theoretical), resolve it by keeping the already-merged entry as-is and renumbering your own bump to land *after* it — never renumber or edit an entry that's already on `main`, since that rewrites shipped history. Re-run the verification in step 5 after resolving, since the version string itself changed.
