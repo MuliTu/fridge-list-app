@@ -3,6 +3,7 @@
   "fallbackTitle": "Receipt",
   "total": "Total: ₪{{amount}}",
   "deleteBtn": "🗑 Delete",
+  "addToStockBtn": "📦 Add to stock",
   "deleteConfirm": "Delete the receipt from {{date}}?",
   "deleteConfirmUnknownDate": "unknown date",
   "loading": "⏳ Scanning receipt...",

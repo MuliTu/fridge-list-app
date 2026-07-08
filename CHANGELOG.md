@@ -6,6 +6,21 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.16.2] - 2026-07-08
+
+### Added
+- "📦 Add to stock" button on every already-saved receipt card (`receipts.tsx`) —
+  previously, pushing a receipt's item quantities into stock only happened once,
+  automatically, right after a fresh scan (`ReceiptReconcileModal`); if that step was
+  skipped/closed, or the receipt was saved before this reconciliation feature existed,
+  there was no way to go back and apply its quantities to stock later. The matching/
+  categorization logic that used to live only inside `handleSaveReceipt` was extracted
+  into a shared `buildReconcileMatches()` helper so both the automatic post-save flow
+  and this new on-demand button use the exact same stock/grocery matching, reusing the
+  same `ReceiptReconcileModal` either way. Verified live: clicking the new button on a
+  real saved receipt (13 items) opened the reconcile modal with each item's correct
+  quantity from the receipt (e.g. × 2, × 6, × 4), matching what's shown on the card.
+
 ## [2.16.1] - 2026-07-08
 
 ### Added

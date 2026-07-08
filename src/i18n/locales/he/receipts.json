@@ -3,6 +3,7 @@
   "fallbackTitle": "קבלה",
   "total": "סה\"כ: ₪{{amount}}",
   "deleteBtn": "🗑 מחיקה",
+  "addToStockBtn": "📦 הוספה למלאי",
   "deleteConfirm": "למחוק את הקבלה מ-{{date}}?",
   "deleteConfirmUnknownDate": "תאריך לא ידוע",
   "loading": "⏳ סורק את הקבלה...",
