@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { version as appVersion } from '../../package.json'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
@@ -103,7 +104,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
       {children}
 
-      <div className="status">{status}</div>
+      <div className="status">
+        {status} · v{appVersion}
+      </div>
 
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
       {showAdmins && <AdminsModal onClose={() => setShowAdmins(false)} />}
