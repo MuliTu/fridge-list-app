@@ -30,6 +30,24 @@ Full design/decision history (why, not just what) lives in
   Nodemailer was the chosen approach) and set as env vars locally (`.env.local`) and
   in Vercel's project settings — a manual step outside this codebase, same category
   as the Firebase Console rule changes elsewhere in this project.
+## [2.16.3] - 2026-07-08
+
+### Fixed
+- **Reported bug: "some buttons don't work after a modal opened and closed."**
+  Root-caused directly (not just from code review): opening `CategoriesModal`,
+  `AdminsModal`, or `ChangelogModal` from the settings `DropdownMenu`'s
+  `onClick` synchronously raced the dropdown's own closing cleanup against the
+  dialog's opening lock on `document.body` — whichever cleanup ran last could
+  clobber the other, permanently leaving `<body style="pointer-events: none">`
+  after the dialog closed. Confirmed live: every button on the page stopped
+  responding to real clicks after closing a modal opened this specific way
+  (opening the same modals from a plain button, not a dropdown item, was fine).
+  Fixed by deferring each menu item's `setShow*(true)` by one tick
+  (`setTimeout(..., 0)`) so the dropdown fully unmounts before the dialog
+  mounts, avoiding the race entirely. Verified for all three affected modals:
+  `document.body`'s `style` attribute and computed `pointer-events` are back to
+  normal after close, and the settings menu itself re-opens correctly
+  afterward — not just a passing style check, an actual follow-up interaction.
 
 ## [2.16.2] - 2026-07-08
 

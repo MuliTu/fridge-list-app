@@ -35,6 +35,15 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
+  // Opening a Dialog directly from a DropdownMenuItem's onClick races the dropdown's
+  // own closing cleanup (which resets document.body's scroll/pointer-events lock)
+  // against the dialog's opening lock on the same element — whichever cleanup runs
+  // last can clobber the other, permanently leaving <body> with `pointer-events:
+  // none` after the dialog closes (confirmed directly: every button on the page
+  // stopped responding to real clicks after closing a modal opened this way).
+  // Deferring the state update by a tick lets the dropdown fully unmount first.
+  const openAfterMenuCloses = (setOpen: (value: boolean) => void) => setTimeout(() => setOpen(true), 0)
+
   return (
     <div className="frame">
       <header>
@@ -56,11 +65,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setShowCategories(true)}>
+                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowCategories)}>
                       {t('menu.manageCategories')}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowAdmins(true)}>{t('menu.shareEditing')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowChangelog(true)}>
+                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowAdmins)}>
+                      {t('menu.shareEditing')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowChangelog)}>
                       {t('menu.viewChangelog')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
