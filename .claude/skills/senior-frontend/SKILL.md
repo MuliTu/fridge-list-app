@@ -42,4 +42,4 @@ RTL matters concretely here, not abstractly: this app flips between Hebrew (`dir
 
 ## Design system boundary
 
-Re-derive this before adding any interactive element: shadcn/ui (`src/components/ui/`) for ordinary form controls, buttons, and modals; hand-styled `<button>`/native elements only for genuinely bespoke app-chrome (FABs, list pills, tab links, the stock +/- stepper, icon-only action buttons) — that split was deliberately drawn this way, see `.claude/skills/add-app-module`'s Design system section. The test: does this need OS-level native behavior (file/color pickers) or is it a one-off shape this app's visual identity depends on (FAB, pill)? If neither, it's an ordinary control and belongs in shadcn.
+shadcn/ui module export [`./shadcn-design-system`](./shadcn-design-system) is the boundary between this app's code and the design system. Don't reach into `node_modules/shadcn/ui` to import a component directly — if it's not exported from `./shadcn-design-system`, it isn't part of the design system, and you shouldn't be using it in this app. If you need a new component, add it to `./shadcn-design-system` first, then use that export in your route/component.
