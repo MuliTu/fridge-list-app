@@ -136,19 +136,43 @@ React app (fridge-list-app/) — live display, runs on a tablet browser and on p
 
 ## Auth (Google sign-in, view/edit split)
 
-Deliberately **not** a full app gate — the tablet display must stay glanceable without
-login friction, matching the original "low-stakes family list" tradeoff. Instead:
+**As of v2.19.0, this is a full app gate** — a real reported incident forced this change:
+the owner shared the tablet's plain URL with a friend (a completely reasonable thing to
+do with a link), and the friend could see the entire household list with zero
+authentication, because viewing was originally designed to be open-by-default (see below
+for that original rationale, kept for history since the tradeoff it describes was real,
+just superseded by this incident). Now:
 
-- **Viewing the list requires no auth at all** — `groceriesRef` / `onValue` in
-  `src/lib/firebase.ts` are unconditional. Realtime Database rules are unchanged (still the
-  open rules below) specifically so n8n's unauthenticated REST writes keep working.
-- **Editing (bought toggle, note, image, delete) requires Google sign-in** AND the
-  signed-in email must be in `ADMIN_EMAILS` (`src/lib/firebase.ts`) — currently just
-  `muli.turiel@gmail.com`. To add a second household member (e.g. a spouse), just add
-  their Google email to that array; no other change needed.
+- **Viewing the list requires Google sign-in AND being an invited household member** —
+  the exact same check `canEdit` already used (`ADMIN_EMAILS` in `src/lib/firebase.ts`,
+  plus the live `/admins` path — see Editor invites below). There is currently no
+  separate viewer-only tier (a "checker" role between viewer and admin was brainstormed
+  in `CONVERSATION.md` Session 5 but explicitly parked, not built), so `canView` and
+  `canEdit` are the same boolean today — `src/hooks/AuthContext.tsx` exposes both
+  separately anyway, since they represent different capabilities even though they
+  currently share one definition.
+- `src/components/Layout.tsx` is the actual gate: it renders one of three states —
+  `!authResolved` (still checking whether a session already exists — avoids flashing a
+  sign-in screen for a returning authenticated user while Firebase resolves that),
+  `!user` (a themed "sign in to view this list" screen, no tabs), or `user && !canView`
+  (a themed "you don't have access, ask the owner to invite you" screen, no tabs) — only
+  the fourth state (`user && canView`) renders the tabs, the routed page, and the
+  toast/status line. This is intentionally an **app-level UI gate, not a database-level
+  one** — see the Firebase security rules section below for why the RTDB rules
+  themselves must stay open regardless (n8n's Siri webhook writes unauthenticated
+  directly to `/groceries`), so this doesn't stop someone who directly queries the
+  Firebase REST API with knowledge of the project's config — it stops the actual
+  reported problem (a casually shared tablet URL exposing the list to anyone who opens
+  it), not a determined technical attacker.
 - `src/hooks/AuthContext.tsx` (`AuthProvider`/`useAuth`) provides `user`, `canEdit`,
-  `onSignIn`, `onSignOut`, `authError` via React context to every route. There is no
-  "sign-in wall" screen — viewing never requires auth.
+  `canView`, `authResolved`, `onSignIn`, `onSignOut`, `authError` via React context to
+  every route.
+- **Original rationale, superseded above but kept for history**: viewing was
+  deliberately left open so the tablet display could stay glanceable without login
+  friction, matching a "low-stakes family list" tradeoff. That tradeoff assumed the
+  app's URL would only ever reach trusted household members — the friend-sharing
+  incident showed that assumption doesn't hold once a link can be shared casually, so
+  the gate above replaces it.
 - **Uses `signInWithPopup`, not `signInWithRedirect`.** Redirect was tried first and
   hung indefinitely with no error and no navigation — confirmed via network trace that
   it stalls loading Firebase Auth's cross-origin `__/auth/iframe` on `authDomain`
@@ -612,11 +636,13 @@ permission-denied errors against the real database until those rules are added.
 section above for why. Recommended: `"admins": { ".read": true, ".write": "auth !=
 null" }` rather than a fully open `".write": true`. Not yet applied.
 
-**This is unchanged even after adding Google sign-in to the web app** — see Auth above.
-The web app enforces edit permission client-side (`canEdit` gate on actions), not via
-these DB rules, specifically so n8n's unauthenticated writes don't break. Anyone with
-the Firebase config (which is not secret — API keys in client SDKs never are) could
-technically still write directly via REST, same as before this session's changes.
+**This is unchanged even after adding the view-gate in v2.19.0** — see Auth above.
+The web app enforces both view and edit permission client-side (`canView`/`canEdit`
+gates), not via these DB rules, specifically so n8n's unauthenticated writes don't
+break. Anyone with the Firebase config (which is not secret — API keys in client SDKs
+never are) could technically still read/write directly via REST, bypassing the app's
+UI gate entirely — the v2.19.0 change stops a casually shared tablet URL from exposing
+the list to anyone who opens it, not a determined technical attacker.
 
 ## Known gaps / next steps in progress
 
