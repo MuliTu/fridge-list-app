@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { groceriesRef, onValue } from '../lib/firebase'
+import { useIsPrerendering } from './useIsPrerendering'
 import type { GroceryItem } from '../types'
 
 interface GroceriesFeedValue {
@@ -22,8 +23,10 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const knownKeys = useRef(new Set<string>())
   const firstLoad = useRef(true)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isPrerendering = useIsPrerendering()
 
   useEffect(() => {
+    if (isPrerendering) return
     const unsubscribe = onValue(
       groceriesRef,
       (snapshot) => {
@@ -62,7 +65,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
       unsubscribe()
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [])
+  }, [isPrerendering])
 
   return <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>{children}</GroceriesFeedContext.Provider>
 }

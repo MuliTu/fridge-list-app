@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { categoriesRef, onValue, seedCategoriesIfEmpty } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { useIsPrerendering } from './useIsPrerendering'
 import type { Category } from '../types'
 
 export function useCategories() {
   const [categories, setCategories] = useState<Category[]>([])
+  const isPrerendering = useIsPrerendering()
 
   useEffect(() => {
+    if (isPrerendering) return
     seedCategoriesIfEmpty()
     return onValue(categoriesRef, (snapshot) => {
       const data = snapshot.val() || {}
@@ -22,7 +25,7 @@ export function useCategories() {
       })
       setCategories(list)
     })
-  }, [])
+  }, [isPrerendering])
 
   const categoryMap = new Map(categories.map((c) => [c.name, c]))
   const fallback = categories.find((c) => c.name === OTHER_CATEGORY_NAME)

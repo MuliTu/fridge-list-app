@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { ADMIN_EMAILS, adminsRef, onAuthChange, onValue, signIn, signOutUser } from '../lib/firebase'
+import { useIsPrerendering } from './useIsPrerendering'
 import type { AuthUser } from '../types'
 
 interface AuthContextValue {
@@ -28,12 +29,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(DEV_USER)
   const [authError, setAuthError] = useState<string | null>(null)
   const [invitedEmails, setInvitedEmails] = useState<string[]>([])
+  const isPrerendering = useIsPrerendering()
 
   useEffect(() => {
-    if (DEV_BYPASS) return
+    if (DEV_BYPASS || isPrerendering) return
     return onAuthChange(setUser)
-  }, [])
-  useEffect(() => onValue(adminsRef, (snapshot) => setInvitedEmails(Object.values(snapshot.val() || {}))), [])
+  }, [isPrerendering])
+  useEffect(() => {
+    if (isPrerendering) return
+    return onValue(adminsRef, (snapshot) => setInvitedEmails(Object.values(snapshot.val() || {})))
+  }, [isPrerendering])
 
   const handleSignIn = () => {
     setAuthError(null)
