@@ -27,6 +27,15 @@ if (!existsSync('dist/client') || !existsSync('dist/server/server.js')) {
 }
 
 await cp('dist/client', `${OUT}/static`, { recursive: true })
+// SPA mode (vite.config.ts's `spa: { enabled: true }`) prerenders one static shell
+// for the whole app instead of per-route SSR — copy it to the conventional
+// `index.html` name so Vercel's filesystem-first routing serves it directly for "/"
+// without needing the Lambda at all. Every other page route (client-side routed,
+// e.g. /stock, /receipts) also needs this exact file as its SPA fallback — handled
+// below in config.json's routes, not by copying it under every possible path.
+if (existsSync(`${OUT}/static/_shell.html`)) {
+  await cp(`${OUT}/static/_shell.html`, `${OUT}/static/index.html`)
+}
 // The whole dist/server tree, not just server.js — server.js dynamically
 // import()s a handful of its own chunk files by relative path
 // (./assets/router-*.js etc, TanStack Router's route-level code splitting applies
@@ -85,14 +94,26 @@ await writeFile(
   JSON.stringify({ type: 'module' }, null, 2)
 )
 
-// filesystem-first: serve a static file if the request path matches one, otherwise
-// fall through to the SSR function for everything (routes, API routes, etc).
+// filesystem-first: serve a static file if the request path matches one (assets,
+// index.html itself). Then /api/* always needs the Lambda — those are real server
+// routes (scan-receipt, categorize-item, etc.) with no static equivalent. Everything
+// else is a client-side-routed SPA page (/, /stock, /receipts, and any path
+// TanStack Router itself resolves or 404s) — those all get the same static shell
+// rather than the Lambda, which is the actual point of enabling SPA mode (no SSR
+// cold start just to serve the same shell every route already gets). Before this,
+// every request — including plain page loads — fell through to the Lambda
+// regardless, making SPA mode behaviorally identical to the old per-request SSR
+// setup it was meant to replace.
 await writeFile(
   `${OUT}/config.json`,
   JSON.stringify(
     {
       version: 3,
-      routes: [{ handle: 'filesystem' }, { src: '/(.*)', dest: '/index' }]
+      routes: [
+        { handle: 'filesystem' },
+        { src: '/api/(.*)', dest: '/index' },
+        { src: '/(.*)', dest: '/index.html' }
+      ]
     },
     null,
     2

@@ -6,7 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
-## [2.18.0] - 2026-07-09
+## [2.18.1] - 2026-07-09
+
+### Fixed
+- Fixed SPA-mode production builds hanging forever after completing (root cause: prerendering opens a real, never-closed connection to production Firebase) by wrapping `vite build` in `scripts/build.mjs` to force-exit once its output is confirmed written.
+- Updated `scripts/vercel-build.mjs`'s routing so only `/api/*` requests hit the Lambda and every page request serves the static SPA shell directly, the behavior SPA mode was actually meant to provide.
 
 ### Added
 - Bulk item import on the shopping list: a "📥 ייבוא רשימה" pill opens `BulkUploadModal` to paste or upload a `.csv`/`.txt` list (one item per line, optional `name,category`), auto-categorizes uncategorized items via a batched `categorizeItem()` call with per-item "אחר" fallback, and requires a review stage before adding each row to the active list.
