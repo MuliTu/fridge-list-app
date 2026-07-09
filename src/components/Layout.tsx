@@ -88,11 +88,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
             </button>
           )}
         </div>
-        {authError && (
-          <div className="header-error">
-            {t('auth.signInError')}: {authError}
-          </div>
-        )}
+        {authError && <div className="header-error">{authError}</div>}
         <h1>🛒 {t('appTitle')}</h1>
         <div className="sub">{t('appSubtitle')}</div>
         {canView && (
