@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.19.1] - 2026-07-09
+
+### Fixed
+- An invited user hit a raw, unhelpful Firebase error on sign-in (`auth/missing-initial-state`, caused by the browser blocking cross-origin storage — common in in-app browsers like Gmail/WhatsApp or with strict privacy settings); it now shows a translated, actionable message instead.
+
 ## [2.19.0] - 2026-07-09
 
 ### Changed

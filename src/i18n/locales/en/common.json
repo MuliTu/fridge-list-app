@@ -13,7 +13,8 @@
     "signInError": "Sign-in error",
     "checkingSession": "Checking session...",
     "signInRequired": "Sign in to view this list",
-    "noAccess": "You don't have access to this list. Ask the list owner to invite you."
+    "noAccess": "You don't have access to this list. Ask the list owner to invite you.",
+    "signInStorageBlocked": "Sign-in failed in this browser. This sometimes happens in an app's built-in browser (like Gmail or WhatsApp) or with strict privacy settings. Try opening the link directly in Safari or Chrome, or temporarily disable \"Prevent Cross-Site Tracking\" if you're on Safari."
   },
   "menu": {
     "button": "Menu",

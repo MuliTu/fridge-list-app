@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ADMIN_EMAILS, adminsRef, onAuthChange, onValue, signIn, signOutUser } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
 import type { AuthUser } from '../types'
@@ -31,6 +32,7 @@ const DEV_USER: AuthUser | null = DEV_BYPASS
   : null
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
   const [user, setUser] = useState<AuthUser | null>(DEV_USER)
   const [authResolved, setAuthResolved] = useState(DEV_BYPASS)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -53,7 +55,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null)
     return signIn().catch((err) => {
       console.error('[Auth] signInWithPopup rejected:', err.code, err.message)
-      setAuthError(err.code || err.message)
+      // Firebase Auth's popup flow relays state back through sessionStorage on a
+      // hidden cross-origin iframe (authDomain) — any browser that partitions or
+      // blocks that storage (Safari's cross-site tracking prevention, an app's
+      // built-in in-app browser like Gmail/WhatsApp, private browsing) breaks the
+      // handshake and throws exactly this error, with no user-actionable code, only
+      // a long internal English message. Same root cause this project already hit
+      // with signInWithRedirect (see CLAUDE.md's Auth section) — surfaced here
+      // instead of Firebase's raw text, since a real invited user hit this and had
+      // no way to know what to do about it.
+      const isStorageBlocked =
+        err.code === 'auth/missing-initial-state' || /missing initial state|sessionStorage/i.test(err.message || '')
+      // The storage-blocked message is already a complete, translated sentence — the
+      // generic code/message fallback still needs the "Sign-in error:" label for
+      // context, since it's a short raw Firebase code on its own otherwise.
+      setAuthError(isStorageBlocked ? t('auth.signInStorageBlocked') : `${t('auth.signInError')}: ${err.code || err.message}`)
       throw err
     })
   }
