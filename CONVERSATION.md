@@ -630,3 +630,85 @@ not just "looks right," actually checked.
 **Roni (Senior PM):** Also set up `CHANGELOG.md` and started real semantic versioning
 — mapped the four commits so far to 1.0.0 through 1.3.0, this round is 1.4.0.
 Everything from here bumps the version and gets a changelog entry.
+
+---
+
+## Session 5 — Sharing & invite experience: reframing "online" and roles
+
+Mid-build on the sharing panel (invite status, nicknames, presence, notification
+permission, plus a real "permission denied on invite" bug already root-caused to a
+missing `/admins` Firebase rule) — Muli asked to step back and brainstorm the feature
+itself before finishing the build, rather than just working the checklist.
+
+**Noa (PM):** Framing where we are: the plan on the table is pending/approved invite
+status (pending until first sign-in), real-time "who's online" via Firebase presence,
+optional nicknames, and a notification-permission indicator. Before we keep building
+that exact list — anyone see a sharper version of it?
+
+**Roni (Senior PM):** Two things bother me about the plan as written.
+
+First — presence. This app runs on an always-on kitchen tablet by design (that's the
+whole point, glanceable, no login wall). Naive connection presence (`.info/connected`)
+will show the tablet itself as permanently "online," every hour of every day. That's
+not a feature, that's noise from day one. The version worth building isn't "who has
+the app open" — it's "who's *at the store right now*," which is a real signal a shared
+shopping list can act on. Nobody needs to know the fridge is online. Somebody might
+genuinely want to know Dana is standing in the supermarket right now.
+
+Second — the whole panel reads like SaaS team-collaboration UX (pending/approved
+badges, nicknames, roster management) bolted onto a household of people who already
+know each other. Per Session 2, Tom's own words were "I just look at what's red" — he
+doesn't even want an account today. Is there a more household-shaped idea than "invite
+someone as a full editor"? Something like a middle tier — *checker* (mark items
+bought, add quick items) versus *admin* (delete, manage categories, manage who's
+shared) — that actually matches how Tom uses this thing, instead of a binary
+editor-or-nothing invite.
+
+**Yael (Engineer):** Taking the presence point first since it's the cheaper fix: add a
+`device_type` field (`'kiosk' | 'personal'`, set once via a `.env`-style flag on
+whichever device is the fridge tablet) to the presence record, and filter kiosk
+connections out of the "online now" list entirely. Keeps the already-planned
+`.info/connected` + `onDisconnect()` pattern, just doesn't render the one connection
+that's always on. Doesn't yet solve "who's at the store" specifically — that would
+need an *active* signal (recent bought-toggle activity, not just having a tab open),
+which is a bigger, separate piece of work, not a tweak to what's already planned.
+
+On role tiers: technically more invasive than it sounds. Today `canEdit` is one
+boolean gate checked in a dozen places (bought toggle, note/image edit, delete, stock
+adjust, category management, admin invites). A third tier means auditing every one of
+those call sites and deciding which ones a "checker" can touch — not a small change,
+and it touches the exact `/admins` data model we're mid-rewrite on for pending/approved
+status anyway.
+
+**Roi (QA):** Flagging the risk either way: whatever we ship for "online now," it needs
+to fail closed, not open — if presence data is stale or a write fails, showing nobody
+online is a safe wrong answer, showing someone online who isn't there is the one that
+actually misleads a real trip to the store. And if role tiers land later, the real risk
+is silent scope-creep in what a "checker" can do over time — it needs a hard, written
+boundary from day one, not something that grows call-site by call-site.
+
+**Dana (End User):** The "who's at the store" framing is the one I'd actually use.
+Presence-as-vanity-metric I'd ignore in a week.
+
+**Tom (End User):** Honestly a "checker" role sounds like what I already do without an
+account — not sure I need one just to get a label for it.
+
+**Muli (the real user):** Agreed on both counts, but scoping differently: ship the
+kiosk-exclusion fix now, it's cheap and clearly correct — don't ship naive presence
+knowing it's wrong on day one. The "actively shopping" signal and the role-tier idea
+are both real, both bigger than this round — parking them the same way Idan's roadmap
+got parked in Session 4: written down, not built, revisited if it keeps coming up.
+Notification-permission-status stays scoped as previously decided (a cheap per-device
+check, not full push) — same tension named and not resolved: it's a stepping stone
+that only pays off if push notifications themselves ever get built.
+
+**Noa (PM):** Locking scope for this round:
+- ✅ Pending-until-first-sign-in invite status, nicknames, notification-permission
+  check — build as already planned.
+- ✅ Presence, but with a `device_type` flag excluding kiosk connections from "online
+  now" — the cheap fix, not the full "actively shopping" version.
+- 🅿️ Parked: an active-shopping signal (behavioral, not connection-based) for a
+  real "who's at the store" indicator.
+- 🅿️ Parked: a third `checker` role between viewer and admin — real idea, but touches
+  every `canEdit` call site and the `/admins` model already mid-rewrite; needs its own
+  round once the current sharing rebuild ships.

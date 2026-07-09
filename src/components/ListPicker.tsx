@@ -9,6 +9,7 @@ interface ListPickerProps {
   onCreateList: () => void
   onDeleteList: () => void
   onShareMissing: () => void
+  onBulkUpload: () => void
 }
 
 const PERMANENT_LIST = null
@@ -21,7 +22,8 @@ export default function ListPicker({
   onSelectList,
   onCreateList,
   onDeleteList,
-  onShareMissing
+  onShareMissing,
+  onBulkUpload
 }: ListPickerProps) {
   const { t } = useTranslation()
   return (
@@ -44,6 +46,11 @@ export default function ListPicker({
       {canEdit && (
         <button className="list-pill list-pill-new" onClick={onCreateList}>
           {t('shoppingList:listPicker.newList')}
+        </button>
+      )}
+      {canEdit && (
+        <button className="list-pill" onClick={onBulkUpload}>
+          {t('shoppingList:listPicker.bulkUpload')}
         </button>
       )}
       {canEdit && activeList !== PERMANENT_LIST && (

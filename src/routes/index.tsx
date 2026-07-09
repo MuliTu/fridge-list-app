@@ -18,10 +18,12 @@ import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import ItemDetailModal from '../components/ItemDetailModal'
 import GroceryItemModal from '../components/GroceryItemModal'
+import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
+import ListSkeleton from '../components/ListSkeleton'
 import type { GroceryItem, StockItem } from '../types'
 
 const PERMANENT_LIST = null
@@ -40,11 +42,12 @@ function ShoppingListPage() {
   const activeList = list || PERMANENT_LIST
 
   const { user, canEdit, onSignIn } = useAuth()
-  const { entries: allEntries } = useGroceriesFeed()
+  const { entries: allEntries, isLoading } = useGroceriesFeed()
   const { confirm, prompt } = useDialogService()
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
   const [restockMatch, setRestockMatch] = useState<StockItem | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
 
@@ -128,9 +131,12 @@ function ShoppingListPage() {
         onCreateList={handleCreateList}
         onDeleteList={handleDeleteList}
         onShareMissing={handleShareMissing}
+        onBulkUpload={() => setShowBulkUpload(true)}
       />
 
-      {isEmpty ? (
+      {isLoading && isEmpty ? (
+        <ListSkeleton variant="flat" sections={3} rows={3} />
+      ) : isEmpty ? (
         <div className="all-empty">{t('shoppingList:empty')}</div>
       ) : (
         <div className="flat-list">
@@ -188,6 +194,15 @@ function ShoppingListPage() {
         <GroceryItemModal
           listName={activeList}
           onClose={() => setShowAddGrocery(false)}
+          onAdd={(item) => addGroceryItem(item, activeList, user)}
+        />
+      )}
+
+      {showBulkUpload && (
+        <BulkUploadModal
+          listName={activeList}
+          categories={categories}
+          onClose={() => setShowBulkUpload(false)}
           onAdd={(item) => addGroceryItem(item, activeList, user)}
         />
       )}

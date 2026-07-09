@@ -3,7 +3,24 @@
     "permanentList": "הרשימה הקבועה",
     "newList": "+ רשימה חדשה",
     "deleteList": "🗑 מחיקת הרשימה",
-    "shareMissing": "📤 שיתוף מה חסר"
+    "shareMissing": "📤 שיתוף מה חסר",
+    "bulkUpload": "📥 ייבוא רשימה"
+  },
+  "bulkUpload": {
+    "title": "ייבוא פריטים",
+    "instructions": "הדביקו רשימה — פריט אחד בכל שורה — או העלו קובץ CSV. אפשר להוסיף קטגוריה אחרי פסיק (למשל: חלב, מוצרי חלב). פריטים ללא קטגוריה יסווגו אוטומטית.",
+    "placeholder": "חלב\nלחם\nעגבניות, ירקות ופירות",
+    "chooseFile": "📄 בחירת קובץ",
+    "parse": "המשך",
+    "categorizing": "מסווג פריטים...",
+    "empty": "לא נמצאו פריטים",
+    "namePlaceholder": "שם הפריט",
+    "removeRow": "הסרת שורה",
+    "addRow": "+ הוספת שורה",
+    "back": "חזרה",
+    "saveCount": "הוספה ({{count}})",
+    "addFailed": "ההוספה נכשלה",
+    "fileReadFailed": "קריאת הקובץ נכשלה: {{message}}"
   },
   "newListPrompt": "שם הרשימה החדשה (למשל: מסיבה)",
   "deleteListConfirm": "למחוק את הרשימה \"{{listName}}\" וכל {{count}} הפריטים בה? לא ניתן לשחזר.",

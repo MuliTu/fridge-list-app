@@ -498,3 +498,24 @@ export const removeAdminEmail = (email: string) => {
   const key = normalized.replace(/[.#$[\]]/g, '_')
   return remove(ref(db, `admins/${key}`))
 }
+
+// Best-effort — the invite itself is the `addAdminEmail` write above, which has
+// already succeeded by the time this is called. A missing SMTP config (expected
+// until it's provisioned) or a delivery failure must never look like the invite
+// itself failed, so this never throws — callers can inspect the resolved value if
+// they want to surface a soft "email didn't send" notice, but nothing depends on it.
+export const sendInviteEmail = async (email: string, invitedBy?: string | null): Promise<{ error: boolean }> => {
+  try {
+    const response = await fetch('/api/send-invite-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: email.trim().toLowerCase(), invitedBy })
+    })
+    const data = await response.json()
+    if (data.error) logClientAction(`[admins] sendInviteEmail: failed message=${data.message}`)
+    return data
+  } catch (err: any) {
+    logClientAction(`[admins] sendInviteEmail: network error message=${err.message}`)
+    return { error: true }
+  }
+}

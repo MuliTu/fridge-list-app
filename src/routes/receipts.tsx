@@ -22,6 +22,7 @@ import { useAuth } from '../hooks/AuthContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
 import ReceiptReconcileModal, { type ReconcileMatch } from '../components/ReceiptReconcileModal'
+import ListSkeleton from '../components/ListSkeleton'
 import type { Receipt, ReceiptItem } from '../types'
 
 const receiptTotal = (receipt: Receipt) =>
@@ -76,6 +77,7 @@ function ReceiptsPage() {
   const { user, canEdit } = useAuth()
   const { confirm, prompt, alert } = useDialogService()
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [reviewData, setReviewData] = useState<ReceiptReviewData | null>(null)
@@ -97,6 +99,7 @@ function ReceiptsPage() {
         }))
         list.sort((a, b) => (b.scanned_at || '').localeCompare(a.scanned_at || ''))
         setReceipts(list)
+        setIsLoading(false)
       }),
     []
   )
@@ -308,7 +311,9 @@ function ReceiptsPage() {
 
   return (
     <div className="stock-view">
-      {receipts.length === 0 ? (
+      {isLoading && receipts.length === 0 ? (
+        <ListSkeleton variant="grid" sections={3} rows={3} />
+      ) : receipts.length === 0 ? (
         <div className="all-empty">
           {t('receipts:empty')}
           {canEdit ? ' 📸' : ''}
