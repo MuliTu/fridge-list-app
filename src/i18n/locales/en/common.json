@@ -8,10 +8,12 @@
     "receipts": "Receipts"
   },
   "auth": {
-    "signIn": "Sign in to edit",
+    "signIn": "Sign in",
     "signOut": "Sign out",
-    "viewOnly": "View only",
-    "signInError": "Sign-in error"
+    "signInError": "Sign-in error",
+    "checkingSession": "Checking session...",
+    "signInRequired": "Sign in to view this list",
+    "noAccess": "You don't have access to this list. Ask the list owner to invite you."
   },
   "menu": {
     "button": "Menu",

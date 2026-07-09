@@ -26,7 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 function LayoutContent({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation()
   useSyncHtmlLangDir()
-  const { user, canEdit, onSignIn, onSignOut, authError } = useAuth()
+  const { user, canEdit, canView, authResolved, onSignIn, onSignOut, authError } = useAuth()
   const { status, toast } = useGroceriesFeed()
   const [showCategories, setShowCategories] = useState(false)
   const [showAdmins, setShowAdmins] = useState(false)
@@ -77,10 +77,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <span>
-                {user.displayName || user.email}
-                {!canEdit && ` · ${t('auth.viewOnly')}`}
-              </span>
+              <span>{user.displayName || user.email}</span>
               <button className="signout-btn" onClick={onSignOut}>
                 {t('auth.signOut')}
               </button>
@@ -98,26 +95,42 @@ function LayoutContent({ children }: { children: ReactNode }) {
         )}
         <h1>🛒 {t('appTitle')}</h1>
         <div className="sub">{t('appSubtitle')}</div>
-        <div className="tabs">
-          <Link to="/" className="tab-btn" activeProps={{ className: 'tab-btn active' }} activeOptions={{ exact: true }}>
-            🛒 {t('tabs.shoppingList')}
-          </Link>
-          <Link to="/stock" className="tab-btn" activeProps={{ className: 'tab-btn active' }}>
-            📦 {t('tabs.stock')}
-          </Link>
-          <Link to="/receipts" className="tab-btn" activeProps={{ className: 'tab-btn active' }}>
-            🧾 {t('tabs.receipts')}
-          </Link>
-        </div>
+        {canView && (
+          <div className="tabs">
+            <Link to="/" className="tab-btn" activeProps={{ className: 'tab-btn active' }} activeOptions={{ exact: true }}>
+              🛒 {t('tabs.shoppingList')}
+            </Link>
+            <Link to="/stock" className="tab-btn" activeProps={{ className: 'tab-btn active' }}>
+              📦 {t('tabs.stock')}
+            </Link>
+            <Link to="/receipts" className="tab-btn" activeProps={{ className: 'tab-btn active' }}>
+              🧾 {t('tabs.receipts')}
+            </Link>
+          </div>
+        )}
       </header>
 
-      {toast && <div className="toast">🛒 {toast}</div>}
-
-      {children}
-
-      <div className="status">
-        {status} · v{appVersion}
-      </div>
+      {/* Viewing this app's data now requires being an invited household member —
+          only render the toast/routed page/status (all derived from live grocery
+          data) once that's confirmed, never for an unresolved, signed-out, or
+          uninvited visitor. authResolved distinguishes "still checking" from
+          "definitely signed out" so a returning authenticated user doesn't flash a
+          sign-in screen while Firebase resolves their existing session. */}
+      {!authResolved ? (
+        <div className="all-empty">{t('auth.checkingSession')}</div>
+      ) : !user ? (
+        <div className="all-empty">{t('auth.signInRequired')}</div>
+      ) : !canView ? (
+        <div className="all-empty">{t('auth.noAccess')}</div>
+      ) : (
+        <>
+          {toast && <div className="toast">🛒 {toast}</div>}
+          {children}
+          <div className="status">
+            {status} · v{appVersion}
+          </div>
+        </>
+      )}
 
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
       {showAdmins && <AdminsModal onClose={() => setShowAdmins(false)} />}

@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.19.0] - 2026-07-09
+
+### Changed
+- Viewing the app now requires Google sign-in and being an invited household member, closing a real reported gap where a casually shared tablet URL let anyone view the whole list with no authentication.
+
 ## [2.18.1] - 2026-07-09
 
 ### Fixed

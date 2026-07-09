@@ -15,7 +15,7 @@ fridge-list-app's frontend is **TanStack Start** (React + TanStack Router, file-
 
 ## Auth model to replicate
 
-Viewing is always open (no sign-in required) — realtime `onValue` subscriptions are unconditional. Editing (writes) requires Google sign-in AND the email being in `ADMIN_EMAILS` or the live `/admins` path. Use `useAuth()`'s `canEdit` to gate any new write action — don't invent a new permission check.
+As of v2.19.0, viewing the app requires Google sign-in AND the email being in `ADMIN_EMAILS` or the live `/admins` path — `src/components/Layout.tsx` gates all routed content behind this (`canView`) before anything mounts, so a new module's own `onValue` subscriptions never fire for an unauthorized visitor in practice. Editing (writes) uses the same check today (`canEdit` currently equals `canView` — no separate viewer tier exists yet). Use `useAuth()`'s `canEdit`/`canView` to gate new write/read actions — don't invent a new permission check.
 
 ## Design system
 
