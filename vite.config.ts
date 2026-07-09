@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 
 export default defineConfig(({ command }) => ({
-  plugins: [tanstackStart(), tailwindcss(), react()],
+  plugins: [tanstackStart({ spa: { enabled: true } }), tailwindcss(), react()],
   // Bundles all npm dependencies (react, @tanstack/*, h3-v2, seroval, ...) directly
   // into dist/server/server.js instead of leaving them as bare imports resolved from
   // node_modules at runtime. Needed for the Vercel deploy (scripts/vercel-build.mjs)
