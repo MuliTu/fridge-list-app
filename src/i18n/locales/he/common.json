@@ -20,7 +20,8 @@
     "button": "תפריט",
     "manageCategories": "🗂 ניהול קטגוריות",
     "shareEditing": "👥 שיתוף עריכה",
-    "viewChangelog": "📝 יומן שינויים"
+    "viewChangelog": "📝 יומן שינויים",
+    "sendFeedback": "💬 שליחת משוב"
   },
   "actions": {
     "cancel": "ביטול",
