@@ -13,6 +13,7 @@ import {
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
+import { useShowPurchased } from '../hooks/useShowPurchased'
 import { useAuth } from '../hooks/AuthContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
@@ -49,6 +50,7 @@ function ShoppingListPage() {
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const { isCollapsed, toggle } = useCollapsedSections()
+  const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
   const { categories, categoryMap } = useCategories()
 
   const customListNames = new Set(allEntries.map((e) => e.list_name).filter(Boolean) as string[])
@@ -57,8 +59,13 @@ function ShoppingListPage() {
 
   const visibleEntries = allEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
 
+  // Hide purchased (bought) items by default so the list stays focused on what's left
+  // to buy; the toggle below reveals them (still visually distinguished via `.bought`).
+  const purchasedCount = visibleEntries.filter((e) => e.bought).length
+  const displayEntries = showPurchased ? visibleEntries : visibleEntries.filter((e) => !e.bought)
+
   const grouped: Record<string, GroceryItem[]> = {}
-  visibleEntries.forEach((entry) => {
+  displayEntries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
     grouped[catName].push(entry)
@@ -136,11 +143,24 @@ function ShoppingListPage() {
 
       {isLoading && isEmpty ? (
         <ListSkeleton variant="flat" sections={3} rows={3} />
-      ) : isEmpty ? (
-        <div className="all-empty">{t('shoppingList:empty')}</div>
       ) : (
-        <div className="flat-list">
-          {visibleCategories.map(({ name, color, icon }) => (
+        <>
+          {purchasedCount > 0 && (
+            <div className="purchased-toggle-row">
+              <button className="list-pill purchased-toggle-btn" onClick={toggleShowPurchased}>
+                {showPurchased
+                  ? t('shoppingList:purchased.hide')
+                  : t('shoppingList:purchased.show', { count: purchasedCount })}
+              </button>
+            </div>
+          )}
+          {isEmpty ? (
+            <div className="all-empty">
+              {purchasedCount > 0 ? t('shoppingList:purchased.allPurchased') : t('shoppingList:empty')}
+            </div>
+          ) : (
+            <div className="flat-list">
+              {visibleCategories.map(({ name, color, icon }) => (
             <CategorySection
               key={name}
               name={name}
@@ -158,8 +178,10 @@ function ShoppingListPage() {
                 />
               ))}
             </CategorySection>
-          ))}
-        </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {canEdit && activeList !== PERMANENT_LIST && (

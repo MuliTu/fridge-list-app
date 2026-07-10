@@ -30,6 +30,11 @@
     "itemLine": "• {{item}}"
   },
   "empty": "The list is empty 🎉",
+  "purchased": {
+    "show": "🛒 Show purchased items ({{count}})",
+    "hide": "🛒 Hide purchased items",
+    "allPurchased": "All purchased 🎉"
+  },
   "addItemFab": "Add item to list",
   "item": {
     "info": "Item details",
