@@ -570,11 +570,20 @@ already used for receipt scanning and item categorization.
   → responds. Both the Gemini and Trello nodes use `onError: continueErrorOutput`; the
   Trello error path responds `{ error: true, message: 'trello_failed' }` cleanly instead
   of the empty-200 failure mode.
-- **Requires a Trello credential in n8n before it can run** (see Known gaps): the
-  instance has no `trelloApi` credential, so the workflow is built + validated but stays
-  inactive until a Trello API key + token are added and attached to the "Create Trello
-  Card" node. Until then the app's submit fails soft and the modal shows its error state,
-  exactly like the SMTP-invite feature before SMTP is configured.
+- **Trello credential + activation (done, live as of 2026-07-10):** the workflow uses a
+  `trelloApi` credential ("Trello account", a Trello API key + token) attached to the
+  "Create Trello Card" node, and is **active**. Verified end-to-end (he + en test
+  submissions each produced a correctly-structured card in Customer Response). If the
+  workflow ever stops creating cards, first check that credential is still valid. Gotcha
+  worth remembering: on the Trello node's card-create, the description is a **top-level
+  `description` parameter, NOT `additionalFields.description`** — the first test run set
+  it under `additionalFields` and the card came out with an empty body (title still
+  worked), silently, no error.
+- **Deliberately scoped out** (matching this project's lean ethos, noted as gaps):
+  webhook rate-limiting, cross-retry dedup / correlation-ID, analytics events, and a
+  manual-review queue — all in the Trello card spec but not built. Kept the cheap,
+  high-value parts: client double-submit guard, prompt-injection-resistant prompt, and
+  honest error surfacing.
 - **Deliberately scoped out** (matching this project's lean ethos, noted as gaps):
   webhook rate-limiting, cross-retry dedup / correlation-ID, analytics events, and a
   manual-review queue — all in the Trello card spec but not built. Kept the cheap,
@@ -726,17 +735,15 @@ the list to anyone who opens it, not a determined technical attacker.
    Gemini failure the same way Receipt Scanner used to, since they share the exact
    same missing-error-handling pattern and the same shared Gemini quota. Not hardened
    yet because they weren't the ones actually reported failing.
-8. **Feedback → Trello workflow needs a Trello credential + activation.** The
+8. **Feedback → Trello workflow: Gemini has no fallback model.** The
    "Feedback → Trello (Hebrew/English)" workflow (id `Dkug7Uj2Z7FTYQsL`, see the In-app
-   feedback module above) is built and validated but **inactive** — the n8n instance has
-   no `trelloApi` credential, so n8n refuses to activate a workflow whose "Create Trello
-   Card" node has a missing required credential. To finish: add a Trello API key + token
-   as a `trelloApi` credential in n8n, attach it to that node, then activate the
-   workflow. Until then the app's "Send feedback" submit fails soft (modal shows its
-   error state). Same category of gap as the SMTP-not-configured invite email — the
-   codebase side is done, the external secret is the manual step. The Gemini node in
-   this workflow also has no fallback model (only `retryOnFail`), same as the other
-   non-hardened workflows in gap #7.
+   feedback module above) is live and verified end-to-end as of 2026-07-10 (Trello
+   credential attached + activated). What's *not* hardened: its Gemini "Structure Ticket"
+   node has only `retryOnFail`, no same-credential fallback model like Receipt Scanner's
+   — so a sustained Gemini quota/outage still degrades it, though less badly than the
+   others in gap #7 because "Build Card" falls back to a raw-request card (labelled
+   `needs-clarification`) rather than dying. Adding a fallback model here is the same
+   follow-up as gap #7.
 
 ## Frontend app (fridge-list-app/)
 
