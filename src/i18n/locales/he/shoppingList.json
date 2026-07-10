@@ -30,6 +30,11 @@
     "itemLine": "• {{item}}"
   },
   "empty": "הרשימה ריקה 🎉",
+  "purchased": {
+    "show": "🛒 הצגת פריטים שנקנו ({{count}})",
+    "hide": "🛒 הסתרת פריטים שנקנו",
+    "allPurchased": "הכול נקנה 🎉"
+  },
   "addItemFab": "הוספת פריט לרשימה",
   "item": {
     "info": "פרטי פריט",

@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.21.0] - 2026-07-10
+
+### Added
+- Purchased (bought) items are now hidden by default on the shopping list, with a "🛒 Show/Hide purchased items ({{count}})" toggle whose state is remembered per list in `localStorage` (`useShowPurchased`); when shown they keep their struck-through styling, and a list where everything is bought shows an "All purchased 🎉" message with the toggle still available.
+
 ## [2.19.1] - 2026-07-09
 
 ### Fixed

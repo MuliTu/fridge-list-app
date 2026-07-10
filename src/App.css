@@ -190,6 +190,16 @@ h1 {
   cursor: pointer;
 }
 
+.purchased-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+
+.purchased-toggle-btn {
+  cursor: pointer;
+}
+
 .panel-header {
   cursor: pointer;
 }
