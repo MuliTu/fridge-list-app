@@ -10,6 +10,7 @@ import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
 import CategoriesModal from './CategoriesModal'
 import AdminsModal from './AdminsModal'
 import ChangelogModal from './ChangelogModal'
+import FeedbackModal from './FeedbackModal'
 import { useCategories } from '../hooks/useCategories'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
@@ -31,6 +32,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showCategories, setShowCategories] = useState(false)
   const [showAdmins, setShowAdmins] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
   const { categories } = useCategories()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
@@ -73,6 +75,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowChangelog)}>
                       {t('menu.viewChangelog')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowFeedback)}>
+                      {t('menu.sendFeedback')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -131,6 +136,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
       {showAdmins && <AdminsModal onClose={() => setShowAdmins(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </div>
   )
 }

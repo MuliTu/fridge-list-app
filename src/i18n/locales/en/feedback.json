@@ -1,0 +1,11 @@
+{
+  "title": "Send feedback",
+  "explanation": "Have a feature idea or feedback? Write to us and your request will be opened as a card for the product team.",
+  "requestPlaceholder": "What would you like to improve or add? (e.g. add a new color theme)",
+  "requestRequired": "Please write your request",
+  "submit": "Send",
+  "submitting": "Sending...",
+  "success": "Thanks! Your feedback was sent and will be reviewed by the product team.",
+  "error": "Sending feedback failed. You can try again.",
+  "sendAnother": "Send more feedback"
+}
