@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.20.0] - 2026-07-10
+
+### Added
+- Added an in-app "Send feedback" flow (editors-only, in the settings menu) that turns a free-text Hebrew/English feature request into a structured Trello card on the product board via a new `/api/submit-feedback` route and a `Feedback → Trello` n8n workflow (Gemini structures the ticket, with graceful fallback to the raw request on any failure).
+
 ## [2.19.1] - 2026-07-09
 
 ### Fixed

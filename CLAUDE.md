@@ -541,6 +541,55 @@ identified in [`CONVERSATION.md`](CONVERSATION.md)'s post-build check-in: withou
 buying something never restocked it, so the low-stock highlight would silently drift
 out of sync with reality.
 
+## In-app feedback → Trello module (`src/components/FeedbackModal.tsx`)
+
+A "💬 שליחת משוב"/"Send feedback" item in the settings menu (`canEdit`-gated, same
+menu as Categories/Share editing/Changelog) opens `FeedbackModal` — a single free-text
+field (Hebrew or English) that turns a feature request / feedback into a structured
+Trello card on the product board. Same "n8n extracts + acts, the app stays thin" split
+already used for receipt scanning and item categorization.
+
+- `submitFeedback()` in `src/lib/firebase.ts` auto-populates the metadata the ticket
+  needs (name/email from the signed-in user, `submittedAt`, `language` from the active
+  i18n language, `route` from `useRouterState`, `appVersion` from `package.json`) and
+  POSTs to `/api/submit-feedback` (`src/routes/api/submit-feedback.tsx`) — a TanStack
+  Start server route, same server-side-URL-hiding pattern as the receipt/categorize
+  endpoints (the n8n webhook URL never reaches the browser). It returns `{ error }`
+  rather than throwing so the modal can show a recoverable message; the modal guards
+  against double-submit while a request is in flight.
+- n8n workflow **"Feedback → Trello (Hebrew/English)"** (id `Dkug7Uj2Z7FTYQsL`, webhook
+  path `feedback`): Webhook → Gemini (`models/gemini-2.5-flash`, `jsonOutput`) structures
+  the request into a ticket (title/description/acceptance criteria/priority/labels/…),
+  system prompt treats the user's text as **data, not instructions** (prompt-injection
+  guard) and detects/matches the request language → "Build Card" Code node composes the
+  Trello card name + markdown description (preserving the original request for
+  traceability), with **graceful fallback**: if Gemini fails or returns junk it still
+  creates a card from the raw request (labelled `needs-clarification`) rather than
+  dropping the feedback → **Trello "create card"** into the **Customer Response** list
+  (id `6a50cb0765f083fbb3ac5102`) on the Fridge app board (id `6a50ca96490e3f2e13fda0aa`)
+  → responds. Both the Gemini and Trello nodes use `onError: continueErrorOutput`; the
+  Trello error path responds `{ error: true, message: 'trello_failed' }` cleanly instead
+  of the empty-200 failure mode.
+- **Trello credential + activation (done, live as of 2026-07-10):** the workflow uses a
+  `trelloApi` credential ("Trello account", a Trello API key + token) attached to the
+  "Create Trello Card" node, and is **active**. Verified end-to-end (he + en test
+  submissions each produced a correctly-structured card in Customer Response). If the
+  workflow ever stops creating cards, first check that credential is still valid. Gotcha
+  worth remembering: on the Trello node's card-create, the description is a **top-level
+  `description` parameter, NOT `additionalFields.description`** — the first test run set
+  it under `additionalFields` and the card came out with an empty body (title still
+  worked), silently, no error.
+- **Deliberately scoped out** (matching this project's lean ethos, noted as gaps):
+  webhook rate-limiting, cross-retry dedup / correlation-ID, analytics events, and a
+  manual-review queue — all in the Trello card spec but not built. Kept the cheap,
+  high-value parts: client double-submit guard, prompt-injection-resistant prompt, and
+  honest error surfacing.
+- **Deliberately scoped out** (matching this project's lean ethos, noted as gaps):
+  webhook rate-limiting, cross-retry dedup / correlation-ID, analytics events, and a
+  manual-review queue — all in the Trello card spec but not built. Kept the cheap,
+  high-value parts: client double-submit guard, prompt-injection-resistant prompt, and
+  honest error surfacing.
+
 ## Key IDs / endpoints (not secret, safe to reuse)
 
 - n8n instance: `https://whiny-idealist-unseen.ngrok-free.dev` (ngrok — see Known gaps)
@@ -686,6 +735,15 @@ the list to anyone who opens it, not a determined technical attacker.
    Gemini failure the same way Receipt Scanner used to, since they share the exact
    same missing-error-handling pattern and the same shared Gemini quota. Not hardened
    yet because they weren't the ones actually reported failing.
+8. **Feedback → Trello workflow: Gemini has no fallback model.** The
+   "Feedback → Trello (Hebrew/English)" workflow (id `Dkug7Uj2Z7FTYQsL`, see the In-app
+   feedback module above) is live and verified end-to-end as of 2026-07-10 (Trello
+   credential attached + activated). What's *not* hardened: its Gemini "Structure Ticket"
+   node has only `retryOnFail`, no same-credential fallback model like Receipt Scanner's
+   — so a sustained Gemini quota/outage still degrades it, though less badly than the
+   others in gap #7 because "Build Card" falls back to a raw-request card (labelled
+   `needs-clarification`) rather than dying. Adding a fallback model here is the same
+   follow-up as gap #7.
 
 ## Frontend app (fridge-list-app/)
 

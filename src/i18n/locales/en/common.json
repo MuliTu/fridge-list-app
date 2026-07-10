@@ -20,7 +20,8 @@
     "button": "Menu",
     "manageCategories": "🗂 Manage categories",
     "shareEditing": "👥 Share editing",
-    "viewChangelog": "📝 Changelog"
+    "viewChangelog": "📝 Changelog",
+    "sendFeedback": "💬 Send feedback"
   },
   "actions": {
     "cancel": "Cancel",

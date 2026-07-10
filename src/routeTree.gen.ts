@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedback'
 import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
@@ -31,6 +32,11 @@ const ReceiptsRoute = ReceiptsRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSubmitFeedbackRoute = ApiSubmitFeedbackRouteImport.update({
+  id: '/api/submit-feedback',
+  path: '/api/submit-feedback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSendInviteEmailRoute = ApiSendInviteEmailRouteImport.update({
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
+  '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
+  '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
+  '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
+    | '/api/submit-feedback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
+    | '/api/submit-feedback'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
+    | '/api/submit-feedback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
   ApiSendInviteEmailRoute: typeof ApiSendInviteEmailRoute
+  ApiSubmitFeedbackRoute: typeof ApiSubmitFeedbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/submit-feedback': {
+      id: '/api/submit-feedback'
+      path: '/api/submit-feedback'
+      fullPath: '/api/submit-feedback'
+      preLoaderRoute: typeof ApiSubmitFeedbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/send-invite-email': {
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
   ApiSendInviteEmailRoute: ApiSendInviteEmailRoute,
+  ApiSubmitFeedbackRoute: ApiSubmitFeedbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

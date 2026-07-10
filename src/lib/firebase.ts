@@ -7,6 +7,7 @@ import { logger } from './logger'
 import { normalizeName } from './normalizeName'
 import { StockUnit } from './units'
 import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
+import { version as APP_VERSION } from '../../package.json'
 
 // Logs client-side actions (grocery/stock/receipt/category/admin writes) to the
 // browser console AND forwards them to the dev server's terminal via /api/client-log
@@ -504,6 +505,54 @@ export const removeAdminEmail = (email: string) => {
 // until it's provisioned) or a delivery failure must never look like the invite
 // itself failed, so this never throws — callers can inspect the resolved value if
 // they want to surface a soft "email didn't send" notice, but nothing depends on it.
+// Sends a user's free-text feedback/feature request to n8n (via the same-origin
+// /api/submit-feedback proxy, which hides the webhook URL) where Gemini structures it
+// into a ticket and a Trello card is created. Auto-populates the metadata the ticket
+// needs — the caller only supplies the request text and the current route. Returns
+// { error } rather than throwing so the modal can show a recoverable message; the
+// request itself is never silently dropped on the client side.
+export interface FeedbackSubmission {
+  request: string
+  route?: string
+  user?: AuthUser | null
+  language?: string
+}
+
+export const submitFeedback = async ({
+  request,
+  route,
+  user,
+  language
+}: FeedbackSubmission): Promise<{ error: boolean; message?: string }> => {
+  const payload = {
+    request,
+    name: user?.displayName || user?.email || 'Anonymous',
+    email: user?.email || null,
+    submittedAt: new Date().toISOString(),
+    language: language || 'he',
+    source: 'fridge-list-app',
+    route: route || null,
+    appVersion: APP_VERSION
+  }
+  logClientAction(`[feedback] submitFeedback: from=${payload.name} lang=${payload.language} route=${payload.route}`)
+  try {
+    const response = await fetch('/api/submit-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data.error) {
+      logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${data.message || 'unknown'}`)
+      return { error: true, message: data.message }
+    }
+    return { error: false }
+  } catch (err: any) {
+    logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
+    return { error: true, message: err.message }
+  }
+}
+
 export const sendInviteEmail = async (email: string, invitedBy?: string | null): Promise<{ error: boolean }> => {
   try {
     const response = await fetch('/api/send-invite-email', {
