@@ -22,6 +22,12 @@
     "addFailed": "ההוספה נכשלה",
     "fileReadFailed": "קריאת הקובץ נכשלה: {{message}}"
   },
+  "search": {
+    "placeholder": "חיפוש ברשימה…",
+    "label": "חיפוש ברשימת הקניות",
+    "clear": "ניקוי החיפוש",
+    "noResults": "לא נמצאו פריטים התואמים ל\"{{query}}\""
+  },
   "newListPrompt": "שם הרשימה החדשה (למשל: מסיבה)",
   "deleteListConfirm": "למחוק את הרשימה \"{{listName}}\" וכל {{count}} הפריטים בה? לא ניתן לשחזר.",
   "share": {

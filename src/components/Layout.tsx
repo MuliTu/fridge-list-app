@@ -14,6 +14,7 @@ import FeedbackModal from './FeedbackModal'
 import FeedbackStatusToast from './FeedbackStatusToast'
 import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
+import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -40,6 +41,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   // a transient status toast (pending → success/error) that outlives the modal.
   const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
     useFeedbackToast()
+  const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
@@ -84,6 +86,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowFeedback)}>
                       {t('menu.sendFeedback')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); toggleStockSuggestion() }}>
+                      {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

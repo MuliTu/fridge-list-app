@@ -21,7 +21,9 @@
     "manageCategories": "🗂 ניהול קטגוריות",
     "shareEditing": "👥 שיתוף עריכה",
     "viewChangelog": "📝 יומן שינויים",
-    "sendFeedback": "💬 שליחת משוב"
+    "sendFeedback": "💬 שליחת משוב",
+    "stockSuggestionOn": "📦 הצעת מלאי: פעיל",
+    "stockSuggestionOff": "📦 הצעת מלאי: כבוי"
   },
   "actions": {
     "cancel": "ביטול",
@@ -60,6 +62,7 @@
   "restockPrompt": {
     "title": "עדכון מלאי",
     "message": "סימנתם \"{{itemName}}\" כנקנה — להוסיף למלאי?",
+    "messageNew": "סימנתם \"{{itemName}}\" כנקנה — להוסיף למלאי הבית?",
     "quantityLabel": "כמות להוספה ({{unit}})",
     "skip": "דילוג",
     "addToStock": "הוספה למלאי"
