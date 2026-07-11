@@ -190,6 +190,21 @@ h1 {
   cursor: pointer;
 }
 
+.list-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px auto 2px;
+  max-width: 640px;
+}
+
+.list-controls-row .list-search {
+  margin: 0;
+  flex: 1 1 220px;
+}
+
 .list-search {
   position: relative;
   display: flex;

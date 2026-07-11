@@ -28,6 +28,14 @@
     "clear": "Clear search",
     "noResults": "No items found matching \"{{query}}\""
   },
+  "sort": {
+    "label": "Sort list",
+    "default": "Sort: Default",
+    "nameAsc": "Name (A-Z)",
+    "nameDesc": "Name (Z-A)",
+    "updatedNewest": "Last updated (newest)",
+    "updatedOldest": "Last updated (oldest)"
+  },
   "newListPrompt": "Name of the new list (e.g. party)",
   "deleteListConfirm": "Delete the list \"{{listName}}\" and all {{count}} items in it? This cannot be undone.",
   "share": {
