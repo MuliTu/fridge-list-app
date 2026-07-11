@@ -7,9 +7,12 @@ import { useDialogService } from '../hooks/DialogServiceContext'
 import type { Category, GroceryItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+
+const MAX_NAME_LENGTH = 100
 
 interface ItemDetailModalProps {
   entry: GroceryItem
@@ -17,7 +20,7 @@ interface ItemDetailModalProps {
   categories?: Category[]
   onSignIn: () => void
   onClose: () => void
-  onSave: (key: string, details: { note: string; imageFile: File | null }) => Promise<unknown>
+  onSave: (key: string, details: { name: string; note: string; imageFile: File | null }) => Promise<unknown>
   onDelete: (key: string) => Promise<unknown>
   onMoveCategory?: (key: string, category: string) => void
 }
@@ -34,6 +37,11 @@ export default function ItemDetailModal({
 }: ItemDetailModalProps) {
   const { t } = useTranslation()
   const { confirm } = useDialogService()
+  // Editable product name (FR-1..FR-5). Kept in the same unified edit-and-Save modal
+  // as note/photo/category rather than a separate rename flow or dialog — this app has
+  // no precedent for per-field edit entry points, and every other item attribute is
+  // already edited this same "open modal, edit fields, one Save" way.
+  const [name, setName] = useState(entry.item)
   const [note, setNote] = useState(entry.note || '')
   // Accessible alternative to drag-and-drop re-categorization (keyboard/screen-reader
   // friendly). Persists immediately on change, matching drag-and-drop's instant behavior.
@@ -65,11 +73,17 @@ export default function ItemDetailModal({
   const createdAt = formatDateTime(entry.added_at)
   const modifiedAt = formatDateTime(entry.modified_at)
 
+  // FR-4.1/4.2: non-empty, ≤100 chars. Save is disabled while invalid (FR-5.1); Cancel
+  // (closing without saving) simply discards the local `name` state (FR-5.2).
+  const trimmedName = name.trim()
+  const nameValid = trimmedName.length > 0 && trimmedName.length <= MAX_NAME_LENGTH
+
   const handleSave = async () => {
+    if (!nameValid) return
     setSaving(true)
     setError(null)
     try {
-      await onSave(entry.key, { note, imageFile })
+      await onSave(entry.key, { name: trimmedName, note, imageFile })
       onClose()
     } catch (err: any) {
       setError(`${t('common:itemDetail.saveFailed')}: ${err.message}`)
@@ -99,7 +113,24 @@ export default function ItemDetailModal({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{entry.item}</DialogTitle>
+          {/* Radix requires a DialogTitle for the dialog to be accessible; when editing,
+              the visible "title" is the name Input below instead, so this stays present
+              but visually hidden to keep the aria-labelledby link intact. */}
+          <DialogTitle className={canEdit ? 'sr-only' : undefined}>{entry.item}</DialogTitle>
+          {canEdit && (
+            <>
+              <Input
+                className="modal-name-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={MAX_NAME_LENGTH}
+                aria-label={t('common:itemDetail.nameLabel')}
+              />
+              {!nameValid && trimmedName.length === 0 && (
+                <div className="text-sm text-destructive">{t('common:itemDetail.nameRequired')}</div>
+              )}
+            </>
+          )}
         </DialogHeader>
 
         {previewUrl && <img className="modal-image-preview" src={previewUrl} alt={entry.item} />}
@@ -168,7 +199,7 @@ export default function ItemDetailModal({
               <Button variant="secondary" onClick={onClose} disabled={saving || deleting}>
                 {t('common:actions.cancel')}
               </Button>
-              <Button onClick={handleSave} disabled={saving || deleting}>
+              <Button onClick={handleSave} disabled={saving || deleting || !nameValid}>
                 {saving ? t('common:actions.saving') : t('common:actions.save')}
               </Button>
             </>
