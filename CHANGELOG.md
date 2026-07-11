@@ -6,6 +6,10 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.24.0] - 2026-07-11
+
+### Changed
+- Sending feedback is now non-blocking: the form closes immediately on submit and a transient, non-modal status toast (sending → success/failure) reports the outcome so the user can keep using the app during the slow n8n round-trip.
 ## [2.23.0] - 2026-07-11
 
 ### Added

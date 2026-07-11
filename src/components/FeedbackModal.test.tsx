@@ -1,8 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FeedbackModal from './FeedbackModal'
-import { submitFeedback } from '../lib/firebase'
-import { useAuth } from '../hooks/AuthContext'
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -11,78 +9,46 @@ jest.mock('react-i18next', () => ({
   })
 }))
 
-// Mock at the ../lib/firebase boundary — the component's own logic (validation,
-// double-submit guard, success/error state) is under test, not the network call.
-jest.mock('../lib/firebase', () => ({
-  submitFeedback: jest.fn()
-}))
-
-jest.mock('../hooks/AuthContext', () => ({
-  useAuth: jest.fn()
-}))
-
-// FeedbackModal reads the current route via useRouterState to attach it to the payload.
-jest.mock('@tanstack/react-router', () => ({
-  useRouterState: () => '/stock'
-}))
-
-const mockUser = { email: 'muli.turiel@gmail.com', displayName: 'Muli Turiel' }
+// FeedbackModal is now a "dumb" form: it validates + trims, then hands the request
+// off to onSubmit and closes. The actual network submission + status toast live in
+// the parent (useFeedbackToast), tested separately — so nothing here touches firebase.
 
 describe('FeedbackModal', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    ;(useAuth as jest.Mock).mockReturnValue({ user: mockUser })
-  })
-
-  it('shows a validation error and does not submit when the request is empty', async () => {
+  it('shows a validation error and does not submit or close when the request is empty', async () => {
     const user = userEvent.setup()
-    render(<FeedbackModal onClose={jest.fn()} />)
+    const onSubmit = jest.fn()
+    const onClose = jest.fn()
+    render(<FeedbackModal onClose={onClose} onSubmit={onSubmit} />)
 
     await user.click(screen.getByRole('button', { name: 'feedback:submit' }))
 
     expect(screen.getByText('feedback:requestRequired')).toBeInTheDocument()
-    expect(submitFeedback).not.toHaveBeenCalled()
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('submits the request with auto-populated route/user/language and shows the success state', async () => {
-    ;(submitFeedback as jest.Mock).mockResolvedValue({ error: false })
+  it('hands the trimmed request to onSubmit and closes immediately (non-blocking)', async () => {
     const user = userEvent.setup()
-    render(<FeedbackModal onClose={jest.fn()} />)
+    const onSubmit = jest.fn()
+    const onClose = jest.fn()
+    render(<FeedbackModal onClose={onClose} onSubmit={onSubmit} />)
 
-    await user.type(screen.getByRole('textbox'), 'add a dark mode')
+    await user.type(screen.getByRole('textbox'), '   add a dark mode   ')
     await user.click(screen.getByRole('button', { name: 'feedback:submit' }))
 
-    expect(submitFeedback).toHaveBeenCalledWith({
-      request: 'add a dark mode',
-      route: '/stock',
-      user: mockUser,
-      language: 'he'
-    })
-    expect(await screen.findByText('feedback:success')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'feedback:sendAnother' })).toBeInTheDocument()
+    expect(onSubmit).toHaveBeenCalledWith('add a dark mode')
+    expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows a recoverable error message when submission fails', async () => {
-    ;(submitFeedback as jest.Mock).mockResolvedValue({ error: true, message: 'boom' })
+  it('closes without submitting when cancel is clicked', async () => {
     const user = userEvent.setup()
-    render(<FeedbackModal onClose={jest.fn()} />)
+    const onSubmit = jest.fn()
+    const onClose = jest.fn()
+    render(<FeedbackModal onClose={onClose} onSubmit={onSubmit} />)
 
-    await user.type(screen.getByRole('textbox'), 'add a dark mode')
-    await user.click(screen.getByRole('button', { name: 'feedback:submit' }))
+    await user.click(screen.getByRole('button', { name: 'common:actions.cancel' }))
 
-    expect(await screen.findByText('feedback:error')).toBeInTheDocument()
-    // The success state must NOT show on failure — the request isn't lost.
-    expect(screen.queryByText('feedback:success')).not.toBeInTheDocument()
-  })
-
-  it('trims whitespace before submitting', async () => {
-    ;(submitFeedback as jest.Mock).mockResolvedValue({ error: false })
-    const user = userEvent.setup()
-    render(<FeedbackModal onClose={jest.fn()} />)
-
-    await user.type(screen.getByRole('textbox'), '   milk shortage   ')
-    await user.click(screen.getByRole('button', { name: 'feedback:submit' }))
-
-    expect(submitFeedback).toHaveBeenCalledWith(expect.objectContaining({ request: 'milk shortage' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 })
