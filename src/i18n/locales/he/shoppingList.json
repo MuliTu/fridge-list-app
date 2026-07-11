@@ -28,6 +28,14 @@
     "clear": "ניקוי החיפוש",
     "noResults": "לא נמצאו פריטים התואמים ל\"{{query}}\""
   },
+  "sort": {
+    "label": "מיון הרשימה",
+    "default": "מיון: ברירת מחדל",
+    "nameAsc": "שם (א-ת)",
+    "nameDesc": "שם (ת-א)",
+    "updatedNewest": "עודכן לאחרונה",
+    "updatedOldest": "עודכן ראשון"
+  },
   "newListPrompt": "שם הרשימה החדשה (למשל: מסיבה)",
   "deleteListConfirm": "למחוק את הרשימה \"{{listName}}\" וכל {{count}} הפריטים בה? לא ניתן לשחזר.",
   "share": {

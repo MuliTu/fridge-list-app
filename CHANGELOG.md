@@ -6,10 +6,16 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.26.0] - 2026-07-11
+
+### Added
+- Shopping-list items can now be sorted by name (A-Z/Z-A, locale-aware) or by when they were last updated (newest/oldest first) via a compact sort picker next to the search box, with the choice remembered per list per signed-in user.
+
 ## [2.25.0] - 2026-07-11
 
 ### Added
 - Shopping-list items can now be dragged from one category section and dropped onto another to re-categorize them (desktop/tablet, native HTML5 drag-and-drop, editors only, persisted instantly), with an accessible "Move to category" picker in the item details modal as a keyboard/screen-reader-friendly alternative.
+
 ## [2.24.0] - 2026-07-11
 
 ### Changed

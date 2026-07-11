@@ -18,6 +18,7 @@ import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useShowPurchased } from '../hooks/useShowPurchased'
+import { useListSort } from '../hooks/useListSort'
 import { isStockSuggestionEnabled } from '../hooks/useStockSuggestion'
 import { useAuth } from '../hooks/AuthContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
@@ -28,9 +29,11 @@ import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
 import ShoppingListSearch from '../components/ShoppingListSearch'
+import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
 import ListSkeleton from '../components/ListSkeleton'
+import { sortGroceryItems } from '../lib/sortGroceryItems'
 import type { GroceryItem, StockItem } from '../types'
 
 const PERMANENT_LIST = null
@@ -43,7 +46,7 @@ export const Route = createFileRoute('/')({
 })
 
 function ShoppingListPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { list } = Route.useSearch()
   const navigate = Route.useNavigate()
   const activeList = list || PERMANENT_LIST
@@ -62,6 +65,7 @@ function ShoppingListPage() {
   const [search, setSearch] = useState('')
   const { isCollapsed, toggle } = useCollapsedSections()
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
+  const { sortOption, setSortOption } = useListSort(activeList || '__permanent__', user?.email)
   const { categories, categoryMap } = useCategories()
 
   const customListNames = new Set(allEntries.map((e) => e.list_name).filter(Boolean) as string[])
@@ -89,10 +93,7 @@ function ShoppingListPage() {
     grouped[catName].push(entry)
   })
   Object.keys(grouped).forEach((catName) => {
-    grouped[catName].sort((a, b) => {
-      if (!!a.bought !== !!b.bought) return a.bought ? 1 : -1
-      return (a.added_at || '').localeCompare(b.added_at || '')
-    })
+    grouped[catName] = sortGroceryItems(grouped[catName], sortOption, i18n.language)
   })
 
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
@@ -205,7 +206,12 @@ function ShoppingListPage() {
         onBulkUpload={() => setShowBulkUpload(true)}
       />
 
-      {visibleEntries.length > 0 && <ShoppingListSearch value={search} onChange={setSearch} />}
+      {visibleEntries.length > 0 && (
+        <div className="list-controls-row">
+          <ShoppingListSearch value={search} onChange={setSearch} />
+          <ShoppingListSort value={sortOption} onChange={setSortOption} />
+        </div>
+      )}
 
       {isLoading && isEmpty ? (
         <ListSkeleton variant="flat" sections={3} rows={3} />
