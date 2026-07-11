@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   addGroceryItem,
+  addStockItem,
   adjustStockQuantity,
   deleteGroceryList,
   deleteItem,
@@ -13,9 +14,11 @@ import {
   updateGroceryItemCategory
 } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useShowPurchased } from '../hooks/useShowPurchased'
+import { isStockSuggestionEnabled } from '../hooks/useStockSuggestion'
 import { useAuth } from '../hooks/AuthContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
@@ -24,6 +27,7 @@ import GroceryItemModal from '../components/GroceryItemModal'
 import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
+import ShoppingListSearch from '../components/ShoppingListSearch'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
 import ListSkeleton from '../components/ListSkeleton'
@@ -48,11 +52,14 @@ function ShoppingListPage() {
   const { entries: allEntries, isLoading } = useGroceriesFeed()
   const { confirm, prompt } = useDialogService()
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
-  const [restockMatch, setRestockMatch] = useState<StockItem | null>(null)
+  const [restockTarget, setRestockTarget] = useState<{ entry: GroceryItem; existing: StockItem | null } | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
+  // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
+  // so it resets when navigating away and back — the ticket explicitly wants this.
+  const [search, setSearch] = useState('')
   const { isCollapsed, toggle } = useCollapsedSections()
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
   const { categories, categoryMap } = useCategories()
@@ -68,8 +75,15 @@ function ShoppingListPage() {
   const purchasedCount = visibleEntries.filter((e) => e.bought).length
   const displayEntries = showPurchased ? visibleEntries : visibleEntries.filter((e) => !e.bought)
 
+  // Client-side name search: case-insensitive substring match on the item name, layered
+  // on top of the existing hide-purchased filter so the two coexist. Empty query = no-op.
+  const query = search.trim().toLowerCase()
+  const searchedEntries = query
+    ? displayEntries.filter((e) => (e.item || '').toLowerCase().includes(query))
+    : displayEntries
+
   const grouped: Record<string, GroceryItem[]> = {}
-  displayEntries.forEach((entry) => {
+  searchedEntries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
     grouped[catName].push(entry)
@@ -87,11 +101,14 @@ function ShoppingListPage() {
   const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
     setBought(entry.key, newBought, user)
-    if (newBought) {
+    // Offer to reflect the purchase in the home inventory. Unlike before, the prompt
+    // now appears whether or not the item is already tracked in /stock: an existing
+    // match adds to its quantity, a miss offers to create a fresh stock entry. Gated by
+    // the settings toggle (isStockSuggestionEnabled), read fresh so it reflects the
+    // latest choice.
+    if (newBought && isStockSuggestionEnabled()) {
       findStockItemByName(entry.item)
-        .then((match) => {
-          if (match) setRestockMatch(match)
-        })
+        .then((match) => setRestockTarget({ entry, existing: match }))
         .catch((error) => console.error('[Stock] lookup failed:', error.message))
     }
   }
@@ -188,6 +205,8 @@ function ShoppingListPage() {
         onBulkUpload={() => setShowBulkUpload(true)}
       />
 
+      {visibleEntries.length > 0 && <ShoppingListSearch value={search} onChange={setSearch} />}
+
       {isLoading && isEmpty ? (
         <ListSkeleton variant="flat" sections={3} rows={3} />
       ) : (
@@ -203,7 +222,11 @@ function ShoppingListPage() {
           )}
           {isEmpty ? (
             <div className="all-empty">
-              {purchasedCount > 0 ? t('shoppingList:purchased.allPurchased') : t('shoppingList:empty')}
+              {query
+                ? t('shoppingList:search.noResults', { query: search.trim() })
+                : purchasedCount > 0
+                  ? t('shoppingList:purchased.allPurchased')
+                  : t('shoppingList:empty')}
             </div>
           ) : (
             <div className="flat-list">
@@ -258,13 +281,23 @@ function ShoppingListPage() {
         />
       )}
 
-      {restockMatch && (
+      {restockTarget && (
         <RestockPrompt
-          item={restockMatch}
-          onDismiss={() => setRestockMatch(null)}
+          itemName={restockTarget.entry.item}
+          existing={restockTarget.existing}
+          onDismiss={() => setRestockTarget(null)}
           onConfirm={(amount) => {
-            adjustStockQuantity(restockMatch.key, restockMatch.quantity + amount, user)
-            setRestockMatch(null)
+            const { entry, existing } = restockTarget
+            if (existing) {
+              adjustStockQuantity(existing.key, existing.quantity + amount, user)
+            } else {
+              const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
+              addStockItem(
+                { name: entry.item, category, quantity: amount, unit: StockUnit.Piece, low_threshold: 1 },
+                user
+              )
+            }
+            setRestockTarget(null)
           }}
         />
       )}

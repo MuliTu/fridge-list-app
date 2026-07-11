@@ -5,6 +5,7 @@
   "requestRequired": "Please write your request",
   "submit": "Send",
   "submitting": "Sending...",
+  "statusPending": "Sending your feedback in the background…",
   "success": "Thanks! Your feedback was sent and will be reviewed by the product team.",
   "error": "Sending feedback failed. You can try again.",
   "sendAnother": "Send more feedback"

@@ -10,6 +10,18 @@ Full design/decision history (why, not just what) lives in
 
 ### Added
 - Shopping-list items can now be dragged from one category section and dropped onto another to re-categorize them (desktop/tablet, native HTML5 drag-and-drop, editors only, persisted instantly), with an accessible "Move to category" picker in the item details modal as a keyboard/screen-reader-friendly alternative.
+## [2.24.0] - 2026-07-11
+
+### Changed
+- Sending feedback is now non-blocking: the form closes immediately on submit and a transient, non-modal status toast (sending → success/failure) reports the outcome so the user can keep using the app during the slow n8n round-trip.
+## [2.23.0] - 2026-07-11
+
+### Added
+- After marking a shopping-list item as bought, the restock prompt now appears whether or not the item is already tracked in stock — an existing match adds to its quantity, a miss offers to create a fresh stock entry (quantity 1) — and a "Stock suggestion: On/Off" toggle in the settings menu lets editors disable the prompt entirely.
+## [2.22.0] - 2026-07-11
+
+### Added
+- Real-time client-side search box on the shopping list that filters items in the current list by name (case-insensitive substring), with a clear (✕) button and a "no items found" state, coexisting with the per-list hide-purchased filter and resetting when you leave the tab.
 
 ## [2.21.0] - 2026-07-10
 

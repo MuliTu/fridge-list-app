@@ -22,6 +22,12 @@
     "addFailed": "Adding failed",
     "fileReadFailed": "Failed to read the file: {{message}}"
   },
+  "search": {
+    "placeholder": "Search the list…",
+    "label": "Search shopping list",
+    "clear": "Clear search",
+    "noResults": "No items found matching \"{{query}}\""
+  },
   "newListPrompt": "Name of the new list (e.g. party)",
   "deleteListConfirm": "Delete the list \"{{listName}}\" and all {{count}} items in it? This cannot be undone.",
   "share": {

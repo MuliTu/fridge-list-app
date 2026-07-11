@@ -190,6 +190,60 @@ h1 {
   cursor: pointer;
 }
 
+.list-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 420px;
+  margin: 10px auto 2px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 999px;
+  background: var(--input-alpha);
+  padding-inline: 12px;
+}
+
+.list-search:focus-within {
+  border-color: rgba(244, 241, 232, 0.3);
+}
+
+.list-search-icon {
+  font-size: 13px;
+  opacity: 0.7;
+  margin-inline-end: 6px;
+}
+
+.list-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--chalk);
+  font-family: 'Rubik', sans-serif;
+  font-size: 14px;
+  padding: 7px 0;
+  min-width: 0;
+}
+
+.list-search-input::placeholder {
+  color: var(--chalk-dim);
+  opacity: 0.7;
+}
+
+.list-search-clear {
+  background: none;
+  border: none;
+  color: var(--chalk-dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px;
+  margin-inline-start: 4px;
+}
+
+.list-search-clear:hover {
+  color: var(--chalk);
+}
+
 .purchased-toggle-row {
   display: flex;
   justify-content: center;
@@ -828,6 +882,71 @@ h1 {
   to {
     opacity: 0;
     transform: translateX(-50%) translateY(-16px);
+  }
+}
+
+/* Non-blocking feedback status toast — pinned to the bottom so it never collides
+   with the top-anchored new-item grocery toast, and pointer-events:none so it can
+   never intercept a tap on the app underneath (the whole point: non-blocking). */
+.feedback-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--chalk);
+  color: var(--board);
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  z-index: 60;
+  max-width: min(90%, 420px);
+  text-align: start;
+  pointer-events: none;
+  animation: feedback-toast-in 0.3s ease-out;
+}
+
+.feedback-toast-pending {
+  border-inline-start: 4px solid var(--chalk-dim);
+}
+
+.feedback-toast-success {
+  border-inline-start: 4px solid #8fbf6a;
+}
+
+.feedback-toast-error {
+  border-inline-start: 4px solid var(--danger);
+}
+
+.feedback-toast-spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid rgba(47, 61, 52, 0.25);
+  border-top-color: var(--board);
+  border-radius: 50%;
+  animation: feedback-spin 0.7s linear infinite;
+}
+
+@keyframes feedback-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes feedback-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 
