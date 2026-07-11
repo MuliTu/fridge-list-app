@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.22.0] - 2026-07-11
+
+### Added
+- Real-time client-side search box on the shopping list that filters items in the current list by name (case-insensitive substring), with a clear (✕) button and a "no items found" state, coexisting with the per-list hide-purchased filter and resetting when you leave the tab.
+
 ## [2.21.0] - 2026-07-10
 
 ### Added
