@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   addGroceryItem,
+  addStockItem,
   adjustStockQuantity,
   deleteGroceryList,
   deleteItem,
@@ -11,9 +12,11 @@ import {
   setBought
 } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useShowPurchased } from '../hooks/useShowPurchased'
+import { isStockSuggestionEnabled } from '../hooks/useStockSuggestion'
 import { useAuth } from '../hooks/AuthContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
@@ -47,7 +50,7 @@ function ShoppingListPage() {
   const { entries: allEntries, isLoading } = useGroceriesFeed()
   const { confirm, prompt } = useDialogService()
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
-  const [restockMatch, setRestockMatch] = useState<StockItem | null>(null)
+  const [restockTarget, setRestockTarget] = useState<{ entry: GroceryItem; existing: StockItem | null } | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
@@ -94,11 +97,14 @@ function ShoppingListPage() {
   const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
     setBought(entry.key, newBought, user)
-    if (newBought) {
+    // Offer to reflect the purchase in the home inventory. Unlike before, the prompt
+    // now appears whether or not the item is already tracked in /stock: an existing
+    // match adds to its quantity, a miss offers to create a fresh stock entry. Gated by
+    // the settings toggle (isStockSuggestionEnabled), read fresh so it reflects the
+    // latest choice.
+    if (newBought && isStockSuggestionEnabled()) {
       findStockItemByName(entry.item)
-        .then((match) => {
-          if (match) setRestockMatch(match)
-        })
+        .then((match) => setRestockTarget({ entry, existing: match }))
         .catch((error) => console.error('[Stock] lookup failed:', error.message))
     }
   }
@@ -218,13 +224,23 @@ function ShoppingListPage() {
         />
       )}
 
-      {restockMatch && (
+      {restockTarget && (
         <RestockPrompt
-          item={restockMatch}
-          onDismiss={() => setRestockMatch(null)}
+          itemName={restockTarget.entry.item}
+          existing={restockTarget.existing}
+          onDismiss={() => setRestockTarget(null)}
           onConfirm={(amount) => {
-            adjustStockQuantity(restockMatch.key, restockMatch.quantity + amount, user)
-            setRestockMatch(null)
+            const { entry, existing } = restockTarget
+            if (existing) {
+              adjustStockQuantity(existing.key, existing.quantity + amount, user)
+            } else {
+              const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
+              addStockItem(
+                { name: entry.item, category, quantity: amount, unit: StockUnit.Piece, low_threshold: 1 },
+                user
+              )
+            }
+            setRestockTarget(null)
           }}
         />
       )}

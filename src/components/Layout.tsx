@@ -12,6 +12,7 @@ import AdminsModal from './AdminsModal'
 import ChangelogModal from './ChangelogModal'
 import FeedbackModal from './FeedbackModal'
 import { useCategories } from '../hooks/useCategories'
+import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -34,6 +35,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showChangelog, setShowChangelog] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const { categories } = useCategories()
+  const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
@@ -78,6 +80,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowFeedback)}>
                       {t('menu.sendFeedback')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); toggleStockSuggestion() }}>
+                      {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
