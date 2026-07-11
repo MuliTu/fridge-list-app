@@ -809,6 +809,71 @@ h1 {
   }
 }
 
+/* Non-blocking feedback status toast — pinned to the bottom so it never collides
+   with the top-anchored new-item grocery toast, and pointer-events:none so it can
+   never intercept a tap on the app underneath (the whole point: non-blocking). */
+.feedback-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--chalk);
+  color: var(--board);
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  z-index: 60;
+  max-width: min(90%, 420px);
+  text-align: start;
+  pointer-events: none;
+  animation: feedback-toast-in 0.3s ease-out;
+}
+
+.feedback-toast-pending {
+  border-inline-start: 4px solid var(--chalk-dim);
+}
+
+.feedback-toast-success {
+  border-inline-start: 4px solid #8fbf6a;
+}
+
+.feedback-toast-error {
+  border-inline-start: 4px solid var(--danger);
+}
+
+.feedback-toast-spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid rgba(47, 61, 52, 0.25);
+  border-top-color: var(--board);
+  border-radius: 50%;
+  animation: feedback-spin 0.7s linear infinite;
+}
+
+@keyframes feedback-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes feedback-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .auth-screen {
   height: 100vh;
   background: var(--board-edge);

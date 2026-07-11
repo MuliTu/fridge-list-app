@@ -11,7 +11,9 @@ import CategoriesModal from './CategoriesModal'
 import AdminsModal from './AdminsModal'
 import ChangelogModal from './ChangelogModal'
 import FeedbackModal from './FeedbackModal'
+import FeedbackStatusToast from './FeedbackStatusToast'
 import { useCategories } from '../hooks/useCategories'
+import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -34,6 +36,10 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showChangelog, setShowChangelog] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const { categories } = useCategories()
+  // Feedback submission is non-blocking: the modal closes on submit and this drives
+  // a transient status toast (pending → success/error) that outlives the modal.
+  const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
+    useFeedbackToast()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
@@ -136,7 +142,10 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
       {showAdmins && <AdminsModal onClose={() => setShowAdmins(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
-      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
+      {showFeedback && (
+        <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={submitFeedbackRequest} />
+      )}
+      <FeedbackStatusToast toast={feedbackToast} onDismiss={dismissFeedbackToast} />
     </div>
   )
 }
