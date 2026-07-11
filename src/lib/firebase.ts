@@ -96,6 +96,15 @@ export const setBought = (key: string, bought: boolean, user?: AuthUser | null) 
   return touchModified(key, { bought }, user)
 }
 
+// Reassign a grocery item to a different category (used by drag-and-drop between
+// category sections and the "move to category" picker in ItemDetailModal). The
+// item's `category` string is its grouping identity — the realtime /groceries
+// listener re-renders it under the new section automatically once this write lands.
+export const updateGroceryItemCategory = (key: string, category: string, user?: AuthUser | null) => {
+  logClientAction(`[groceries] updateGroceryItemCategory: key=${key} category=${category} by=${user?.email || 'anonymous'}`)
+  return touchModified(key, { category }, user)
+}
+
 export const resizeImage = (file: File | Blob, maxDim = 1280, quality = 0.75): Promise<Blob> =>
   new Promise((resolve, reject) => {
     const img = new Image()

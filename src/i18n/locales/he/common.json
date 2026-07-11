@@ -48,7 +48,8 @@
     "updatedBy": "עודכן",
     "deleteConfirm": "למחוק את \"{{itemName}}\" מהרשימה?",
     "deleteFailed": "מחיקה נכשלה",
-    "saveFailed": "שמירה נכשלה"
+    "saveFailed": "שמירה נכשלה",
+    "moveToCategory": "העברה לקטגוריה"
   },
   "groceryItem": {
     "title": "הוספת פריט ל\"{{listName}}\"",

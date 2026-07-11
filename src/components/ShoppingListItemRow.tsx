@@ -1,3 +1,4 @@
+import type { DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import type { GroceryItem } from '../types'
@@ -6,14 +7,29 @@ interface ShoppingListItemRowProps {
   entry: GroceryItem
   onClick: () => void
   onInfoClick: () => void
+  draggable?: boolean
+  dragging?: boolean
+  onDragStart?: (e: DragEvent<HTMLLIElement>) => void
+  onDragEnd?: (e: DragEvent<HTMLLIElement>) => void
 }
 
-export default function ShoppingListItemRow({ entry, onClick, onInfoClick }: ShoppingListItemRowProps) {
+export default function ShoppingListItemRow({
+  entry,
+  onClick,
+  onInfoClick,
+  draggable = false,
+  dragging = false,
+  onDragStart,
+  onDragEnd
+}: ShoppingListItemRowProps) {
   const { t } = useTranslation()
   return (
     <li
-      className={`item${entry.isFresh ? ' fresh' : ''}${entry.bought ? ' bought' : ''}`}
+      className={`item${entry.isFresh ? ' fresh' : ''}${entry.bought ? ' bought' : ''}${dragging ? ' dragging' : ''}`}
       onClick={onClick}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
       <span className="item-row">
         <span className="item-top">

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { DragEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -8,7 +9,8 @@ import {
   deleteItem,
   findStockItemByName,
   saveItemDetails,
-  setBought
+  setBought,
+  updateGroceryItemCategory
 } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { useCategories } from '../hooks/useCategories'
@@ -49,6 +51,8 @@ function ShoppingListPage() {
   const [restockMatch, setRestockMatch] = useState<StockItem | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const [draggingKey, setDraggingKey] = useState<string | null>(null)
+  const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
   const { categories, categoryMap } = useCategories()
@@ -95,6 +99,49 @@ function ShoppingListPage() {
   const handleItemClick = (entry: GroceryItem) => {
     if (!canEdit) return
     handleToggleBought(entry)
+  }
+
+  // Drag-and-drop re-categorization (desktop/tablet, native HTML5 DnD). The item's
+  // effective category is what it's grouped under (its own category if still valid,
+  // else the "אחר" fallback), so dropping back onto that same section is a no-op.
+  const effectiveCategory = (entry: GroceryItem) =>
+    categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
+
+  const handleDragStart = (entry: GroceryItem) => (e: DragEvent<HTMLLIElement>) => {
+    e.dataTransfer.setData('text/plain', entry.key)
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingKey(entry.key)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingKey(null)
+    setDragOverCategory(null)
+  }
+
+  const handleDragOverCategory = (catName: string) => (e: DragEvent<HTMLDivElement>) => {
+    if (!draggingKey) return
+    e.preventDefault() // allow drop
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverCategory !== catName) setDragOverCategory(catName)
+  }
+
+  const handleDragLeaveCategory = (catName: string) => (e: DragEvent<HTMLDivElement>) => {
+    // Ignore leave events fired while moving between child nodes of the same section.
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setDragOverCategory((prev) => (prev === catName ? null : prev))
+  }
+
+  const handleDropOnCategory = (catName: string) => (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const key = e.dataTransfer.getData('text/plain') || draggingKey
+    setDraggingKey(null)
+    setDragOverCategory(null)
+    if (!canEdit || !key) return
+    const entry = allEntries.find((x) => x.key === key)
+    if (!entry) return // item deleted mid-drag — fail gracefully, no write
+    if (effectiveCategory(entry) === catName) return // dropped on same category — no-op
+    if (isCollapsed(catName)) toggle(catName) // auto-expand target so the moved item is visible
+    updateGroceryItemCategory(key, catName, user)
   }
 
   const handleCreateList = async () => {
@@ -168,11 +215,19 @@ function ShoppingListPage() {
               icon={icon}
               collapsed={isCollapsed(name)}
               onToggle={() => toggle(name)}
+              dragOver={dragOverCategory === name}
+              onDragOver={canEdit ? handleDragOverCategory(name) : undefined}
+              onDragLeave={canEdit ? handleDragLeaveCategory(name) : undefined}
+              onDrop={canEdit ? handleDropOnCategory(name) : undefined}
             >
               {grouped[name].map((entry) => (
                 <ShoppingListItemRow
                   key={entry.key}
                   entry={entry}
+                  draggable={canEdit}
+                  dragging={draggingKey === entry.key}
+                  onDragStart={handleDragStart(entry)}
+                  onDragEnd={handleDragEnd}
                   onClick={() => handleItemClick(entry)}
                   onInfoClick={() => setSelectedEntry(entry)}
                 />
@@ -194,10 +249,12 @@ function ShoppingListPage() {
         <ItemDetailModal
           entry={selectedEntry}
           canEdit={canEdit}
+          categories={categories}
           onSignIn={onSignIn}
           onClose={() => setSelectedEntry(null)}
           onSave={(key, details) => saveItemDetails(key, details, user)}
           onDelete={(key) => deleteItem(key, selectedEntry.image_ref)}
+          onMoveCategory={(key, category) => updateGroceryItemCategory(key, category, user)}
         />
       )}
 

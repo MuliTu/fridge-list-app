@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, DragEvent, ReactNode } from 'react'
 
 interface CategorySectionProps {
   name: string
@@ -7,11 +7,32 @@ interface CategorySectionProps {
   collapsed: boolean
   onToggle: () => void
   children: ReactNode
+  dragOver?: boolean
+  onDragOver?: (e: DragEvent<HTMLDivElement>) => void
+  onDragLeave?: (e: DragEvent<HTMLDivElement>) => void
+  onDrop?: (e: DragEvent<HTMLDivElement>) => void
 }
 
-export default function CategorySection({ name, color, icon, collapsed, onToggle, children }: CategorySectionProps) {
+export default function CategorySection({
+  name,
+  color,
+  icon,
+  collapsed,
+  onToggle,
+  children,
+  dragOver = false,
+  onDragOver,
+  onDragLeave,
+  onDrop
+}: CategorySectionProps) {
   return (
-    <div className="flat-section" style={{ '--accent': color } as CSSProperties}>
+    <div
+      className={`flat-section${dragOver ? ' drag-over' : ''}`}
+      style={{ '--accent': color } as CSSProperties}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <h2 className="flat-section-header" onClick={onToggle}>
         <span className="cat-icon">{icon}</span>
         {name}
