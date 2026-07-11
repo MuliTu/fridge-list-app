@@ -50,7 +50,8 @@
     "updatedBy": "Updated",
     "deleteConfirm": "Delete \"{{itemName}}\" from the list?",
     "deleteFailed": "Delete failed",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "moveToCategory": "Move to category"
   },
   "groceryItem": {
     "title": "Add item to \"{{listName}}\"",

@@ -458,6 +458,28 @@ h1 {
   animation: pop 0.9s ease-out;
 }
 
+/* Drag-and-drop re-categorization (desktop/tablet, native HTML5 DnD). */
+.item[draggable='true'] .item-row {
+  cursor: grab;
+}
+
+.item.dragging {
+  opacity: 0.4;
+}
+
+.flat-section.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  border-radius: 8px;
+  background: rgba(244, 241, 232, 0.05);
+}
+
+.modal-category-move {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 @keyframes settle {
   from {
     opacity: 0;

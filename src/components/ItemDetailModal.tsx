@@ -2,25 +2,45 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import { getImageDataUrl } from '../lib/firebase'
+import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { useDialogService } from '../hooks/DialogServiceContext'
-import type { GroceryItem } from '../types'
+import type { Category, GroceryItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
+import { Label } from './ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 interface ItemDetailModalProps {
   entry: GroceryItem
   canEdit: boolean
+  categories?: Category[]
   onSignIn: () => void
   onClose: () => void
   onSave: (key: string, details: { note: string; imageFile: File | null }) => Promise<unknown>
   onDelete: (key: string) => Promise<unknown>
+  onMoveCategory?: (key: string, category: string) => void
 }
 
-export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onSave, onDelete }: ItemDetailModalProps) {
+export default function ItemDetailModal({
+  entry,
+  canEdit,
+  categories = [],
+  onSignIn,
+  onClose,
+  onSave,
+  onDelete,
+  onMoveCategory
+}: ItemDetailModalProps) {
   const { t } = useTranslation()
   const { confirm } = useDialogService()
   const [note, setNote] = useState(entry.note || '')
+  // Accessible alternative to drag-and-drop re-categorization (keyboard/screen-reader
+  // friendly). Persists immediately on change, matching drag-and-drop's instant behavior.
+  const currentCategory = categories.some((c) => c.name === entry.category)
+    ? entry.category
+    : OTHER_CATEGORY_NAME
+  const [category, setCategory] = useState(currentCategory)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(entry.image_url || null)
   const [saving, setSaving] = useState(false)
@@ -55,6 +75,11 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
       setError(`${t('common:itemDetail.saveFailed')}: ${err.message}`)
       setSaving(false)
     }
+  }
+
+  const handleMoveCategory = (next: string) => {
+    setCategory(next)
+    if (next !== currentCategory) onMoveCategory?.(entry.key, next)
   }
 
   const handleDelete = async () => {
@@ -96,6 +121,24 @@ export default function ItemDetailModal({ entry, canEdit, onSignIn, onClose, onS
               onChange={(e) => setNote(e.target.value)}
               rows={3}
             />
+
+            {onMoveCategory && categories.length > 0 && (
+              <Label className="modal-category-move">
+                {t('common:itemDetail.moveToCategory')}
+                <Select value={category} onValueChange={handleMoveCategory}>
+                  <SelectTrigger aria-label={t('common:itemDetail.moveToCategory')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.key} value={c.name}>
+                        {c.icon} {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Label>
+            )}
           </>
         ) : (
           note && <p className="modal-note-readonly">{note}</p>
