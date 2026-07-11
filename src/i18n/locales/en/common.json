@@ -21,7 +21,9 @@
     "manageCategories": "🗂 Manage categories",
     "shareEditing": "👥 Share editing",
     "viewChangelog": "📝 Changelog",
-    "sendFeedback": "💬 Send feedback"
+    "sendFeedback": "💬 Send feedback",
+    "stockSuggestionOn": "📦 Stock suggestion: On",
+    "stockSuggestionOff": "📦 Stock suggestion: Off"
   },
   "actions": {
     "cancel": "Cancel",
@@ -60,6 +62,7 @@
   "restockPrompt": {
     "title": "Update stock",
     "message": "You marked \"{{itemName}}\" as bought — add it to stock?",
+    "messageNew": "You marked \"{{itemName}}\" as bought — add it to your home inventory?",
     "quantityLabel": "Quantity to add ({{unit}})",
     "skip": "Skip",
     "addToStock": "Add to stock"

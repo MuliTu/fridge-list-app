@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.23.0] - 2026-07-11
+
+### Added
+- After marking a shopping-list item as bought, the restock prompt now appears whether or not the item is already tracked in stock — an existing match adds to its quantity, a miss offers to create a fresh stock entry (quantity 1) — and a "Stock suggestion: On/Off" toggle in the settings menu lets editors disable the prompt entirely.
+
 ## [2.21.0] - 2026-07-10
 
 ### Added
