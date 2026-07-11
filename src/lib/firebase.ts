@@ -132,10 +132,14 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
 
 export const saveItemDetails = async (
   key: string,
-  { note, imageFile }: { note?: string | null; imageFile?: File | null },
+  { name, note, imageFile }: { name?: string; note?: string | null; imageFile?: File | null },
   user?: AuthUser | null
 ) => {
   const fields: Record<string, unknown> = { note: note ?? null }
+  // Same "always write, even if unchanged" pattern this function already used for
+  // `note` — an idempotent re-write of an unchanged name is harmless, and this way
+  // the caller doesn't need to diff against the original value itself.
+  if (name != null) fields.item = name
 
   if (imageFile) {
     const resized = await resizeImage(imageFile)
@@ -143,7 +147,9 @@ export const saveItemDetails = async (
     fields.image_ref = key
   }
 
-  logClientAction(`[groceries] saveItemDetails: key=${key} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`)
+  logClientAction(
+    `[groceries] saveItemDetails: key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
+  )
   return touchModified(key, fields, user)
 }
 

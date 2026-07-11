@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.0] - 2026-07-11
+
+### Added
+- Product names can now be edited: the item details modal's title becomes an editable field (pre-filled, 1-100 chars, required) that saves alongside the note/photo/category in the same "Save" action, syncing in real time to every household member.
+
 ## [2.26.0] - 2026-07-11
 
 ### Added

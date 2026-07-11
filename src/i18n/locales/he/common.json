@@ -43,6 +43,8 @@
     "en": "English"
   },
   "itemDetail": {
+    "nameLabel": "שם הפריט",
+    "nameRequired": "שם הפריט לא יכול להישאר ריק",
     "addPhoto": "הוספת תמונה",
     "replacePhoto": "החלפת תמונה",
     "notePlaceholder": "הערה...",

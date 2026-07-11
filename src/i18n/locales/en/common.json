@@ -43,6 +43,8 @@
     "en": "English"
   },
   "itemDetail": {
+    "nameLabel": "Item name",
+    "nameRequired": "Item name cannot be empty",
     "addPhoto": "Add photo",
     "replacePhoto": "Replace photo",
     "notePlaceholder": "Note...",

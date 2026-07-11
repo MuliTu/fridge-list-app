@@ -1044,6 +1044,16 @@ h1 {
   border-radius: 10px;
 }
 
+/* Replaces the static DialogTitle as the editable product-name field — sized to read
+   like a title rather than a plain form input. */
+.modal-name-input {
+  font-family: 'Secular One', sans-serif;
+  font-size: 18px;
+  font-weight: normal;
+  height: auto;
+  padding: 6px 10px;
+}
+
 .modal-file-btn {
   display: inline-flex;
   align-items: center;
