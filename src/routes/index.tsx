@@ -25,6 +25,7 @@ import GroceryItemModal from '../components/GroceryItemModal'
 import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
+import ShoppingListSearch from '../components/ShoppingListSearch'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
 import ListSkeleton from '../components/ListSkeleton'
@@ -52,6 +53,9 @@ function ShoppingListPage() {
   const [restockTarget, setRestockTarget] = useState<{ entry: GroceryItem; existing: StockItem | null } | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
+  // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
+  // so it resets when navigating away and back — the ticket explicitly wants this.
+  const [search, setSearch] = useState('')
   const { isCollapsed, toggle } = useCollapsedSections()
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
   const { categories, categoryMap } = useCategories()
@@ -67,8 +71,15 @@ function ShoppingListPage() {
   const purchasedCount = visibleEntries.filter((e) => e.bought).length
   const displayEntries = showPurchased ? visibleEntries : visibleEntries.filter((e) => !e.bought)
 
+  // Client-side name search: case-insensitive substring match on the item name, layered
+  // on top of the existing hide-purchased filter so the two coexist. Empty query = no-op.
+  const query = search.trim().toLowerCase()
+  const searchedEntries = query
+    ? displayEntries.filter((e) => (e.item || '').toLowerCase().includes(query))
+    : displayEntries
+
   const grouped: Record<string, GroceryItem[]> = {}
-  displayEntries.forEach((entry) => {
+  searchedEntries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
     grouped[catName].push(entry)
@@ -147,6 +158,8 @@ function ShoppingListPage() {
         onBulkUpload={() => setShowBulkUpload(true)}
       />
 
+      {visibleEntries.length > 0 && <ShoppingListSearch value={search} onChange={setSearch} />}
+
       {isLoading && isEmpty ? (
         <ListSkeleton variant="flat" sections={3} rows={3} />
       ) : (
@@ -162,7 +175,11 @@ function ShoppingListPage() {
           )}
           {isEmpty ? (
             <div className="all-empty">
-              {purchasedCount > 0 ? t('shoppingList:purchased.allPurchased') : t('shoppingList:empty')}
+              {query
+                ? t('shoppingList:search.noResults', { query: search.trim() })
+                : purchasedCount > 0
+                  ? t('shoppingList:purchased.allPurchased')
+                  : t('shoppingList:empty')}
             </div>
           ) : (
             <div className="flat-list">
