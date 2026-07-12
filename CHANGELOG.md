@@ -6,6 +6,10 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.2] - 2026-07-12
+
+### Security
+- Hardened the invite-email server route against HTML injection and SMTP header injection: user-controlled fields are now HTML-escaped before going into the email body, and the recipient address is validated (rejecting malformed/whitespace-bearing values with a 400) while the inviter name is length-capped and newline-stripped.
 ## [2.27.6] - 2026-07-12
 
 ### Security
