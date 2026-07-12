@@ -10,6 +10,14 @@ Full design/decision history (why, not just what) lives in
 
 ### Security
 - A receipt's user-pasted `source_url` is now validated against an http(s)-only allowlist (`isSafeHttpUrl`) both before it's written to Firebase and before it's rendered as a link, so a `javascript:`/`data:` URL can no longer become a script-executing clickable link.
+## [2.27.1] - 2026-07-12
+
+### Security
+- The receipt-from-URL endpoint now validates every server-side fetch (the pasted link and the followed PresignedURL) against an SSRF allowlist — https-only, rejecting private/loopback/link-local/cloud-metadata targets by resolved IP — and reads at most 1MB of each response into memory, closing an open-proxy hole into internal and cloud-metadata endpoints.
+## [2.27.4] - 2026-07-12
+
+### Security
+- Responses now carry defense-in-depth security headers (`X-Frame-Options: DENY` plus CSP `frame-ancestors 'none'` against clickjacking, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`), applied to every path via the Vercel Build Output config.
 
 ## [2.27.0] - 2026-07-11
 
