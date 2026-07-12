@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.29.0] - 2026-07-13
+
+### Added
+- Baseline PWA support: a web manifest + app icons make the app installable to a home screen/desktop in standalone mode, and a service worker caches the app shell (HTML/JS/CSS/static assets) so it loads instantly and still opens (with an offline notice) with no network — live grocery/stock/receipt data still requires a connection, since it comes over Firebase's realtime WebSocket listeners rather than fetch() calls a service worker can intercept.
+
 ## [2.28.2] - 2026-07-12
 
 ### Fixed
