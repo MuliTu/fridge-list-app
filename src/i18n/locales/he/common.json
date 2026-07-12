@@ -19,7 +19,7 @@
   "menu": {
     "button": "תפריט",
     "manageCategories": "🗂 ניהול קטגוריות",
-    "shareEditing": "👥 שיתוף עריכה",
+    "shareEditing": "👥 שיתוף עריכה – {{listName}}",
     "viewChangelog": "📝 יומן שינויים",
     "sendFeedback": "💬 שליחת משוב",
     "stockSuggestionOn": "📦 הצעת מלאי: פעיל",

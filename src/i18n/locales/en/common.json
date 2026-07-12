@@ -19,7 +19,7 @@
   "menu": {
     "button": "Menu",
     "manageCategories": "🗂 Manage categories",
-    "shareEditing": "👥 Share editing",
+    "shareEditing": "👥 Share editing – {{listName}}",
     "viewChangelog": "📝 Changelog",
     "sendFeedback": "💬 Send feedback",
     "stockSuggestionOn": "📦 Stock suggestion: On",

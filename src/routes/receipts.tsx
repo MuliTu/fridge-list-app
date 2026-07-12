@@ -2,24 +2,20 @@ import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
-  applyReceiptReconciliation,
   categorizeItem,
-  deleteReceipt,
-  getAllGroceryItems,
-  getAllStockItems,
   getImageDataUrl,
   onValue,
-  receiptsRef,
   resizeImage,
-  saveReceipt,
   scanReceipt,
-  scanReceiptFromUrl
+  scanReceiptFromUrl,
+  type ListApi
 } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { formatDateTime } from '../lib/formatDateTime'
 import { normalizeName } from '../lib/normalizeName'
 import { isSafeHttpUrl } from '../lib/safeUrl'
 import { useAuth } from '../hooks/AuthContext'
+import { useActiveList, useListApi } from '../hooks/ListContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
 import ReceiptReconcileModal, { type ReconcileMatch } from '../components/ReceiptReconcileModal'
@@ -32,9 +28,9 @@ const receiptTotal = (receipt: Receipt) =>
 // Shared by the post-save reconcile step and the on-demand "add to stock" button on
 // an already-saved receipt card — both need the exact same stock/grocery matching +
 // categorization, just triggered at a different time.
-const buildReconcileMatches = async (items: ReceiptItem[]): Promise<ReconcileMatch[]> => {
+const buildReconcileMatches = async (listApi: ListApi, items: ReceiptItem[]): Promise<ReconcileMatch[]> => {
   // One Firebase read each for the whole receipt, not one per item.
-  const [stockItems, groceryItems] = await Promise.all([getAllStockItems(), getAllGroceryItems()])
+  const [stockItems, groceryItems] = await Promise.all([listApi.getAllStockItems(), listApi.getAllGroceryItems()])
   const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
   const findGrocery = (name: string) =>
     groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
@@ -75,7 +71,9 @@ export const Route = createFileRoute('/receipts')({
 
 function ReceiptsPage() {
   const { t } = useTranslation(['receipts', 'common'])
-  const { user, canEdit } = useAuth()
+  const { user } = useAuth()
+  const { canEdit } = useActiveList()
+  const listApi = useListApi()
   const { confirm, prompt, alert } = useDialogService()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -90,20 +88,19 @@ function ReceiptsPage() {
   const [queue, setQueue] = useState<File[]>([])
   const [queueIndex, setQueueIndex] = useState(0)
 
-  useEffect(
-    () =>
-      onValue(receiptsRef, (snapshot) => {
-        const data = snapshot.val() || {}
-        const list: Receipt[] = Object.entries(data as Record<string, any>).map(([key, entry]) => ({
-          key,
-          ...entry
-        }))
-        list.sort((a, b) => (b.scanned_at || '').localeCompare(a.scanned_at || ''))
-        setReceipts(list)
-        setIsLoading(false)
-      }),
-    []
-  )
+  useEffect(() => {
+    setIsLoading(true)
+    return onValue(listApi.receiptsRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      const list: Receipt[] = Object.entries(data as Record<string, any>).map(([key, entry]) => ({
+        key,
+        ...entry
+      }))
+      list.sort((a, b) => (b.scanned_at || '').localeCompare(a.scanned_at || ''))
+      setReceipts(list)
+      setIsLoading(false)
+    })
+  }, [listApi])
 
   const chronological = [...receipts].sort((a, b) => (a.scanned_at || '').localeCompare(b.scanned_at || ''))
   const priceHistory: Record<string, { price: number; date: string }[]> = {}
@@ -218,12 +215,12 @@ function ReceiptsPage() {
     total: number | null
     source_url: string | null
   }) => {
-    const { imageSkipped } = await saveReceipt(data, reviewData!.imageBlob, user)
+    const { imageSkipped } = await listApi.saveReceipt(data, reviewData!.imageBlob, user)
     setReviewData(null)
     setScanError(imageSkipped ? t('receipts:scanErrors.imageTooLarge') : null)
     setProcessingReceipt(true)
     try {
-      setReconcileMatches(await buildReconcileMatches(data.items))
+      setReconcileMatches(await buildReconcileMatches(listApi, data.items))
     } finally {
       setProcessingReceipt(false)
     }
@@ -235,7 +232,7 @@ function ReceiptsPage() {
   const handleAddReceiptToStock = async (receipt: Receipt) => {
     setProcessingReceipt(true)
     try {
-      setReconcileMatches(await buildReconcileMatches(receipt.items || []))
+      setReconcileMatches(await buildReconcileMatches(listApi, receipt.items || []))
     } finally {
       setProcessingReceipt(false)
     }
@@ -274,7 +271,7 @@ function ReceiptsPage() {
     // the most likely explanation for "I approved the products but don't see them
     // anywhere": the write silently failed and nothing told the user.
     try {
-      await applyReceiptReconciliation({ stockAdjustments, newStockItems, groceryBoughtKeys, newGroceryItems }, user)
+      await listApi.applyReceiptReconciliation({ stockAdjustments, newStockItems, groceryBoughtKeys, newGroceryItems }, user)
     } catch (err: any) {
       await alert(t('receipts:reconcile.applyFailed', { message: err.message }))
       return
@@ -297,7 +294,7 @@ function ReceiptsPage() {
   const handleDelete = async (receipt: Receipt) => {
     const date = formatDateTime(receipt.scanned_at) || t('receipts:deleteConfirmUnknownDate')
     if (!(await confirm(t('receipts:deleteConfirm', { date })))) return
-    deleteReceipt(receipt.key, receipt.image_ref)
+    listApi.deleteReceipt(receipt.key, receipt.image_ref)
   }
 
   const handleViewImage = async (receipt: Receipt) => {

@@ -10,7 +10,7 @@ import { StockUnit } from './units'
 import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
 import { version as APP_VERSION } from '../../package.json'
 
-// Logs client-side actions (grocery/stock/receipt/category/admin writes) to the
+// Logs client-side actions (grocery/stock/receipt/category/list writes) to the
 // browser console AND forwards them to the dev server's terminal via /api/client-log
 // — these are Firebase SDK calls made in the browser, so without that hop they'd
 // never reach the terminal the way the scan-receipt/categorize-item route logs do.
@@ -76,35 +76,11 @@ const deleteImageDoc = async (collectionName: string, id: string) => {
   }
 }
 
-export const ADMIN_EMAILS: string[] = ['muli.turiel@gmail.com']
-
-export const groceriesRef = ref(db, 'groceries')
 export { onValue }
 
 export const signIn = () => signInWithPopup(auth, googleProvider)
 export const signOutUser = () => signOut(auth)
 export const onAuthChange = (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb)
-
-const touchModified = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
-  update(ref(db, `groceries/${key}`), {
-    ...fields,
-    modified_at: new Date().toISOString(),
-    modified_by: user?.email || null
-  })
-
-export const setBought = (key: string, bought: boolean, user?: AuthUser | null) => {
-  logClientAction(`[groceries] setBought: key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
-  return touchModified(key, { bought }, user)
-}
-
-// Reassign a grocery item to a different category (used by drag-and-drop between
-// category sections and the "move to category" picker in ItemDetailModal). The
-// item's `category` string is its grouping identity — the realtime /groceries
-// listener re-renders it under the new section automatically once this write lands.
-export const updateGroceryItemCategory = (key: string, category: string, user?: AuthUser | null) => {
-  logClientAction(`[groceries] updateGroceryItemCategory: key=${key} category=${category} by=${user?.email || 'anonymous'}`)
-  return touchModified(key, { category }, user)
-}
 
 export const resizeImage = (file: File | Blob, maxDim = 1280, quality = 0.75): Promise<Blob> =>
   new Promise((resolve, reject) => {
@@ -131,104 +107,6 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob)
   })
 
-export const saveItemDetails = async (
-  key: string,
-  { name, note, imageFile }: { name?: string; note?: string | null; imageFile?: File | null },
-  user?: AuthUser | null
-) => {
-  const fields: Record<string, unknown> = { note: note ?? null }
-  // Same "always write, even if unchanged" pattern this function already used for
-  // `note` — an idempotent re-write of an unchanged name is harmless, and this way
-  // the caller doesn't need to diff against the original value itself.
-  if (name != null) fields.item = name
-
-  if (imageFile) {
-    const resized = await resizeImage(imageFile)
-    await saveImageDoc('groceryImages', key, resized)
-    fields.image_ref = key
-  }
-
-  logClientAction(
-    `[groceries] saveItemDetails: key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
-  )
-  return touchModified(key, fields, user)
-}
-
-export const deleteItem = async (key: string, imageRef?: string | null) => {
-  logClientAction(`[groceries] deleteItem: key=${key}`)
-  if (imageRef) await deleteImageDoc('groceryImages', imageRef)
-  return remove(ref(db, `groceries/${key}`))
-}
-
-export const stockRef = ref(db, 'stock')
-
-const touchStock = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
-  update(ref(db, `stock/${key}`), {
-    ...fields,
-    updated_at: new Date().toISOString(),
-    updated_by: user?.email || null
-  })
-
-export const addStockItem = (
-  item: { name: string; category: string; quantity: number; unit: string; low_threshold: number },
-  user?: AuthUser | null
-) => {
-  logClientAction(`[stock] addStockItem: name=${item.name} quantity=${item.quantity} by=${user?.email || 'anonymous'}`)
-  return push(stockRef, {
-    name: item.name,
-    category: item.category,
-    quantity: item.quantity,
-    unit: item.unit,
-    low_threshold: item.low_threshold,
-    updated_at: new Date().toISOString(),
-    updated_by: user?.email || null
-  })
-}
-
-export const adjustStockQuantity = (key: string, quantity: number, user?: AuthUser | null) => {
-  logClientAction(`[stock] adjustStockQuantity: key=${key} quantity=${quantity} by=${user?.email || 'anonymous'}`)
-  return touchStock(key, { quantity: Math.max(0, quantity) }, user)
-}
-
-export const updateStockItem = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) => {
-  logClientAction(`[stock] updateStockItem: key=${key} fields=${Object.keys(fields).join(',')} by=${user?.email || 'anonymous'}`)
-  return touchStock(key, fields, user)
-}
-
-export const deleteStockItem = (key: string) => {
-  logClientAction(`[stock] deleteStockItem: key=${key}`)
-  return remove(ref(db, `stock/${key}`))
-}
-
-export const addStockItemToShoppingList = (entry: { name: string; category: string }, user?: AuthUser | null) => {
-  logClientAction(`[groceries] addStockItemToShoppingList: name=${entry.name} by=${user?.email || 'anonymous'}`)
-  return push(groceriesRef, {
-    item: entry.name,
-    category: entry.category,
-    bought: false,
-    added_at: new Date().toISOString(),
-    raw_text: 'מהמלאי',
-    created_by: user?.email || null
-  })
-}
-
-export const addGroceryItem = (
-  item: { name: string; category: string },
-  listName: string | null,
-  user?: AuthUser | null
-) => {
-  logClientAction(`[groceries] addGroceryItem: name=${item.name} list=${listName || 'permanent'} by=${user?.email || 'anonymous'}`)
-  return push(groceriesRef, {
-    item: item.name,
-    category: item.category,
-    bought: false,
-    added_at: new Date().toISOString(),
-    raw_text: 'נוסף ידנית',
-    list_name: listName || null,
-    created_by: user?.email || null
-  })
-}
-
 // Same-origin path, not the n8n URL directly — /api/categorize-item (a TanStack Start
 // server route) keeps the webhook URL server-side only. Mirrors Siri's own
 // extract-and-categorize Gemini prompt/category list, so manually typed items get the
@@ -245,143 +123,491 @@ export const categorizeItem = async (text: string): Promise<{ item: string; cate
   return data.items || []
 }
 
-export const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
-  logClientAction(`[groceries] addPurchasedGroceryItem: name=${item.name} by=${user?.email || 'anonymous'}`)
+// ---------------------------------------------------------------------------
+// Lists (households): /lists/{listId}, /users/{sanitizedEmail}/lists/{listId}
+// ---------------------------------------------------------------------------
+// Each signed-in user can own/belong to one or more lists. All grocery/stock/
+// receipt/category data lives nested under /lists/{listId}/..., scoped via
+// createListApi() below. Membership is a flat, no-acceptance-step grant (mirrors
+// this app's existing lightweight invite model, just narrowed from "the whole app"
+// to "one specific list") — adding someone to /lists/{id}/members grants them
+// access immediately, same as the old /admins model did globally.
+//
+// The reverse index (/users/{email}/lists) is denormalized: it stores {name, owner}
+// alongside each listId, not just a boolean, so "which lists am I in, and what are
+// they called" is one read instead of one read per list. Renaming/deleting a list
+// fans that write out to every member's copy (see renameList/deleteList).
+export const sanitizeEmailKey = (email: string) => email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
+
+export const listsRef = ref(db, 'lists')
+export const listRef = (listId: string) => ref(db, `lists/${listId}`)
+export const listMembersRef = (listId: string) => ref(db, `lists/${listId}/members`)
+export const userListsRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/lists`)
+
+export const createList = async (name: string, ownerEmail: string): Promise<string> => {
+  const newListRef = push(listsRef)
+  const listId = newListRef.key as string
+  const key = sanitizeEmailKey(ownerEmail)
   const now = new Date().toISOString()
-  return push(groceriesRef, {
-    item: item.name,
-    category: item.category,
-    bought: true,
-    added_at: now,
-    modified_at: now,
-    modified_by: user?.email || null,
-    raw_text: 'מקבלה',
-    created_by: user?.email || null
+  logClientAction(`[lists] createList: name=${name} owner=${ownerEmail}`)
+  await update(ref(db), {
+    [`lists/${listId}`]: { name, owner: ownerEmail, created_at: now, members: { [key]: ownerEmail } },
+    [`users/${key}/lists/${listId}`]: { name, owner: ownerEmail }
   })
+  return listId
 }
 
-// Applies every write from confirming the receipt-reconcile modal in at most two
-// Firebase calls (one multi-path update() per collection touched) instead of one
-// write per line item — a receipt with N items no longer means N separate
-// adjustStockQuantity/setBought/addPurchasedGroceryItem round-trips.
-export const applyReceiptReconciliation = (
-  ops: {
-    stockAdjustments: { key: string; quantity: number }[]
-    newStockItems: { name: string; category: string; quantity: number }[]
-    groceryBoughtKeys: string[]
-    newGroceryItems: { name: string; category: string }[]
-  },
-  user?: AuthUser | null
+export const addListMember = async (
+  listId: string,
+  listName: string,
+  listOwner: string,
+  email: string,
+  invitedBy?: string | null
 ) => {
-  const now = new Date().toISOString()
-  const email = user?.email || null
-  const writes: Promise<unknown>[] = []
-
-  logClientAction(
-    `[receipts] applyReceiptReconciliation: stockAdjustments=${ops.stockAdjustments.length} newStockItems=${ops.newStockItems.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
-  )
-
-  if (ops.stockAdjustments.length > 0 || ops.newStockItems.length > 0) {
-    const stockUpdates: Record<string, unknown> = {}
-    ops.stockAdjustments.forEach(({ key, quantity }) => {
-      stockUpdates[`${key}/quantity`] = Math.max(0, quantity)
-      stockUpdates[`${key}/updated_at`] = now
-      stockUpdates[`${key}/updated_by`] = email
-    })
-    // No existing stock item matched this receipt line — create a fresh one instead
-    // of silently dropping it, which is what used to happen (a product never
-    // tracked in stock before could never end up in stock via a receipt scan, no
-    // matter what the user selected, since there was no code path that created one).
-    // Unit/low_threshold aren't knowable from a receipt line item, so they fall back
-    // to the same defaults StockItemModal itself uses for a brand-new item.
-    ops.newStockItems.forEach((item) => {
-      const key = push(stockRef).key as string
-      stockUpdates[key] = {
-        name: item.name,
-        category: item.category,
-        quantity: Math.max(0, item.quantity),
-        unit: StockUnit.Piece,
-        low_threshold: 1,
-        updated_at: now,
-        updated_by: email
-      }
-    })
-    writes.push(update(stockRef, stockUpdates))
-  }
-
-  if (ops.groceryBoughtKeys.length > 0 || ops.newGroceryItems.length > 0) {
-    const groceryUpdates: Record<string, unknown> = {}
-    ops.groceryBoughtKeys.forEach((key) => {
-      groceryUpdates[`${key}/bought`] = true
-      groceryUpdates[`${key}/modified_at`] = now
-      groceryUpdates[`${key}/modified_by`] = email
-    })
-    ops.newGroceryItems.forEach((item) => {
-      const key = push(groceriesRef).key as string
-      groceryUpdates[key] = {
-        item: item.name,
-        category: item.category,
-        bought: true,
-        added_at: now,
-        modified_at: now,
-        modified_by: email,
-        raw_text: 'מקבלה',
-        created_by: email
-      }
-    })
-    writes.push(update(groceriesRef, groceryUpdates))
-  }
-
-  return Promise.all(writes)
-}
-
-export const deleteGroceryList = async (listName: string | null) => {
-  const snapshot = await get(groceriesRef)
-  const data = snapshot.val() || {}
-  const updates: Record<string, null> = {}
-  Object.entries(data).forEach(([key, entry]: [string, any]) => {
-    if (entry.list_name === listName) updates[key] = null
+  const normalized = email.trim().toLowerCase()
+  const key = sanitizeEmailKey(normalized)
+  logClientAction(`[lists] addListMember: list=${listId} email=${normalized}`)
+  await update(ref(db), {
+    [`lists/${listId}/members/${key}`]: normalized,
+    [`users/${key}/lists/${listId}`]: { name: listName, owner: listOwner }
   })
-  if (Object.keys(updates).length === 0) return
-  logClientAction(`[groceries] deleteGroceryList: list=${listName || 'permanent'} items=${Object.keys(updates).length}`)
-  return update(groceriesRef, updates)
+  return sendInviteEmail(normalized, invitedBy, listName)
 }
 
-export const findStockItemByName = async (name: string): Promise<StockItem | null> => {
-  const target = normalizeName(name)
-  if (!target) return null
-  const snapshot = await get(stockRef)
-  const data = snapshot.val() || {}
-  const match = Object.entries(data).find(([, entry]: [string, any]) => normalizeName(entry.name) === target)
-  return match ? ({ key: match[0], ...(match[1] as object) } as StockItem) : null
+export const removeListMember = (listId: string, email: string) => {
+  const key = sanitizeEmailKey(email)
+  logClientAction(`[lists] removeListMember: list=${listId} email=${email}`)
+  return update(ref(db), {
+    [`lists/${listId}/members/${key}`]: null,
+    [`users/${key}/lists/${listId}`]: null
+  })
 }
 
-export const findUnboughtGroceryItemByName = async (name: string): Promise<GroceryItem | null> => {
-  const target = normalizeName(name)
-  if (!target) return null
-  const snapshot = await get(groceriesRef)
-  const data = snapshot.val() || {}
-  const match = Object.entries(data).find(
-    ([, entry]: [string, any]) => normalizeName(entry.item) === target && !entry.bought
-  )
-  return match ? ({ key: match[0], ...(match[1] as object) } as GroceryItem) : null
+// Owner-only rename — fans the new name out to every member's denormalized reverse-
+// index copy in one multi-path update, same pattern as deleteList below.
+export const renameList = async (listId: string, name: string) => {
+  const snapshot = await get(listMembersRef(listId))
+  const members = snapshot.val() || {}
+  logClientAction(`[lists] renameList: list=${listId} name=${name}`)
+  const updates: Record<string, unknown> = { [`lists/${listId}/name`]: name }
+  Object.keys(members).forEach((key) => {
+    updates[`users/${key}/lists/${listId}/name`] = name
+  })
+  return update(ref(db), updates)
 }
 
-// Batch variants for matching many names at once (e.g. every line item on a receipt) —
-// a single get() each instead of one Firebase read per item.
-export const getAllStockItems = async (): Promise<StockItem[]> => {
-  const snapshot = await get(stockRef)
-  const data = snapshot.val() || {}
-  return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+// Owner-only, destructive — removes the whole list and every member's reference to
+// it. Does NOT touch that list's grocery/stock/receipt/category data implicitly;
+// Firebase deletes it anyway since it all lives nested under lists/{listId}, which
+// this update() call nulls out entirely.
+export const deleteList = async (listId: string) => {
+  const snapshot = await get(listMembersRef(listId))
+  const members = snapshot.val() || {}
+  logClientAction(`[lists] deleteList: list=${listId} members=${Object.keys(members).length}`)
+  const updates: Record<string, unknown> = { [`lists/${listId}`]: null }
+  Object.keys(members).forEach((key) => {
+    updates[`users/${key}/lists/${listId}`] = null
+  })
+  return update(ref(db), updates)
 }
 
-export const getAllGroceryItems = async (): Promise<GroceryItem[]> => {
-  const snapshot = await get(groceriesRef)
-  const data = snapshot.val() || {}
-  return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+// ---------------------------------------------------------------------------
+// List-scoped grocery/stock/receipt/category API — every read/write for a
+// household's own data goes through this factory, bound to one listId. Consumers
+// get an instance via the useListApi() hook (src/hooks/ListContext.tsx) rather
+// than importing these functions directly, so the active listId only has to be
+// threaded through in one place instead of as a parameter on every call site.
+// ---------------------------------------------------------------------------
+export function createListApi(listId: string) {
+  const base = `lists/${listId}`
+  const groceriesRef = ref(db, `${base}/groceries`)
+  const stockRef = ref(db, `${base}/stock`)
+  const receiptsRef = ref(db, `${base}/receipts`)
+  const categoriesRef = ref(db, `${base}/categories`)
+
+  const touchModified = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
+    update(ref(db, `${base}/groceries/${key}`), {
+      ...fields,
+      modified_at: new Date().toISOString(),
+      modified_by: user?.email || null
+    })
+
+  const setBought = (key: string, bought: boolean, user?: AuthUser | null) => {
+    logClientAction(`[groceries] setBought: list=${listId} key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
+    return touchModified(key, { bought }, user)
+  }
+
+  // Reassign a grocery item to a different category (used by drag-and-drop between
+  // category sections and the "move to category" picker in ItemDetailModal). The
+  // item's `category` string is its grouping identity — the realtime /groceries
+  // listener re-renders it under the new section automatically once this write lands.
+  const updateGroceryItemCategory = (key: string, category: string, user?: AuthUser | null) => {
+    logClientAction(
+      `[groceries] updateGroceryItemCategory: list=${listId} key=${key} category=${category} by=${user?.email || 'anonymous'}`
+    )
+    return touchModified(key, { category }, user)
+  }
+
+  const saveItemDetails = async (
+    key: string,
+    { name, note, imageFile }: { name?: string; note?: string | null; imageFile?: File | null },
+    user?: AuthUser | null
+  ) => {
+    const fields: Record<string, unknown> = { note: note ?? null }
+    // Same "always write, even if unchanged" pattern this function already used for
+    // `note` — an idempotent re-write of an unchanged name is harmless, and this way
+    // the caller doesn't need to diff against the original value itself.
+    if (name != null) fields.item = name
+
+    if (imageFile) {
+      const resized = await resizeImage(imageFile)
+      await saveImageDoc('groceryImages', key, resized)
+      fields.image_ref = key
+    }
+
+    logClientAction(
+      `[groceries] saveItemDetails: list=${listId} key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
+    )
+    return touchModified(key, fields, user)
+  }
+
+  const deleteItem = async (key: string, imageRef?: string | null) => {
+    logClientAction(`[groceries] deleteItem: list=${listId} key=${key}`)
+    if (imageRef) await deleteImageDoc('groceryImages', imageRef)
+    return remove(ref(db, `${base}/groceries/${key}`))
+  }
+
+  const touchStock = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
+    update(ref(db, `${base}/stock/${key}`), {
+      ...fields,
+      updated_at: new Date().toISOString(),
+      updated_by: user?.email || null
+    })
+
+  const addStockItem = (
+    item: { name: string; category: string; quantity: number; unit: string; low_threshold: number },
+    user?: AuthUser | null
+  ) => {
+    logClientAction(
+      `[stock] addStockItem: list=${listId} name=${item.name} quantity=${item.quantity} by=${user?.email || 'anonymous'}`
+    )
+    return push(stockRef, {
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unit: item.unit,
+      low_threshold: item.low_threshold,
+      updated_at: new Date().toISOString(),
+      updated_by: user?.email || null
+    })
+  }
+
+  const adjustStockQuantity = (key: string, quantity: number, user?: AuthUser | null) => {
+    logClientAction(`[stock] adjustStockQuantity: list=${listId} key=${key} quantity=${quantity} by=${user?.email || 'anonymous'}`)
+    return touchStock(key, { quantity: Math.max(0, quantity) }, user)
+  }
+
+  const updateStockItem = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) => {
+    logClientAction(
+      `[stock] updateStockItem: list=${listId} key=${key} fields=${Object.keys(fields).join(',')} by=${user?.email || 'anonymous'}`
+    )
+    return touchStock(key, fields, user)
+  }
+
+  const deleteStockItem = (key: string) => {
+    logClientAction(`[stock] deleteStockItem: list=${listId} key=${key}`)
+    return remove(ref(db, `${base}/stock/${key}`))
+  }
+
+  const addStockItemToShoppingList = (entry: { name: string; category: string }, user?: AuthUser | null) => {
+    logClientAction(`[groceries] addStockItemToShoppingList: list=${listId} name=${entry.name} by=${user?.email || 'anonymous'}`)
+    return push(groceriesRef, {
+      item: entry.name,
+      category: entry.category,
+      bought: false,
+      added_at: new Date().toISOString(),
+      raw_text: 'מהמלאי',
+      created_by: user?.email || null
+    })
+  }
+
+  const addGroceryItem = (item: { name: string; category: string }, listName: string | null, user?: AuthUser | null) => {
+    logClientAction(
+      `[groceries] addGroceryItem: list=${listId} name=${item.name} sublist=${listName || 'permanent'} by=${user?.email || 'anonymous'}`
+    )
+    return push(groceriesRef, {
+      item: item.name,
+      category: item.category,
+      bought: false,
+      added_at: new Date().toISOString(),
+      raw_text: 'נוסף ידנית',
+      list_name: listName || null,
+      created_by: user?.email || null
+    })
+  }
+
+  const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
+    logClientAction(`[groceries] addPurchasedGroceryItem: list=${listId} name=${item.name} by=${user?.email || 'anonymous'}`)
+    const now = new Date().toISOString()
+    return push(groceriesRef, {
+      item: item.name,
+      category: item.category,
+      bought: true,
+      added_at: now,
+      modified_at: now,
+      modified_by: user?.email || null,
+      raw_text: 'מקבלה',
+      created_by: user?.email || null
+    })
+  }
+
+  // Applies every write from confirming the receipt-reconcile modal in at most two
+  // Firebase calls (one multi-path update() per collection touched) instead of one
+  // write per line item — a receipt with N items no longer means N separate
+  // adjustStockQuantity/setBought/addPurchasedGroceryItem round-trips.
+  const applyReceiptReconciliation = (
+    ops: {
+      stockAdjustments: { key: string; quantity: number }[]
+      newStockItems: { name: string; category: string; quantity: number }[]
+      groceryBoughtKeys: string[]
+      newGroceryItems: { name: string; category: string }[]
+    },
+    user?: AuthUser | null
+  ) => {
+    const now = new Date().toISOString()
+    const email = user?.email || null
+    const writes: Promise<unknown>[] = []
+
+    logClientAction(
+      `[receipts] applyReceiptReconciliation: list=${listId} stockAdjustments=${ops.stockAdjustments.length} newStockItems=${ops.newStockItems.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
+    )
+
+    if (ops.stockAdjustments.length > 0 || ops.newStockItems.length > 0) {
+      const stockUpdates: Record<string, unknown> = {}
+      ops.stockAdjustments.forEach(({ key, quantity }) => {
+        stockUpdates[`${key}/quantity`] = Math.max(0, quantity)
+        stockUpdates[`${key}/updated_at`] = now
+        stockUpdates[`${key}/updated_by`] = email
+      })
+      // No existing stock item matched this receipt line — create a fresh one instead
+      // of silently dropping it. Unit/low_threshold aren't knowable from a receipt line
+      // item, so they fall back to the same defaults StockItemModal itself uses.
+      ops.newStockItems.forEach((item) => {
+        const key = push(stockRef).key as string
+        stockUpdates[key] = {
+          name: item.name,
+          category: item.category,
+          quantity: Math.max(0, item.quantity),
+          unit: StockUnit.Piece,
+          low_threshold: 1,
+          updated_at: now,
+          updated_by: email
+        }
+      })
+      writes.push(update(stockRef, stockUpdates))
+    }
+
+    if (ops.groceryBoughtKeys.length > 0 || ops.newGroceryItems.length > 0) {
+      const groceryUpdates: Record<string, unknown> = {}
+      ops.groceryBoughtKeys.forEach((key) => {
+        groceryUpdates[`${key}/bought`] = true
+        groceryUpdates[`${key}/modified_at`] = now
+        groceryUpdates[`${key}/modified_by`] = email
+      })
+      ops.newGroceryItems.forEach((item) => {
+        const key = push(groceriesRef).key as string
+        groceryUpdates[key] = {
+          item: item.name,
+          category: item.category,
+          bought: true,
+          added_at: now,
+          modified_at: now,
+          modified_by: email,
+          raw_text: 'מקבלה',
+          created_by: email
+        }
+      })
+      writes.push(update(groceriesRef, groceryUpdates))
+    }
+
+    return Promise.all(writes)
+  }
+
+  const deleteGroceryList = async (subListName: string | null) => {
+    const snapshot = await get(groceriesRef)
+    const data = snapshot.val() || {}
+    const updates: Record<string, null> = {}
+    Object.entries(data).forEach(([key, entry]: [string, any]) => {
+      if (entry.list_name === subListName) updates[key] = null
+    })
+    if (Object.keys(updates).length === 0) return
+    logClientAction(
+      `[groceries] deleteGroceryList: list=${listId} sublist=${subListName || 'permanent'} items=${Object.keys(updates).length}`
+    )
+    return update(groceriesRef, updates)
+  }
+
+  const findStockItemByName = async (name: string): Promise<StockItem | null> => {
+    const target = normalizeName(name)
+    if (!target) return null
+    const snapshot = await get(stockRef)
+    const data = snapshot.val() || {}
+    const match = Object.entries(data).find(([, entry]: [string, any]) => normalizeName(entry.name) === target)
+    return match ? ({ key: match[0], ...(match[1] as object) } as StockItem) : null
+  }
+
+  const findUnboughtGroceryItemByName = async (name: string): Promise<GroceryItem | null> => {
+    const target = normalizeName(name)
+    if (!target) return null
+    const snapshot = await get(groceriesRef)
+    const data = snapshot.val() || {}
+    const match = Object.entries(data).find(
+      ([, entry]: [string, any]) => normalizeName(entry.item) === target && !entry.bought
+    )
+    return match ? ({ key: match[0], ...(match[1] as object) } as GroceryItem) : null
+  }
+
+  // Batch variants for matching many names at once (e.g. every line item on a receipt) —
+  // a single get() each instead of one Firebase read per item.
+  const getAllStockItems = async (): Promise<StockItem[]> => {
+    const snapshot = await get(stockRef)
+    const data = snapshot.val() || {}
+    return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+  }
+
+  const getAllGroceryItems = async (): Promise<GroceryItem[]> => {
+    const snapshot = await get(groceriesRef)
+    const data = snapshot.val() || {}
+    return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+  }
+
+  const saveReceipt = async (
+    receipt: { source_url?: string | null; store_name?: string | null; items: ReceiptItem[]; total: number | null },
+    imageBlob: Blob | null,
+    user?: AuthUser | null
+  ) => {
+    const newRef = push(receiptsRef)
+    const key = newRef.key as string
+    let image_ref: string | null = null
+    let imageSkipped = false
+
+    if (imageBlob) {
+      try {
+        await saveImageDoc('receiptImages', key, imageBlob)
+        image_ref = key
+      } catch (err) {
+        if (!(err instanceof ImageTooLargeError)) throw err
+        imageSkipped = true
+      }
+    }
+
+    await set(newRef, {
+      image_url: null,
+      image_ref,
+      // Only persist http(s) links — a javascript:/data: source_url would render as a
+      // script-executing link later (see isSafeHttpUrl). Reject at the write boundary so
+      // bad data never lands in Firebase.
+      source_url: isSafeHttpUrl(receipt.source_url) ? receipt.source_url : null,
+      store_name: receipt.store_name || null,
+      items: receipt.items,
+      total: receipt.total,
+      scanned_at: new Date().toISOString(),
+      scanned_by: user?.email || null
+    })
+
+    logClientAction(
+      `[receipts] saveReceipt: list=${listId} key=${key} store=${receipt.store_name || 'unknown'} items=${receipt.items.length} by=${user?.email || 'anonymous'}`
+    )
+    return { key, imageSkipped }
+  }
+
+  const deleteReceipt = async (key: string, imageRef?: string | null) => {
+    logClientAction(`[receipts] deleteReceipt: list=${listId} key=${key}`)
+    if (imageRef) await deleteImageDoc('receiptImages', imageRef)
+    return remove(ref(db, `${base}/receipts/${key}`))
+  }
+
+  const getReceiptPriceHistory = async (itemName: string) => {
+    const target = normalizeName(itemName)
+    const snapshot = await get(receiptsRef)
+    const data = snapshot.val() || {}
+
+    return Object.values(data as Record<string, any>)
+      .flatMap((receipt: any) =>
+        (receipt.items || [])
+          .filter((item: any) => normalizeName(item.name) === target)
+          .map((item: any) => ({ price: item.price, date: receipt.scanned_at }))
+      )
+      .sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''))
+  }
+
+  // Defensive one-time seed: only writes if this list's /categories is currently
+  // empty, so this never clobbers real edits made after the first run. Every new
+  // list starts from the same DEFAULT_CATEGORIES a fresh household would expect.
+  const seedCategoriesIfEmpty = async () => {
+    const snapshot = await get(categoriesRef)
+    if (snapshot.exists()) return
+    logClientAction(`[categories] seedCategoriesIfEmpty: list=${listId} seeding default categories`)
+    await set(categoriesRef, DEFAULT_CATEGORIES)
+  }
+
+  const addCategory = (category: { name: string; color: string; icon?: string; order?: number }) => {
+    logClientAction(`[categories] addCategory: list=${listId} name=${category.name}`)
+    return push(categoriesRef, {
+      name: category.name,
+      color: category.color,
+      icon: category.icon || '📌',
+      protected: false,
+      order: typeof category.order === 'number' ? category.order : 0
+    })
+  }
+
+  const updateCategory = (key: string, fields: Record<string, unknown>) => {
+    logClientAction(`[categories] updateCategory: list=${listId} key=${key} fields=${Object.keys(fields).join(',')}`)
+    return update(ref(db, `${base}/categories/${key}`), fields)
+  }
+
+  const deleteCategory = (key: string) => {
+    logClientAction(`[categories] deleteCategory: list=${listId} key=${key}`)
+    return remove(ref(db, `${base}/categories/${key}`))
+  }
+
+  return {
+    listId,
+    groceriesRef,
+    stockRef,
+    receiptsRef,
+    categoriesRef,
+    setBought,
+    updateGroceryItemCategory,
+    saveItemDetails,
+    deleteItem,
+    addStockItem,
+    adjustStockQuantity,
+    updateStockItem,
+    deleteStockItem,
+    addStockItemToShoppingList,
+    addGroceryItem,
+    addPurchasedGroceryItem,
+    applyReceiptReconciliation,
+    deleteGroceryList,
+    findStockItemByName,
+    findUnboughtGroceryItemByName,
+    getAllStockItems,
+    getAllGroceryItems,
+    saveReceipt,
+    deleteReceipt,
+    getReceiptPriceHistory,
+    seedCategoriesIfEmpty,
+    addCategory,
+    updateCategory,
+    deleteCategory
+  }
 }
 
-export const receiptsRef = ref(db, 'receipts')
+export type ListApi = ReturnType<typeof createListApi>
+
+export { OTHER_CATEGORY_NAME }
 
 // Same-origin path, not the n8n URL directly — /api/scan-receipt (a TanStack Start
 // server route) keeps the webhook URL server-side only, out of the browser's JS bundle.
@@ -409,121 +635,31 @@ export const scanReceiptFromUrl = async (sourceUrl: string) => {
   return response.json()
 }
 
-export const saveReceipt = async (
-  receipt: { source_url?: string | null; store_name?: string | null; items: ReceiptItem[]; total: number | null },
-  imageBlob: Blob | null,
-  user?: AuthUser | null
-) => {
-  const newRef = push(receiptsRef)
-  const key = newRef.key as string
-  let image_ref: string | null = null
-  let imageSkipped = false
-
-  if (imageBlob) {
-    try {
-      await saveImageDoc('receiptImages', key, imageBlob)
-      image_ref = key
-    } catch (err) {
-      if (!(err instanceof ImageTooLargeError)) throw err
-      imageSkipped = true
-    }
+// Best-effort — the invite itself is the addListMember write, which has already
+// succeeded by the time this is called. A missing SMTP config (expected until it's
+// provisioned) or a delivery failure must never look like the invite itself failed,
+// so this never throws — callers can inspect the resolved value if they want to
+// surface a soft "email didn't send" notice, but nothing depends on it.
+export const sendInviteEmail = async (
+  email: string,
+  invitedBy?: string | null,
+  listName?: string | null
+): Promise<{ error: boolean }> => {
+  try {
+    const response = await fetch('/api/send-invite-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: email.trim().toLowerCase(), invitedBy, listName })
+    })
+    const data = await response.json()
+    if (data.error) logClientAction(`[lists] sendInviteEmail: failed message=${data.message}`)
+    return data
+  } catch (err: any) {
+    logClientAction(`[lists] sendInviteEmail: network error message=${err.message}`)
+    return { error: true }
   }
-
-  await set(newRef, {
-    image_url: null,
-    image_ref,
-    // Only persist http(s) links — a javascript:/data: source_url would render as a
-    // script-executing link later (see isSafeHttpUrl). Reject at the write boundary so
-    // bad data never lands in Firebase.
-    source_url: isSafeHttpUrl(receipt.source_url) ? receipt.source_url : null,
-    store_name: receipt.store_name || null,
-    items: receipt.items,
-    total: receipt.total,
-    scanned_at: new Date().toISOString(),
-    scanned_by: user?.email || null
-  })
-
-  logClientAction(
-    `[receipts] saveReceipt: key=${key} store=${receipt.store_name || 'unknown'} items=${receipt.items.length} by=${user?.email || 'anonymous'}`
-  )
-  return { key, imageSkipped }
 }
 
-export const deleteReceipt = async (key: string, imageRef?: string | null) => {
-  logClientAction(`[receipts] deleteReceipt: key=${key}`)
-  if (imageRef) await deleteImageDoc('receiptImages', imageRef)
-  return remove(ref(db, `receipts/${key}`))
-}
-
-export const getReceiptPriceHistory = async (itemName: string) => {
-  const target = normalizeName(itemName)
-  const snapshot = await get(receiptsRef)
-  const data = snapshot.val() || {}
-
-  return Object.values(data as Record<string, any>)
-    .flatMap((receipt: any) =>
-      (receipt.items || [])
-        .filter((item: any) => normalizeName(item.name) === target)
-        .map((item: any) => ({ price: item.price, date: receipt.scanned_at }))
-    )
-    .sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''))
-}
-
-export const categoriesRef = ref(db, 'categories')
-
-// Defensive one-time seed: only writes if /categories is currently empty, so this
-// never clobbers real edits made after the first run.
-export const seedCategoriesIfEmpty = async () => {
-  const snapshot = await get(categoriesRef)
-  if (snapshot.exists()) return
-  logClientAction('[categories] seedCategoriesIfEmpty: seeding default categories')
-  await set(categoriesRef, DEFAULT_CATEGORIES)
-}
-
-export const addCategory = (category: { name: string; color: string; icon?: string; order?: number }) => {
-  logClientAction(`[categories] addCategory: name=${category.name}`)
-  return push(categoriesRef, {
-    name: category.name,
-    color: category.color,
-    icon: category.icon || '📌',
-    protected: false,
-    order: typeof category.order === 'number' ? category.order : 0
-  })
-}
-
-export const updateCategory = (key: string, fields: Record<string, unknown>) => {
-  logClientAction(`[categories] updateCategory: key=${key} fields=${Object.keys(fields).join(',')}`)
-  return update(ref(db, `categories/${key}`), fields)
-}
-
-export const deleteCategory = (key: string) => {
-  logClientAction(`[categories] deleteCategory: key=${key}`)
-  return remove(ref(db, `categories/${key}`))
-}
-
-export { OTHER_CATEGORY_NAME }
-
-export const adminsRef = ref(db, 'admins')
-
-export const addAdminEmail = (email: string) => {
-  const normalized = email.trim().toLowerCase()
-  logClientAction(`[admins] addAdminEmail: email=${normalized}`)
-  const key = normalized.replace(/[.#$[\]]/g, '_')
-  return set(ref(db, `admins/${key}`), normalized)
-}
-
-export const removeAdminEmail = (email: string) => {
-  const normalized = email.trim().toLowerCase()
-  logClientAction(`[admins] removeAdminEmail: email=${normalized}`)
-  const key = normalized.replace(/[.#$[\]]/g, '_')
-  return remove(ref(db, `admins/${key}`))
-}
-
-// Best-effort — the invite itself is the `addAdminEmail` write above, which has
-// already succeeded by the time this is called. A missing SMTP config (expected
-// until it's provisioned) or a delivery failure must never look like the invite
-// itself failed, so this never throws — callers can inspect the resolved value if
-// they want to surface a soft "email didn't send" notice, but nothing depends on it.
 // Sends a user's free-text feedback/feature request to n8n (via the same-origin
 // /api/submit-feedback proxy, which hides the webhook URL) where Gemini structures it
 // into a ticket and a Trello card is created. Auto-populates the metadata the ticket
@@ -569,21 +705,5 @@ export const submitFeedback = async ({
   } catch (err: any) {
     logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
     return { error: true, message: err.message }
-  }
-}
-
-export const sendInviteEmail = async (email: string, invitedBy?: string | null): Promise<{ error: boolean }> => {
-  try {
-    const response = await fetch('/api/send-invite-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: email.trim().toLowerCase(), invitedBy })
-    })
-    const data = await response.json()
-    if (data.error) logClientAction(`[admins] sendInviteEmail: failed message=${data.message}`)
-    return data
-  } catch (err: any) {
-    logClientAction(`[admins] sendInviteEmail: network error message=${err.message}`)
-    return { error: true }
   }
 }

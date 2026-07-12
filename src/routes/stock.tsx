@@ -1,20 +1,13 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  addStockItem,
-  addStockItemToShoppingList,
-  adjustStockQuantity,
-  deleteStockItem,
-  onValue,
-  stockRef,
-  updateStockItem
-} from '../lib/firebase'
+import { onValue } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { useCategories } from '../hooks/useCategories'
 import { formatDateTime } from '../lib/formatDateTime'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useAuth } from '../hooks/AuthContext'
+import { useActiveList, useListApi } from '../hooks/ListContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import StockItemModal from '../components/StockItemModal'
 import ListSkeleton from '../components/ListSkeleton'
@@ -26,7 +19,9 @@ export const Route = createFileRoute('/stock')({
 
 function StockPage() {
   const { t } = useTranslation(['stock', 'common'])
-  const { user, canEdit } = useAuth()
+  const { user } = useAuth()
+  const { canEdit } = useActiveList()
+  const listApi = useListApi()
   const { confirm, alert } = useDialogService()
   const [entries, setEntries] = useState<StockItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -35,15 +30,14 @@ function StockPage() {
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
 
-  useEffect(
-    () =>
-      onValue(stockRef, (snapshot) => {
-        const data = snapshot.val() || {}
-        setEntries(Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry })))
-        setIsLoading(false)
-      }),
-    []
-  )
+  useEffect(() => {
+    setIsLoading(true)
+    return onValue(listApi.stockRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      setEntries(Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry })))
+      setIsLoading(false)
+    })
+  }, [listApi])
 
   const grouped: Record<string, StockItem[]> = {}
   entries.forEach((entry) => {
@@ -72,7 +66,7 @@ function StockPage() {
 
   const handleAdjust = async (entry: StockItem, delta: number) => {
     try {
-      await adjustStockQuantity(entry.key, entry.quantity + delta, user)
+      await listApi.adjustStockQuantity(entry.key, entry.quantity + delta, user)
     } catch (err) {
       await alert(describeError(t('stock:actions.adjustFailed'), err))
     }
@@ -81,14 +75,14 @@ function StockPage() {
   const handleDelete = async (entry: StockItem) => {
     if (!(await confirm(t('stock:actions.deleteConfirm', { name: entry.name })))) return
     try {
-      await deleteStockItem(entry.key)
+      await listApi.deleteStockItem(entry.key)
     } catch (err) {
       await alert(describeError(t('stock:actions.deleteFailed'), err))
     }
   }
 
   const handleAddToShoppingList = (entry: StockItem) => {
-    addStockItemToShoppingList(entry, user)
+    listApi.addStockItemToShoppingList(entry, user)
   }
 
   return (
@@ -195,8 +189,8 @@ function StockPage() {
           }}
           onSubmit={(fields) =>
             editingItem
-              ? updateStockItem(editingItem.key, fields as unknown as Record<string, unknown>, user)
-              : addStockItem(fields, user)
+              ? listApi.updateStockItem(editingItem.key, fields as unknown as Record<string, unknown>, user)
+              : listApi.addStockItem(fields, user)
           }
         />
       )}

@@ -1,13 +1,16 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ADMIN_EMAILS, adminsRef, onAuthChange, onValue, signIn, signOutUser } from '../lib/firebase'
+import { onAuthChange, signIn, signOutUser } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
 import type { AuthUser } from '../types'
 
+// canEdit/canView used to live here as flat, app-wide booleans (gated on a
+// hardcoded ADMIN_EMAILS array + a global /admins invite list). Multi-tenant lists
+// replaced that: "can I edit" is now a property of a specific list (am I a member
+// of the currently active one), not of the app as a whole — see
+// src/hooks/ListContext.tsx's useActiveList(), which is where those checks live now.
 interface AuthContextValue {
   user: AuthUser | null
-  canEdit: boolean
-  canView: boolean
   // True once Firebase has resolved whether a session already exists (or immediately
   // for the dev bypass) — lets consumers avoid flashing a "please sign in" screen for
   // a returning, already-authenticated user while that check is still in flight.
@@ -36,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(DEV_USER)
   const [authResolved, setAuthResolved] = useState(DEV_BYPASS)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [invitedEmails, setInvitedEmails] = useState<string[]>([])
   const isPrerendering = useIsPrerendering()
 
   useEffect(() => {
@@ -45,10 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser)
       setAuthResolved(true)
     })
-  }, [isPrerendering])
-  useEffect(() => {
-    if (isPrerendering) return
-    return onValue(adminsRef, (snapshot) => setInvitedEmails(Object.values(snapshot.val() || {})))
   }, [isPrerendering])
 
   const handleSignIn = () => {
@@ -74,21 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const canEdit =
-    !!user && (ADMIN_EMAILS.includes(user.email || '') || invitedEmails.includes(user.email?.toLowerCase() || ''))
-  // No separate viewer tier exists yet (a "checker" role between viewer and admin
-  // was brainstormed but explicitly parked, not built — see CONVERSATION.md Session
-  // 5), so today "allowed to view" and "allowed to edit" are the exact same set of
-  // people: the owner(s) plus anyone invited via AdminsModal. Named separately from
-  // canEdit anyway, since they represent different capabilities even though they
-  // currently share one definition — a future viewer-only tier would only need to
-  // change this one line.
-  const canView = canEdit
-
   return (
-    <AuthContext.Provider
-      value={{ user, canEdit, canView, authResolved, onSignIn: handleSignIn, onSignOut: signOutUser, authError }}
-    >
+    <AuthContext.Provider value={{ user, authResolved, onSignIn: handleSignIn, onSignOut: signOutUser, authError }}>
       {children}
     </AuthContext.Provider>
   )

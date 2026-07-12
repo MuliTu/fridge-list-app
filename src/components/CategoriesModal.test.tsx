@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CategoriesModal from './CategoriesModal'
-import { addCategory, deleteCategory } from '../lib/firebase'
 import { useDialogService } from '../hooks/DialogServiceContext'
+import { useListApi } from '../hooks/ListContext'
 import type { Category } from '../types'
 
 jest.mock('react-i18next', () => ({
@@ -11,17 +11,16 @@ jest.mock('react-i18next', () => ({
   })
 }))
 
-// Mocking at the ../lib/firebase module boundary, not the raw firebase/* SDK —
-// this component's own logic (validation, error messages, confirm-before-delete)
-// is what's under test, not Firebase's read/write behavior itself.
-jest.mock('../lib/firebase', () => ({
-  addCategory: jest.fn(() => Promise.resolve()),
-  deleteCategory: jest.fn(() => Promise.resolve()),
-  updateCategory: jest.fn(() => Promise.resolve())
-}))
-
 jest.mock('../hooks/DialogServiceContext', () => ({
   useDialogService: jest.fn()
+}))
+
+// Mocking at the ListContext module boundary (which is where CategoriesModal now
+// gets its list-scoped read/write functions from), not the raw firebase/* SDK or
+// ../lib/firebase directly — this component's own logic (validation, error
+// messages, confirm-before-delete) is what's under test, not Firebase's behavior.
+jest.mock('../hooks/ListContext', () => ({
+  useListApi: jest.fn()
 }))
 
 const categories: Category[] = [
@@ -29,12 +28,17 @@ const categories: Category[] = [
   { key: 'cat-2', name: 'אחר', color: '#a8a8a8', icon: '📌', protected: true, order: 1 }
 ]
 
+const addCategory = jest.fn(() => Promise.resolve())
+const deleteCategory = jest.fn(() => Promise.resolve())
+const updateCategory = jest.fn(() => Promise.resolve())
+
 describe('CategoriesModal', () => {
   const mockConfirm = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useDialogService as jest.Mock).mockReturnValue({ confirm: mockConfirm })
+    ;(useListApi as jest.Mock).mockReturnValue({ addCategory, deleteCategory, updateCategory })
   })
 
   it('renders every category name', () => {

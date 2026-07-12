@@ -3,6 +3,15 @@ export interface AuthUser {
   displayName?: string | null
 }
 
+// A household: /lists/{id}. `name`/`owner` are duplicated (denormalized) into every
+// member's /users/{email}/lists/{id} reverse-index entry so "which lists am I in"
+// is a single read instead of a read-per-list — see ListContext.
+export interface UserList {
+  id: string
+  name: string
+  owner: string
+}
+
 export interface GroceryItem {
   key: string
   item: string

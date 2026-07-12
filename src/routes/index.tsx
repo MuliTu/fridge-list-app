@@ -2,17 +2,6 @@ import { useState } from 'react'
 import type { DragEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  addGroceryItem,
-  addStockItem,
-  adjustStockQuantity,
-  deleteGroceryList,
-  deleteItem,
-  findStockItemByName,
-  saveItemDetails,
-  setBought,
-  updateGroceryItemCategory
-} from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
@@ -21,6 +10,7 @@ import { useShowPurchased } from '../hooks/useShowPurchased'
 import { useListSort } from '../hooks/useListSort'
 import { isStockSuggestionEnabled } from '../hooks/useStockSuggestion'
 import { useAuth } from '../hooks/AuthContext'
+import { useActiveList, useListApi } from '../hooks/ListContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import ItemDetailModal from '../components/ItemDetailModal'
@@ -51,7 +41,9 @@ function ShoppingListPage() {
   const navigate = Route.useNavigate()
   const activeList = list || PERMANENT_LIST
 
-  const { user, canEdit, onSignIn } = useAuth()
+  const { user, onSignIn } = useAuth()
+  const { canEdit } = useActiveList()
+  const listApi = useListApi()
   const { entries: allEntries, isLoading } = useGroceriesFeed()
   const { confirm, prompt } = useDialogService()
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
@@ -101,14 +93,14 @@ function ShoppingListPage() {
 
   const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
-    setBought(entry.key, newBought, user)
+    listApi.setBought(entry.key, newBought, user)
     // Offer to reflect the purchase in the home inventory. Unlike before, the prompt
     // now appears whether or not the item is already tracked in /stock: an existing
     // match adds to its quantity, a miss offers to create a fresh stock entry. Gated by
     // the settings toggle (isStockSuggestionEnabled), read fresh so it reflects the
     // latest choice.
     if (newBought && isStockSuggestionEnabled()) {
-      findStockItemByName(entry.item)
+      listApi.findStockItemByName(entry.item)
         .then((match) => setRestockTarget({ entry, existing: match }))
         .catch((error) => console.error('[Stock] lookup failed:', error.message))
     }
@@ -159,7 +151,7 @@ function ShoppingListPage() {
     if (!entry) return // item deleted mid-drag — fail gracefully, no write
     if (effectiveCategory(entry) === catName) return // dropped on same category — no-op
     if (isCollapsed(catName)) toggle(catName) // auto-expand target so the moved item is visible
-    updateGroceryItemCategory(key, catName, user)
+    listApi.updateGroceryItemCategory(key, catName, user)
   }
 
   const handleCreateList = async () => {
@@ -172,7 +164,7 @@ function ShoppingListPage() {
   const handleDeleteList = async () => {
     const count = visibleEntries.length
     if (!(await confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count })))) return
-    deleteGroceryList(activeList)
+    listApi.deleteGroceryList(activeList)
     navigate({ search: { list: undefined } })
   }
 
@@ -281,9 +273,9 @@ function ShoppingListPage() {
           categories={categories}
           onSignIn={onSignIn}
           onClose={() => setSelectedEntry(null)}
-          onSave={(key, details) => saveItemDetails(key, details, user)}
-          onDelete={(key) => deleteItem(key, selectedEntry.image_ref)}
-          onMoveCategory={(key, category) => updateGroceryItemCategory(key, category, user)}
+          onSave={(key, details) => listApi.saveItemDetails(key, details, user)}
+          onDelete={(key) => listApi.deleteItem(key, selectedEntry.image_ref)}
+          onMoveCategory={(key, category) => listApi.updateGroceryItemCategory(key, category, user)}
         />
       )}
 
@@ -295,10 +287,10 @@ function ShoppingListPage() {
           onConfirm={(amount) => {
             const { entry, existing } = restockTarget
             if (existing) {
-              adjustStockQuantity(existing.key, existing.quantity + amount, user)
+              listApi.adjustStockQuantity(existing.key, existing.quantity + amount, user)
             } else {
               const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
-              addStockItem(
+              listApi.addStockItem(
                 { name: entry.item, category, quantity: amount, unit: StockUnit.Piece, low_threshold: 1 },
                 user
               )
@@ -312,7 +304,7 @@ function ShoppingListPage() {
         <GroceryItemModal
           listName={activeList}
           onClose={() => setShowAddGrocery(false)}
-          onAdd={(item) => addGroceryItem(item, activeList, user)}
+          onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
         />
       )}
 
@@ -321,7 +313,7 @@ function ShoppingListPage() {
           listName={activeList}
           categories={categories}
           onClose={() => setShowBulkUpload(false)}
-          onAdd={(item) => addGroceryItem(item, activeList, user)}
+          onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
         />
       )}
     </>

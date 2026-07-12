@@ -52,14 +52,19 @@ export const Route = createFileRoute('/api/send-invite-email')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { to, invitedBy } = await request.json()
-        logger.success(`[send-invite-email] request received: to=${to} invitedBy=${invitedBy || 'unknown'}`)
+        const { to, invitedBy, listName } = await request.json()
+        logger.success(
+          `[send-invite-email] request received: to=${to} invitedBy=${invitedBy || 'unknown'} listName=${listName || 'unknown'}`
+        )
 
         if (!isValidEmail(to)) {
           logger.warn(`[send-invite-email] rejected invalid recipient: ${JSON.stringify(to)}`)
           return Response.json({ error: true, message: 'invalid recipient' }, { status: 400 })
         }
         const safeInvitedBy = sanitizeInvitedBy(invitedBy)
+        // Same sanitization as invitedBy — a list name is just as user-controlled
+        // (owner-chosen free text) and lands in the same HTML/text email body.
+        const safeListName = sanitizeInvitedBy(listName) || 'רשימת הקניות המשותפת'
 
         const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
         if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
@@ -87,12 +92,13 @@ export const Route = createFileRoute('/api/send-invite-email')({
           const textInviterLine = safeInvitedBy ? `${safeInvitedBy} הוסיף/ה אותך` : 'הוזמנת'
           const htmlInviterLine = safeInvitedBy ? `${escapeHtml(safeInvitedBy)} הוסיף/ה אותך` : 'הוזמנת'
           const htmlTo = escapeHtml(to)
+          const htmlListName = escapeHtml(safeListName)
           await transport.sendMail({
             from: SMTP_FROM || SMTP_USER,
             to,
-            subject: 'הוזמנת לרשימת הקניות המשותפת',
-            text: `${textInviterLine} כעורך/ת ברשימת הקניות המשותפת.\n\nהתחברו עם חשבון ה-Google של הכתובת הזו (${to}) בכתובת:\n${APP_URL}\n\nלאחר ההתחברות תוכלו לערוך את הרשימה, לא רק לצפות בה.`,
-            html: `<p>${htmlInviterLine} כעורך/ת ברשימת הקניות המשותפת.</p><p>התחברו עם חשבון ה-Google של הכתובת הזו (<b>${htmlTo}</b>) בכתובת:</p><p><a href="${APP_URL}">${APP_URL}</a></p><p>לאחר ההתחברות תוכלו לערוך את הרשימה, לא רק לצפות בה.</p>`
+            subject: `הוזמנת לרשימה "${safeListName}"`,
+            text: `${textInviterLine} כעורך/ת ברשימה "${safeListName}".\n\nהתחברו עם חשבון ה-Google של הכתובת הזו (${to}) בכתובת:\n${APP_URL}\n\nלאחר ההתחברות תוכלו לערוך את הרשימה, לא רק לצפות בה.`,
+            html: `<p>${htmlInviterLine} כעורך/ת ברשימה "${htmlListName}".</p><p>התחברו עם חשבון ה-Google של הכתובת הזו (<b>${htmlTo}</b>) בכתובת:</p><p><a href="${APP_URL}">${APP_URL}</a></p><p>לאחר ההתחברות תוכלו לערוך את הרשימה, לא רק לצפות בה.</p>`
           })
           logger.success(`[send-invite-email] sent: to=${to}`)
           return Response.json({ error: false })

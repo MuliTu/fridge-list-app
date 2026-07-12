@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { groceriesRef, onValue } from '../lib/firebase'
+import { onValue } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
+import { useActiveList } from './ListContext'
 import type { GroceryItem } from '../types'
 
 interface GroceriesFeedValue {
@@ -12,9 +13,11 @@ interface GroceriesFeedValue {
 
 const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
 
-// Single shared onValue subscription for /groceries, mounted once at the layout level so
-// the "new item" toast and status line stay visible across every tab, not just the
-// shopping list — matching the original single-component App.jsx behavior.
+// Single shared onValue subscription for the active list's /groceries, mounted once
+// at the layout level so the "new item" toast and status line stay visible across
+// every tab, not just the shopping list. Re-subscribes whenever the active list
+// changes (switching households) — knownKeys/firstLoad reset too, so a fresh list's
+// existing items never get mistaken for "newly added" and trigger a toast.
 export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<GroceryItem[]>([])
   const [status, setStatus] = useState('מתחבר...')
@@ -24,11 +27,17 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const firstLoad = useRef(true)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isPrerendering = useIsPrerendering()
+  const { listApi } = useActiveList()
 
   useEffect(() => {
-    if (isPrerendering) return
+    if (isPrerendering || !listApi) return
+    knownKeys.current = new Set()
+    firstLoad.current = true
+    setEntries([])
+    setIsLoading(true)
+
     const unsubscribe = onValue(
-      groceriesRef,
+      listApi.groceriesRef,
       (snapshot) => {
         const data = snapshot.val() || {}
         const newlyAdded: string[] = []
@@ -65,7 +74,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
       unsubscribe()
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [isPrerendering])
+  }, [isPrerendering, listApi])
 
   return <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>{children}</GroceriesFeedContext.Provider>
 }
