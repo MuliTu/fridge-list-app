@@ -5,6 +5,7 @@ import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
 import { logger } from './logger'
 import { normalizeName } from './normalizeName'
+import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
 import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
 import { version as APP_VERSION } from '../../package.json'
@@ -431,7 +432,10 @@ export const saveReceipt = async (
   await set(newRef, {
     image_url: null,
     image_ref,
-    source_url: receipt.source_url || null,
+    // Only persist http(s) links — a javascript:/data: source_url would render as a
+    // script-executing link later (see isSafeHttpUrl). Reject at the write boundary so
+    // bad data never lands in Firebase.
+    source_url: isSafeHttpUrl(receipt.source_url) ? receipt.source_url : null,
     store_name: receipt.store_name || null,
     items: receipt.items,
     total: receipt.total,

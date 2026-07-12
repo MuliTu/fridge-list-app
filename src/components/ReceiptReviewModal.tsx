@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReceiptItem } from '../types'
+import { isSafeHttpUrl } from '../lib/safeUrl'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -109,7 +110,7 @@ export default function ReceiptReviewModal({ data, queueLabel, scanErrorMessage,
             <img className="modal-image-preview" src={previewUrl} alt={t('receipts:reviewModal.imageAlt')} />
           )
         ) : (
-          data.source_url && (
+          isSafeHttpUrl(data.source_url) && (
             <a className="modal-note-readonly" href={data.source_url} target="_blank" rel="noreferrer">
               {t('receipts:reviewModal.viewOriginal')}
             </a>
