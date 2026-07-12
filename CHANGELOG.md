@@ -10,6 +10,10 @@ Full design/decision history (why, not just what) lives in
 
 ### Added
 - The app is now multi-tenant: signing in with Google no longer grants access to one shared list — each user can create their own named list (e.g. "Turiel Home List") and invite others into it specifically, and a user can belong to several lists at once via a switcher in the header. Requires a manual Firebase Console rule update (`/lists`, `/users`) before it works against the real database — see the PR description.
+## [2.27.7] - 2026-07-12
+
+### Security
+- The 4 server routes that were previously callable by anyone on the internet (`/api/scan-receipt`, `/api/scan-receipt-url`, `/api/categorize-item`, `/api/submit-feedback`) now require a valid Firebase ID token, closing the Gemini-quota-DoS and Trello-card-spam holes reported in security tickets security-3 and security-2, while preserving the local-dev auth bypass via a server-side mirror of `VITE_DEV_AUTH_BYPASS`.
 
 ## [2.27.5] - 2026-07-12
 
