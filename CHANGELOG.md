@@ -6,6 +6,10 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.3] - 2026-07-12
+
+### Fixed
+- Patched dependency vulnerabilities (npm audit): resolved the high-severity undici advisory and the transitive moderate advisories by upgrading firebase from 10.x to 12.16.0, bringing the audit to zero known vulnerabilities.
 ## [2.27.2] - 2026-07-12
 
 ### Security
