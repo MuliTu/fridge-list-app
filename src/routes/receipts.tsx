@@ -18,6 +18,7 @@ import {
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { formatDateTime } from '../lib/formatDateTime'
 import { normalizeName } from '../lib/normalizeName'
+import { isSafeHttpUrl } from '../lib/safeUrl'
 import { useAuth } from '../hooks/AuthContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
@@ -325,7 +326,7 @@ function ReceiptsPage() {
               <h2>
                 <span className="dot" />
                 {receipt.store_name || t('receipts:fallbackTitle')}
-                {receipt.source_url && (
+                {isSafeHttpUrl(receipt.source_url) && (
                   <a href={receipt.source_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                     🔗
                   </a>
