@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.1] - 2026-07-12
+
+### Security
+- The receipt-from-URL endpoint now validates every server-side fetch (the pasted link and the followed PresignedURL) against an SSRF allowlist — https-only, rejecting private/loopback/link-local/cloud-metadata targets by resolved IP — and reads at most 1MB of each response into memory, closing an open-proxy hole into internal and cloud-metadata endpoints.
+
 ## [2.27.0] - 2026-07-11
 
 ### Added
