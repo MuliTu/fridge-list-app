@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.28.2] - 2026-07-12
+
+### Fixed
+- The v2.28.1 fix reduced but didn't eliminate the "useListApi called with no active list" crash — it still hit real (non-test) accounts on a fresh hydration, with the crash originating from inside the Firebase Auth `onAuthStateChanged` callback during `hydrateRoot`, faster than the list-provisioning chain could possibly have completed. Root cause not yet fully confirmed; added a second, independent render gate requiring `activeList` to actually be truthy (not just `listsResolved`) before ever rendering the tabs/route content, so this crash is now structurally unreachable regardless of the exact timing bug.
+
 ## [2.28.1] - 2026-07-12
 
 ### Fixed

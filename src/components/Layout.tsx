@@ -166,7 +166,16 @@ function LayoutContent({ children }: { children: ReactNode }) {
           checking session" from "definitely signed out"; listsResolved
           distinguishes "still checking this user's own list + memberships" from
           "confirmed" — each state gets its own screen so a returning user never
-          flashes the wrong one while data is still loading. */}
+          flashes the wrong one while data is still loading.
+          `!activeList` is a deliberate second, independent gate on top of
+          `listsResolved` (not just a subset of it) — a real production crash
+          showed listsResolved can end up true before myLists is actually
+          populated (root cause still being chased, likely an SSR/hydration
+          timing interaction with Firebase Auth's persisted-session callback),
+          so any child that calls useListApi() must never be reachable without a
+          real activeList regardless of what listsResolved says. Same loading
+          copy as the listsResolved check, since to the user it's the same
+          "still getting your list ready" wait either way. */}
       {!authResolved ? (
         <div className="all-empty">{t('auth.checkingSession')}</div>
       ) : !user ? (
@@ -177,6 +186,8 @@ function LayoutContent({ children }: { children: ReactNode }) {
         <div className="all-empty list-onboarding">
           <p>{t('lists:loadError')}</p>
         </div>
+      ) : !activeList ? (
+        <div className="all-empty">{t('lists:checkingLists')}</div>
       ) : (
         <>
           {toast && <div className="toast">🛒 {toast}</div>}
