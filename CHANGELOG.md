@@ -11,6 +11,11 @@ Full design/decision history (why, not just what) lives in
 ### Added
 - The app is now multi-tenant: signing in with Google no longer grants access to one shared list — every user automatically gets their own list (no setup step), can invite specific people into it (tracked as pending until that person's first sign-in, though access is granted immediately either way), and can belong to several lists at once via a switcher in the header. Verified working against the real database with no rule changes needed.
 
+## [2.27.7] - 2026-07-12
+
+### Security
+- The 4 server routes that were previously callable by anyone on the internet (`/api/scan-receipt`, `/api/scan-receipt-url`, `/api/categorize-item`, `/api/submit-feedback`) now require a valid Firebase ID token, closing the Gemini-quota-DoS and Trello-card-spam holes reported in security tickets security-3 and security-2, while preserving the local-dev auth bypass via a server-side mirror of `VITE_DEV_AUTH_BYPASS`.
+
 ## [2.27.5] - 2026-07-12
 
 ### Security

@@ -11,7 +11,11 @@ module.exports = {
   },
   moduleNameMapper: {
     '\\.md\\?raw$': '<rootDir>/src/test/mocks/rawFileMock.ts',
-    '\\.css$': '<rootDir>/src/test/mocks/fileMock.ts'
+    '\\.css$': '<rootDir>/src/test/mocks/fileMock.ts',
+    // jose ships pure ESM with no CJS build — Jest's CJS module registry can't load
+    // it directly ("Unexpected token 'export'"). See src/test/mocks/joseMock.ts for
+    // the full reasoning; this fakes the small slice of jose's API this app uses.
+    '^jose$': '<rootDir>/src/test/mocks/joseMock.ts'
   },
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node']
