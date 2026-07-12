@@ -104,12 +104,32 @@ await writeFile(
 // every request — including plain page loads — fell through to the Lambda
 // regardless, making SPA mode behaviorally identical to the old per-request SSR
 // setup it was meant to replace.
+// Security response headers, applied to every path (static assets, the SPA shell, and
+// the /api Lambda alike). This is a `continue: true` route placed *before* the
+// filesystem handler so it only sets headers and lets routing carry on to the rules
+// below — it never short-circuits a request. Deliberately scoped to
+// clickjacking/MIME-sniffing/referrer defenses only: no Content-Security-Policy with a
+// script-src (Firebase's SDK + inline styles would break), just the safe headers.
+//   - X-Frame-Options: DENY + CSP frame-ancestors 'none' — the page can't be framed
+//     (clickjacking). frame-ancestors 'none' is the modern equivalent X-Frame-Options
+//     doesn't break Firebase since it constrains framing, not script/style/connect.
+//   - X-Content-Type-Options: nosniff — browsers must honor declared Content-Types.
+//   - Referrer-Policy: strict-origin-when-cross-origin — reasonable default that still
+//     sends full referrer same-origin but only the origin cross-origin.
+const SECURITY_HEADERS = {
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin'
+}
+
 await writeFile(
   `${OUT}/config.json`,
   JSON.stringify(
     {
       version: 3,
       routes: [
+        { src: '/(.*)', headers: SECURITY_HEADERS, continue: true },
         { handle: 'filesystem' },
         { src: '/api/(.*)', dest: '/index' },
         { src: '/(.*)', dest: '/index.html' }
