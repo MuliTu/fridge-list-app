@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.5] - 2026-07-12
+
+### Security
+- The `/api/client-log` endpoint now sanitizes caller-supplied log messages (strips CR/LF and other line separators, caps length, drops non-strings) before writing them to the server log, closing a log-injection/forging hole where an attacker could forge fake log lines via embedded newlines.
+
 ## [2.27.0] - 2026-07-11
 
 ### Added
