@@ -3,6 +3,7 @@
   "titleForList": "שיתוף עריכה – {{listName}}",
   "explanation": "כל מי שיתחבר עם אחת מהכתובות האלה (חשבון Google) יוכל לערוך את הרשימה, לא רק לצפות בה.",
   "ownerTag": "בעל/ת הבית",
+  "pendingTag": "ממתין/ה להתחברות ראשונה",
   "emailPlaceholder": "כתובת Gmail להוספה",
   "invalidEmail": "כתובת אימייל לא תקינה",
   "addFailed": "הוספה נכשלה",

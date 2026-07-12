@@ -124,102 +124,119 @@ export const categorizeItem = async (text: string): Promise<{ item: string; cate
 }
 
 // ---------------------------------------------------------------------------
-// Lists (households): /lists/{listId}, /users/{sanitizedEmail}/lists/{listId}
+// Lists (households): /users/{sanitizedOwnerEmail}
 // ---------------------------------------------------------------------------
-// Each signed-in user can own/belong to one or more lists. All grocery/stock/
-// receipt/category data lives nested under /lists/{listId}/..., scoped via
-// createListApi() below. Membership is a flat, no-acceptance-step grant (mirrors
-// this app's existing lightweight invite model, just narrowed from "the whole app"
-// to "one specific list") — adding someone to /lists/{id}/members grants them
-// access immediately, same as the old /admins model did globally.
+// No generated list ID — a list IS identified by its owner's email. Every signed-in
+// user gets exactly one list, auto-provisioned at /users/{their email} the first
+// time they sign in (see ensureOwnList, called from ListContext). All of that
+// owner's grocery/stock/receipt/category data lives nested under that same node,
+// scoped via createListApi() below.
 //
-// The reverse index (/users/{email}/lists) is denormalized: it stores {name, owner}
-// alongside each listId, not just a boolean, so "which lists am I in, and what are
-// they called" is one read instead of one read per list. Renaming/deleting a list
-// fans that write out to every member's copy (see renameList/deleteList).
+// Invites are two mirrored pointers, both plain 'pending'|'approved' enum values
+// (no denormalized name/owner on the pointer itself — a display name is looked up
+// separately from the owner's own /users/{owner}/name when needed):
+//   /users/{owner}/invites/{invitedEmail}   = 'pending' | 'approved'   (owner's view)
+//   /users/{invitedEmail}/memberOf/{owner}  = 'pending' | 'approved'   (invitee's view)
+// The invitee's copy exists purely so they can discover which owners invited them
+// with a single read of their own node — without it, finding "who invited me" would
+// mean scanning every user in the database, leaking every household's existence to
+// everyone. Both a pending and an approved entry already grant access (this app's
+// existing lightweight invite model — adding someone is the actual grant, matching
+// how /admins worked before); 'pending' just means "invited but hasn't signed in
+// with that email yet" and flips to 'approved' automatically the moment they do
+// (see approvePendingInvites, also called from ListContext on first sign-in).
+// Idempotent — safe to call with either a raw email or an already-sanitized key
+// (trim/lowercase are no-ops on a sanitized string, and there are no more
+// .#$[] characters left to replace). Every *Ref helper below relies on this:
+// callers holding a sanitized key from a Firebase snapshot (e.g. memberOf's own
+// keys) can pass it straight into userRef/userNameRef without re-deriving the raw
+// email, which usually isn't recoverable from the key alone anyway.
 export const sanitizeEmailKey = (email: string) => email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
 
-export const listsRef = ref(db, 'lists')
-export const listRef = (listId: string) => ref(db, `lists/${listId}`)
-export const listMembersRef = (listId: string) => ref(db, `lists/${listId}/members`)
-export const userListsRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/lists`)
+export const userRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}`)
+export const userNameRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/name`)
+export const memberOfRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/memberOf`)
+export const invitesRef = (ownerEmail: string) => ref(db, `users/${sanitizeEmailKey(ownerEmail)}/invites`)
 
-export const createList = async (name: string, ownerEmail: string): Promise<string> => {
-  const newListRef = push(listsRef)
-  const listId = newListRef.key as string
-  const key = sanitizeEmailKey(ownerEmail)
-  const now = new Date().toISOString()
-  logClientAction(`[lists] createList: name=${name} owner=${ownerEmail}`)
-  await update(ref(db), {
-    [`lists/${listId}`]: { name, owner: ownerEmail, created_at: now, members: { [key]: ownerEmail } },
-    [`users/${key}/lists/${listId}`]: { name, owner: ownerEmail }
-  })
-  return listId
+// Idempotent — only writes `name` if this user has never been provisioned as an
+// owner before (a fresh /users/{email} node may already exist with nothing but a
+// memberOf entry, written by someone else's invite, before this user ever signed
+// in themselves — presence of `name` is what actually means "this is a real,
+// initialized list", not mere existence of the node).
+export const ensureOwnList = async (email: string, displayName?: string | null): Promise<string> => {
+  const nameSnapshot = await get(userNameRef(email))
+  if (nameSnapshot.exists()) return nameSnapshot.val()
+  const name = displayName ? `הרשימה של ${displayName}` : 'הרשימה שלי'
+  logClientAction(`[lists] ensureOwnList: owner=${email} name=${name}`)
+  await set(userNameRef(email), name)
+  return name
 }
 
-export const addListMember = async (
-  listId: string,
-  listName: string,
-  listOwner: string,
-  email: string,
-  invitedBy?: string | null
-) => {
-  const normalized = email.trim().toLowerCase()
-  const key = sanitizeEmailKey(normalized)
-  logClientAction(`[lists] addListMember: list=${listId} email=${normalized}`)
-  await update(ref(db), {
-    [`lists/${listId}/members/${key}`]: normalized,
-    [`users/${key}/lists/${listId}`]: { name: listName, owner: listOwner }
-  })
-  return sendInviteEmail(normalized, invitedBy, listName)
+export interface InviteEntry {
+  email: string
+  status: 'pending' | 'approved'
 }
 
-export const removeListMember = (listId: string, email: string) => {
+// Called once per session after sign-in resolves: flips every 'pending' entry in
+// this user's own memberOf map (and the owner's mirrored invites entry) to
+// 'approved'. A no-op multi-path update when there's nothing pending — cheap to
+// call unconditionally rather than tracking "have I already done this".
+export const approvePendingInvites = async (email: string) => {
+  const snapshot = await get(memberOfRef(email))
+  const memberOf = (snapshot.val() || {}) as Record<string, string>
+  const pendingOwners = Object.entries(memberOf).filter(([, status]) => status === 'pending').map(([owner]) => owner)
+  if (pendingOwners.length === 0) return
   const key = sanitizeEmailKey(email)
-  logClientAction(`[lists] removeListMember: list=${listId} email=${email}`)
+  logClientAction(`[lists] approvePendingInvites: user=${email} owners=${pendingOwners.length}`)
+  const updates: Record<string, unknown> = {}
+  pendingOwners.forEach((ownerKey) => {
+    // Only the status sub-field on the owner's side — its value is { email,
+    // status }, not a bare enum, since the owner needs the real address to
+    // display (see InviteEntry). memberOf stays a bare enum: the current user
+    // already knows their own email, so there's nothing to look up there.
+    updates[`users/${ownerKey}/invites/${key}/status`] = 'approved'
+    updates[`users/${key}/memberOf/${ownerKey}`] = 'approved'
+  })
+  return update(ref(db), updates)
+}
+
+export const inviteToList = async (ownerEmail: string, invitedEmail: string, invitedBy?: string | null) => {
+  const normalized = invitedEmail.trim().toLowerCase()
+  const ownerKey = sanitizeEmailKey(ownerEmail)
+  const invitedKey = sanitizeEmailKey(normalized)
+  logClientAction(`[lists] inviteToList: owner=${ownerEmail} invited=${normalized}`)
+  await update(ref(db), {
+    [`users/${ownerKey}/invites/${invitedKey}`]: { email: normalized, status: 'pending' },
+    [`users/${invitedKey}/memberOf/${ownerKey}`]: 'pending'
+  })
+  const ownerName = await get(userNameRef(ownerEmail))
+  return sendInviteEmail(normalized, invitedBy, ownerName.val() || null)
+}
+
+export const removeListMember = (ownerEmail: string, invitedEmail: string) => {
+  const ownerKey = sanitizeEmailKey(ownerEmail)
+  const invitedKey = sanitizeEmailKey(invitedEmail)
+  logClientAction(`[lists] removeListMember: owner=${ownerEmail} invited=${invitedEmail}`)
   return update(ref(db), {
-    [`lists/${listId}/members/${key}`]: null,
-    [`users/${key}/lists/${listId}`]: null
+    [`users/${ownerKey}/invites/${invitedKey}`]: null,
+    [`users/${invitedKey}/memberOf/${ownerKey}`]: null
   })
 }
 
-// Owner-only rename — fans the new name out to every member's denormalized reverse-
-// index copy in one multi-path update, same pattern as deleteList below.
-export const renameList = async (listId: string, name: string) => {
-  const snapshot = await get(listMembersRef(listId))
-  const members = snapshot.val() || {}
-  logClientAction(`[lists] renameList: list=${listId} name=${name}`)
-  const updates: Record<string, unknown> = { [`lists/${listId}/name`]: name }
-  Object.keys(members).forEach((key) => {
-    updates[`users/${key}/lists/${listId}/name`] = name
-  })
-  return update(ref(db), updates)
-}
-
-// Owner-only, destructive — removes the whole list and every member's reference to
-// it. Does NOT touch that list's grocery/stock/receipt/category data implicitly;
-// Firebase deletes it anyway since it all lives nested under lists/{listId}, which
-// this update() call nulls out entirely.
-export const deleteList = async (listId: string) => {
-  const snapshot = await get(listMembersRef(listId))
-  const members = snapshot.val() || {}
-  logClientAction(`[lists] deleteList: list=${listId} members=${Object.keys(members).length}`)
-  const updates: Record<string, unknown> = { [`lists/${listId}`]: null }
-  Object.keys(members).forEach((key) => {
-    updates[`users/${key}/lists/${listId}`] = null
-  })
-  return update(ref(db), updates)
+export const renameOwnList = (ownerEmail: string, name: string) => {
+  logClientAction(`[lists] renameOwnList: owner=${ownerEmail} name=${name}`)
+  return set(userNameRef(ownerEmail), name)
 }
 
 // ---------------------------------------------------------------------------
 // List-scoped grocery/stock/receipt/category API — every read/write for a
-// household's own data goes through this factory, bound to one listId. Consumers
-// get an instance via the useListApi() hook (src/hooks/ListContext.tsx) rather
-// than importing these functions directly, so the active listId only has to be
-// threaded through in one place instead of as a parameter on every call site.
+// household's own data goes through this factory, bound to one owner email.
+// Consumers get an instance via the useListApi() hook (src/hooks/ListContext.tsx)
+// rather than importing these functions directly, so the active list only has to
+// be threaded through in one place instead of as a parameter on every call site.
 // ---------------------------------------------------------------------------
-export function createListApi(listId: string) {
-  const base = `lists/${listId}`
+export function createListApi(ownerEmail: string) {
+  const base = `users/${sanitizeEmailKey(ownerEmail)}`
   const groceriesRef = ref(db, `${base}/groceries`)
   const stockRef = ref(db, `${base}/stock`)
   const receiptsRef = ref(db, `${base}/receipts`)
@@ -233,7 +250,7 @@ export function createListApi(listId: string) {
     })
 
   const setBought = (key: string, bought: boolean, user?: AuthUser | null) => {
-    logClientAction(`[groceries] setBought: list=${listId} key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
+    logClientAction(`[groceries] setBought: list=${ownerEmail} key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
     return touchModified(key, { bought }, user)
   }
 
@@ -243,7 +260,7 @@ export function createListApi(listId: string) {
   // listener re-renders it under the new section automatically once this write lands.
   const updateGroceryItemCategory = (key: string, category: string, user?: AuthUser | null) => {
     logClientAction(
-      `[groceries] updateGroceryItemCategory: list=${listId} key=${key} category=${category} by=${user?.email || 'anonymous'}`
+      `[groceries] updateGroceryItemCategory: list=${ownerEmail} key=${key} category=${category} by=${user?.email || 'anonymous'}`
     )
     return touchModified(key, { category }, user)
   }
@@ -266,13 +283,13 @@ export function createListApi(listId: string) {
     }
 
     logClientAction(
-      `[groceries] saveItemDetails: list=${listId} key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
+      `[groceries] saveItemDetails: list=${ownerEmail} key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
     )
     return touchModified(key, fields, user)
   }
 
   const deleteItem = async (key: string, imageRef?: string | null) => {
-    logClientAction(`[groceries] deleteItem: list=${listId} key=${key}`)
+    logClientAction(`[groceries] deleteItem: list=${ownerEmail} key=${key}`)
     if (imageRef) await deleteImageDoc('groceryImages', imageRef)
     return remove(ref(db, `${base}/groceries/${key}`))
   }
@@ -289,7 +306,7 @@ export function createListApi(listId: string) {
     user?: AuthUser | null
   ) => {
     logClientAction(
-      `[stock] addStockItem: list=${listId} name=${item.name} quantity=${item.quantity} by=${user?.email || 'anonymous'}`
+      `[stock] addStockItem: list=${ownerEmail} name=${item.name} quantity=${item.quantity} by=${user?.email || 'anonymous'}`
     )
     return push(stockRef, {
       name: item.name,
@@ -303,24 +320,24 @@ export function createListApi(listId: string) {
   }
 
   const adjustStockQuantity = (key: string, quantity: number, user?: AuthUser | null) => {
-    logClientAction(`[stock] adjustStockQuantity: list=${listId} key=${key} quantity=${quantity} by=${user?.email || 'anonymous'}`)
+    logClientAction(`[stock] adjustStockQuantity: list=${ownerEmail} key=${key} quantity=${quantity} by=${user?.email || 'anonymous'}`)
     return touchStock(key, { quantity: Math.max(0, quantity) }, user)
   }
 
   const updateStockItem = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) => {
     logClientAction(
-      `[stock] updateStockItem: list=${listId} key=${key} fields=${Object.keys(fields).join(',')} by=${user?.email || 'anonymous'}`
+      `[stock] updateStockItem: list=${ownerEmail} key=${key} fields=${Object.keys(fields).join(',')} by=${user?.email || 'anonymous'}`
     )
     return touchStock(key, fields, user)
   }
 
   const deleteStockItem = (key: string) => {
-    logClientAction(`[stock] deleteStockItem: list=${listId} key=${key}`)
+    logClientAction(`[stock] deleteStockItem: list=${ownerEmail} key=${key}`)
     return remove(ref(db, `${base}/stock/${key}`))
   }
 
   const addStockItemToShoppingList = (entry: { name: string; category: string }, user?: AuthUser | null) => {
-    logClientAction(`[groceries] addStockItemToShoppingList: list=${listId} name=${entry.name} by=${user?.email || 'anonymous'}`)
+    logClientAction(`[groceries] addStockItemToShoppingList: list=${ownerEmail} name=${entry.name} by=${user?.email || 'anonymous'}`)
     return push(groceriesRef, {
       item: entry.name,
       category: entry.category,
@@ -333,7 +350,7 @@ export function createListApi(listId: string) {
 
   const addGroceryItem = (item: { name: string; category: string }, listName: string | null, user?: AuthUser | null) => {
     logClientAction(
-      `[groceries] addGroceryItem: list=${listId} name=${item.name} sublist=${listName || 'permanent'} by=${user?.email || 'anonymous'}`
+      `[groceries] addGroceryItem: list=${ownerEmail} name=${item.name} sublist=${listName || 'permanent'} by=${user?.email || 'anonymous'}`
     )
     return push(groceriesRef, {
       item: item.name,
@@ -347,7 +364,7 @@ export function createListApi(listId: string) {
   }
 
   const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
-    logClientAction(`[groceries] addPurchasedGroceryItem: list=${listId} name=${item.name} by=${user?.email || 'anonymous'}`)
+    logClientAction(`[groceries] addPurchasedGroceryItem: list=${ownerEmail} name=${item.name} by=${user?.email || 'anonymous'}`)
     const now = new Date().toISOString()
     return push(groceriesRef, {
       item: item.name,
@@ -379,7 +396,7 @@ export function createListApi(listId: string) {
     const writes: Promise<unknown>[] = []
 
     logClientAction(
-      `[receipts] applyReceiptReconciliation: list=${listId} stockAdjustments=${ops.stockAdjustments.length} newStockItems=${ops.newStockItems.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
+      `[receipts] applyReceiptReconciliation: list=${ownerEmail} stockAdjustments=${ops.stockAdjustments.length} newStockItems=${ops.newStockItems.length} groceryBought=${ops.groceryBoughtKeys.length} newGroceryItems=${ops.newGroceryItems.length} by=${email || 'anonymous'}`
     )
 
     if (ops.stockAdjustments.length > 0 || ops.newStockItems.length > 0) {
@@ -442,7 +459,7 @@ export function createListApi(listId: string) {
     })
     if (Object.keys(updates).length === 0) return
     logClientAction(
-      `[groceries] deleteGroceryList: list=${listId} sublist=${subListName || 'permanent'} items=${Object.keys(updates).length}`
+      `[groceries] deleteGroceryList: list=${ownerEmail} sublist=${subListName || 'permanent'} items=${Object.keys(updates).length}`
     )
     return update(groceriesRef, updates)
   }
@@ -516,13 +533,13 @@ export function createListApi(listId: string) {
     })
 
     logClientAction(
-      `[receipts] saveReceipt: list=${listId} key=${key} store=${receipt.store_name || 'unknown'} items=${receipt.items.length} by=${user?.email || 'anonymous'}`
+      `[receipts] saveReceipt: list=${ownerEmail} key=${key} store=${receipt.store_name || 'unknown'} items=${receipt.items.length} by=${user?.email || 'anonymous'}`
     )
     return { key, imageSkipped }
   }
 
   const deleteReceipt = async (key: string, imageRef?: string | null) => {
-    logClientAction(`[receipts] deleteReceipt: list=${listId} key=${key}`)
+    logClientAction(`[receipts] deleteReceipt: list=${ownerEmail} key=${key}`)
     if (imageRef) await deleteImageDoc('receiptImages', imageRef)
     return remove(ref(db, `${base}/receipts/${key}`))
   }
@@ -547,12 +564,12 @@ export function createListApi(listId: string) {
   const seedCategoriesIfEmpty = async () => {
     const snapshot = await get(categoriesRef)
     if (snapshot.exists()) return
-    logClientAction(`[categories] seedCategoriesIfEmpty: list=${listId} seeding default categories`)
+    logClientAction(`[categories] seedCategoriesIfEmpty: list=${ownerEmail} seeding default categories`)
     await set(categoriesRef, DEFAULT_CATEGORIES)
   }
 
   const addCategory = (category: { name: string; color: string; icon?: string; order?: number }) => {
-    logClientAction(`[categories] addCategory: list=${listId} name=${category.name}`)
+    logClientAction(`[categories] addCategory: list=${ownerEmail} name=${category.name}`)
     return push(categoriesRef, {
       name: category.name,
       color: category.color,
@@ -563,17 +580,17 @@ export function createListApi(listId: string) {
   }
 
   const updateCategory = (key: string, fields: Record<string, unknown>) => {
-    logClientAction(`[categories] updateCategory: list=${listId} key=${key} fields=${Object.keys(fields).join(',')}`)
+    logClientAction(`[categories] updateCategory: list=${ownerEmail} key=${key} fields=${Object.keys(fields).join(',')}`)
     return update(ref(db, `${base}/categories/${key}`), fields)
   }
 
   const deleteCategory = (key: string) => {
-    logClientAction(`[categories] deleteCategory: list=${listId} key=${key}`)
+    logClientAction(`[categories] deleteCategory: list=${ownerEmail} key=${key}`)
     return remove(ref(db, `${base}/categories/${key}`))
   }
 
   return {
-    listId,
+    ownerEmail,
     groceriesRef,
     stockRef,
     receiptsRef,

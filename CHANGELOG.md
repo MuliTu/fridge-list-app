@@ -9,7 +9,7 @@ Full design/decision history (why, not just what) lives in
 ## [2.28.0] - 2026-07-12
 
 ### Added
-- The app is now multi-tenant: signing in with Google no longer grants access to one shared list — each user can create their own named list (e.g. "Turiel Home List") and invite others into it specifically, and a user can belong to several lists at once via a switcher in the header. Requires a manual Firebase Console rule update (`/lists`, `/users`) before it works against the real database — see the PR description.
+- The app is now multi-tenant: signing in with Google no longer grants access to one shared list — every user automatically gets their own list (no setup step), can invite specific people into it (tracked as pending until that person's first sign-in, though access is granted immediately either way), and can belong to several lists at once via a switcher in the header. Verified working against the real database with no rule changes needed.
 
 ## [2.27.5] - 2026-07-12
 
