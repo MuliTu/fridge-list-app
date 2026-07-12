@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { logger } from '../../lib/logger'
+import { verifyAuthToken } from '../../lib/verifyAuthToken'
 
 // Same server-side-URL-hiding pattern as the receipt/categorize routes: the n8n
 // webhook URL lives only here, never in the client bundle. The browser POSTs to
@@ -11,6 +12,16 @@ export const Route = createFileRoute('/api/submit-feedback')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Without this, anyone on the internet could hit this route directly and
+        // create arbitrary Trello cards on the product board (each submission also
+        // burns a Gemini call, see security-2). Already canEdit/sign-in-gated in the
+        // UI; enforce it server-side too.
+        const authResult = await verifyAuthToken(request)
+        if (!authResult.ok) {
+          logger.warn(`[submit-feedback] request rejected: unauthorized (${authResult.reason})`)
+          return Response.json({ error: true, message: 'unauthorized' }, { status: 401 })
+        }
+
         const body = await request.json()
 
         // A non-empty request is the one hard requirement — everything else is

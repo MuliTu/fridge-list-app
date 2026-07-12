@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { logger } from '../../lib/logger'
+import { verifyAuthToken } from '../../lib/verifyAuthToken'
 
 const CATEGORIZE_ITEM_URL = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/categorize-item'
 
@@ -7,6 +8,15 @@ export const Route = createFileRoute('/api/categorize-item')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Same reasoning as scan-receipt.tsx: this forwards to the shared Gemini
+        // free-tier quota, so an anonymous caller could exhaust it. Already
+        // canEdit/sign-in-gated in the UI; enforce it server-side too.
+        const authResult = await verifyAuthToken(request)
+        if (!authResult.ok) {
+          logger.warn(`[categorize-item] request rejected: unauthorized (${authResult.reason})`)
+          return Response.json({ error: true, message: 'unauthorized' }, { status: 401 })
+        }
+
         const body = await request.json()
         logger.success(`[categorize-item] request received: text="${body.text}"`)
         try {

@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.7] - 2026-07-12
+
+### Security
+- The 4 server routes that were previously callable by anyone on the internet (`/api/scan-receipt`, `/api/scan-receipt-url`, `/api/categorize-item`, `/api/submit-feedback`) now require a valid Firebase ID token, closing the Gemini-quota-DoS and Trello-card-spam holes reported in security tickets security-3 and security-2, while preserving the local-dev auth bypass via a server-side mirror of `VITE_DEV_AUTH_BYPASS`.
+
 ## [2.27.5] - 2026-07-12
 
 ### Security
