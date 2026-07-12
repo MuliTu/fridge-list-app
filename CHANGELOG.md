@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.28.1] - 2026-07-12
+
+### Fixed
+- Fixed a production crash ("useListApi called with no active list") hitting new/returning users on first load: the active-list fallback was set via a lagging effect one render behind `listsResolved` flipping true, and for a brand-new user the list-provisioning write could race the live subscription's first snapshot — both are now resolved synchronously/sequentially so there's never a render with no valid active list.
+
 ## [2.28.0] - 2026-07-12
 
 ### Added

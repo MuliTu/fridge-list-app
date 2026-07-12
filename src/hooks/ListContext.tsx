@@ -59,26 +59,14 @@ export function ListProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  // Provisions this user's own list (idempotent — no-ops if they already have one)
-  // and flips any of their pending invites to approved, once per session, before
-  // subscribing to live data. Both are cheap, safe to re-run, and this is the only
-  // place either needs to be called from.
-  useEffect(() => {
-    if (isPrerendering || !user?.email) return
-    let cancelled = false
-    ensureOwnList(user.email, user.displayName).catch((err) => {
-      if (!cancelled) setListsError(err.message)
-    })
-    approvePendingInvites(user.email).catch(() => {
-      // Best-effort — a failed flip just means the entry stays 'pending' a bit
-      // longer (still grants access either way, see firebase.ts), not worth
-      // surfacing as a hard error on top of whatever ensureOwnList reports.
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [user?.email, isPrerendering])
-
+  // Provisions this user's own list (idempotent — no-ops if they already have one),
+  // flips any of their pending invites to approved, and only THEN subscribes to
+  // live data. This ordering matters: subscribing before ensureOwnList's write
+  // lands means the subscription's very first snapshot can arrive empty (no
+  // `name` yet), which would flip listsResolved to true with myLists still empty
+  // for a genuinely brand-new user — confirmed happening in production. Doing
+  // both provisioning calls first and awaiting the name one guarantees the first
+  // subscription snapshot already reflects the provisioned name.
   useEffect(() => {
     if (isPrerendering) return
     if (!user?.email) {
@@ -89,40 +77,64 @@ export function ListProvider({ children }: { children: ReactNode }) {
       setListsError(null)
       return
     }
+
+    let cancelled = false
+    let unsubName: (() => void) | null = null
+    let unsubMemberOf: (() => void) | null = null
     setListsResolved(false)
     setListsError(null)
-    let ownResolved = false
-    let memberOfResolved = false
-    const maybeResolved = () => {
-      if (ownResolved && memberOfResolved) setListsResolved(true)
-    }
-    const onError = (error: Error) => {
-      setListsError(error.message)
-      setListsResolved(true)
-    }
 
-    const unsubName = onValue(
-      userNameRef(user.email),
-      (snapshot) => {
-        setOwnName(snapshot.val() || null)
-        ownResolved = true
-        maybeResolved()
-      },
-      onError
-    )
-    const unsubMemberOf = onValue(
-      memberOfRef(user.email),
-      (snapshot) => {
-        setMemberOf(snapshot.val() || {})
-        memberOfResolved = true
-        maybeResolved()
-      },
-      onError
-    )
+    ;(async () => {
+      const email = user.email as string
+      try {
+        await ensureOwnList(email, user.displayName)
+      } catch (err: any) {
+        if (!cancelled) {
+          setListsError(err.message)
+          setListsResolved(true)
+        }
+        return
+      }
+      // Best-effort — a failed flip just means the entry stays 'pending' a bit
+      // longer (still grants access either way, see firebase.ts), not worth
+      // blocking or failing the rest of this on.
+      approvePendingInvites(email).catch(() => {})
+      if (cancelled) return
+
+      let ownResolved = false
+      let memberOfResolved = false
+      const maybeResolved = () => {
+        if (ownResolved && memberOfResolved) setListsResolved(true)
+      }
+      const onError = (error: Error) => {
+        setListsError(error.message)
+        setListsResolved(true)
+      }
+
+      unsubName = onValue(
+        userNameRef(email),
+        (snapshot) => {
+          setOwnName(snapshot.val() || null)
+          ownResolved = true
+          maybeResolved()
+        },
+        onError
+      )
+      unsubMemberOf = onValue(
+        memberOfRef(email),
+        (snapshot) => {
+          setMemberOf(snapshot.val() || {})
+          memberOfResolved = true
+          maybeResolved()
+        },
+        onError
+      )
+    })()
 
     return () => {
-      unsubName()
-      unsubMemberOf()
+      cancelled = true
+      unsubName?.()
+      unsubMemberOf?.()
     }
   }, [user?.email, isPrerendering])
 
@@ -177,21 +189,32 @@ export function ListProvider({ children }: { children: ReactNode }) {
     return list
   }, [user?.email, ownName, memberOf, memberNames])
 
-  // Keep the active list valid: fall back to the user's own list if the
-  // stored/previous choice is no longer one they belong to (e.g. removed as a
-  // member). Never auto-switches away from a valid choice otherwise.
+  // The list actually used for rendering — derived synchronously every render,
+  // not solely from `activeListId` state. This matters: `listsResolved` and
+  // `myLists` can both become correct within the same render pass (React 18
+  // batches the onValue callbacks' setState calls), but fixing an invalid/missing
+  // `activeListId` used to happen in a separate effect one render later — a real
+  // gap where Layout had already decided to render {children} (listsResolved
+  // true, no error) while `activeListId`/`listApi` were still null, crashing any
+  // child that called useListApi() during that frame (confirmed in production).
+  // Falling back here instead means there's never a render where myLists is
+  // non-empty but the resolved active list is null.
+  const resolvedActiveListId =
+    activeListId && myLists.some((l) => l.id === activeListId) ? activeListId : myLists[0]?.id ?? null
+
+  // Persist a corrected/initial choice for next session — purely a side effect on
+  // localStorage + the stored preference; rendering above never waits on this.
   useEffect(() => {
-    if (!listsResolved || !user?.email) return
-    if (activeListId && myLists.some((l) => l.id === activeListId)) return
-    const fallback = user.email
-    setActiveListIdState(fallback)
+    if (!listsResolved || resolvedActiveListId === activeListId) return
+    setActiveListIdState(resolvedActiveListId)
     try {
-      localStorage.setItem(ACTIVE_LIST_STORAGE_KEY, fallback)
+      if (resolvedActiveListId) localStorage.setItem(ACTIVE_LIST_STORAGE_KEY, resolvedActiveListId)
+      else localStorage.removeItem(ACTIVE_LIST_STORAGE_KEY)
     } catch {
       // localStorage unavailable (private browsing, etc.) — activeListId still
       // works for this session via state, it just won't persist across reloads.
     }
-  }, [listsResolved, myLists, activeListId, user?.email])
+  }, [listsResolved, resolvedActiveListId, activeListId])
 
   const setActiveListId = (id: string | null) => {
     setActiveListIdState(id)
@@ -208,7 +231,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
     await renameOwnList(user.email, name)
   }
 
-  const activeList = myLists.find((l) => l.id === activeListId) || null
+  const activeList = myLists.find((l) => l.id === resolvedActiveListId) || null
   const isOwner = activeList?.status === 'owner'
   // Membership is implied by activeList existing at all — myLists only ever
   // contains the user's own list plus owners who have (pending or approved)
@@ -221,7 +244,10 @@ export function ListProvider({ children }: { children: ReactNode }) {
   // actually changes, not on every unrelated ListProvider re-render —
   // createListApi() builds fresh ref()/closure objects each call, which would
   // otherwise be a new identity every time.
-  const listApi = useMemo(() => (activeListId ? createListApi(activeListId) : null), [activeListId])
+  const listApi = useMemo(
+    () => (resolvedActiveListId ? createListApi(resolvedActiveListId) : null),
+    [resolvedActiveListId]
+  )
 
   return (
     <ListContext.Provider
