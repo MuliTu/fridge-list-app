@@ -6,6 +6,10 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.28.0] - 2026-07-12
+
+### Added
+- The app is now multi-tenant: signing in with Google no longer grants access to one shared list — each user can create their own named list (e.g. "Turiel Home List") and invite others into it specifically, and a user can belong to several lists at once via a switcher in the header. Requires a manual Firebase Console rule update (`/lists`, `/users`) before it works against the real database — see the PR description.
 ## [2.27.7] - 2026-07-12
 
 ### Security

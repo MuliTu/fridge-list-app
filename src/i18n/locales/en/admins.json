@@ -1,5 +1,6 @@
 {
   "title": "Share editing",
+  "titleForList": "Share editing – {{listName}}",
   "explanation": "Anyone who signs in with one of these addresses (Google account) can edit the list, not just view it.",
   "ownerTag": "Owner",
   "emailPlaceholder": "Gmail address to add",

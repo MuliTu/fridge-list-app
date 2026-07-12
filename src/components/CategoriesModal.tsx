@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { addCategory, deleteCategory, updateCategory } from '../lib/firebase'
 import { useDialogService } from '../hooks/DialogServiceContext'
+import { useListApi } from '../hooks/ListContext'
 import type { Category } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
@@ -15,6 +15,7 @@ interface CategoriesModalProps {
 export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
   const { t } = useTranslation()
   const { confirm } = useDialogService()
+  const { addCategory, deleteCategory, updateCategory } = useListApi()
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('📌')
   const [newColor, setNewColor] = useState('#a8a8a8')

@@ -32,30 +32,32 @@ jest.mock('firebase/database', () => ({
 }))
 jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }))
 
-import { updateGroceryItemCategory } from './firebase'
+import { createListApi } from './firebase'
 
 describe('updateGroceryItemCategory', () => {
+  const api = createListApi('list-1')
+
   beforeEach(() => {
     ;(global as any).fetch = jest.fn(() => Promise.resolve())
     mockUpdate.mockClear()
     mockRef.mockClear()
   })
 
-  it('writes the new category to the correct /groceries item path with modified metadata', () => {
-    updateGroceryItemCategory('item-1', 'ירקות ופירות', { email: 'editor@example.com' })
+  it('writes the new category to the correct list-scoped /groceries item path with modified metadata', () => {
+    api.updateGroceryItemCategory('item-1', 'ירקות ופירות', { email: 'editor@example.com' })
 
-    expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'groceries/item-1')
+    expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'lists/list-1/groceries/item-1')
     expect(mockUpdate).toHaveBeenCalledTimes(1)
 
     const [refArg, payload] = mockUpdate.mock.calls[0] as unknown as [{ path: string }, Record<string, unknown>]
-    expect(refArg.path).toBe('groceries/item-1')
+    expect(refArg.path).toBe('lists/list-1/groceries/item-1')
     expect(payload.category).toBe('ירקות ופירות')
     expect(payload.modified_by).toBe('editor@example.com')
     expect(typeof payload.modified_at).toBe('string')
   })
 
   it('stamps modified_by as null when no user is provided (e.g. anonymous)', () => {
-    updateGroceryItemCategory('item-2', 'מוצרי חלב')
+    api.updateGroceryItemCategory('item-2', 'מוצרי חלב')
 
     const [, payload] = mockUpdate.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
     expect(payload.category).toBe('מוצרי חלב')
@@ -63,7 +65,7 @@ describe('updateGroceryItemCategory', () => {
   })
 
   it('does not mutate any field other than category and the modified_* stamps', () => {
-    updateGroceryItemCategory('item-3', 'קפואים', { email: 'a@b.com' })
+    api.updateGroceryItemCategory('item-3', 'קפואים', { email: 'a@b.com' })
 
     const [, payload] = mockUpdate.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
     expect(Object.keys(payload).sort()).toEqual(['category', 'modified_at', 'modified_by'])

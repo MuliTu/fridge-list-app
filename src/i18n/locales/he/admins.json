@@ -1,5 +1,6 @@
 {
   "title": "שיתוף עריכה",
+  "titleForList": "שיתוף עריכה – {{listName}}",
   "explanation": "כל מי שיתחבר עם אחת מהכתובות האלה (חשבון Google) יוכל לערוך את הרשימה, לא רק לצפות בה.",
   "ownerTag": "בעל/ת הבית",
   "emailPlaceholder": "כתובת Gmail להוספה",

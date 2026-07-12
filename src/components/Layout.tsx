@@ -3,12 +3,13 @@ import { Link } from '@tanstack/react-router'
 import { version as appVersion } from '../../package.json'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
+import { ListProvider, useActiveList } from '../hooks/ListContext'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
-import { DialogServiceProvider } from '../hooks/DialogServiceContext'
+import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
 import CategoriesModal from './CategoriesModal'
-import AdminsModal from './AdminsModal'
+import ListMembersModal from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
 import FeedbackModal from './FeedbackModal'
 import FeedbackStatusToast from './FeedbackStatusToast'
@@ -16,13 +17,16 @@ import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
+import { deleteList, renameList } from '../lib/firebase'
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <DialogServiceProvider>
-      <GroceriesFeedProvider>
-        <LayoutContent>{children}</LayoutContent>
-      </GroceriesFeedProvider>
+      <ListProvider>
+        <GroceriesFeedProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </GroceriesFeedProvider>
+      </ListProvider>
     </DialogServiceProvider>
   )
 }
@@ -30,10 +34,13 @@ export default function Layout({ children }: { children: ReactNode }) {
 function LayoutContent({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation()
   useSyncHtmlLangDir()
-  const { user, canEdit, canView, authResolved, onSignIn, onSignOut, authError } = useAuth()
+  const { user, authResolved, onSignIn, onSignOut, authError } = useAuth()
+  const { myLists, listsResolved, listsError, activeList, setActiveListId, createList, isOwner, canEdit, canView } =
+    useActiveList()
   const { status, toast } = useGroceriesFeed()
+  const { prompt, confirm } = useDialogService()
   const [showCategories, setShowCategories] = useState(false)
-  const [showAdmins, setShowAdmins] = useState(false)
+  const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const { categories } = useCategories()
@@ -53,6 +60,27 @@ function LayoutContent({ children }: { children: ReactNode }) {
   // stopped responding to real clicks after closing a modal opened this way).
   // Deferring the state update by a tick lets the dropdown fully unmount first.
   const openAfterMenuCloses = (setOpen: (value: boolean) => void) => setTimeout(() => setOpen(true), 0)
+
+  const handleCreateFirstList = async () => {
+    const name = await prompt(t('lists:createPrompt'), t('lists:defaultName', { name: user?.displayName || '' }))
+    const trimmed = name?.trim()
+    if (!trimmed) return
+    createList(trimmed)
+  }
+
+  const handleRenameList = async () => {
+    if (!activeList) return
+    const name = await prompt(t('lists:renamePrompt'), activeList.name)
+    const trimmed = name?.trim()
+    if (!trimmed || trimmed === activeList.name) return
+    renameList(activeList.id, trimmed)
+  }
+
+  const handleDeleteList = async () => {
+    if (!activeList) return
+    if (!(await confirm(t('lists:deleteConfirm', { listName: activeList.name })))) return
+    deleteList(activeList.id)
+  }
 
   return (
     <div className="frame">
@@ -78,9 +106,15 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowCategories)}>
                       {t('menu.manageCategories')}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowAdmins)}>
-                      {t('menu.shareEditing')}
+                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowMembers)}>
+                      {t('menu.shareEditing', { listName: activeList?.name || '' })}
                     </DropdownMenuItem>
+                    {isOwner && (
+                      <DropdownMenuItem onClick={handleRenameList}>{t('lists:renameMenuItem')}</DropdownMenuItem>
+                    )}
+                    {isOwner && (
+                      <DropdownMenuItem onClick={handleDeleteList}>{t('lists:deleteMenuItem')}</DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowChangelog)}>
                       {t('menu.viewChangelog')}
                     </DropdownMenuItem>
@@ -93,6 +127,24 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+              {myLists.length > 1 && activeList && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="list-switch-btn" aria-label={t('lists:switcherAria')}>
+                      📋 {activeList.name}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {myLists.map((l) => (
+                      <DropdownMenuItem key={l.id} onClick={() => setActiveListId(l.id)}>
+                        {l.id === activeList.id ? '✓ ' : ''}
+                        {l.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {myLists.length === 1 && activeList && <span className="list-name-display">📋 {activeList.name}</span>}
               <span>{user.displayName || user.email}</span>
               <button className="signout-btn" onClick={onSignOut}>
                 {t('auth.signOut')}
@@ -122,18 +174,29 @@ function LayoutContent({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      {/* Viewing this app's data now requires being an invited household member —
-          only render the toast/routed page/status (all derived from live grocery
-          data) once that's confirmed, never for an unresolved, signed-out, or
-          uninvited visitor. authResolved distinguishes "still checking" from
-          "definitely signed out" so a returning authenticated user doesn't flash a
-          sign-in screen while Firebase resolves their existing session. */}
+      {/* Viewing this app's data requires signing in with Google (anyone can — no
+          app-wide invite gate) and belonging to at least one list. authResolved
+          distinguishes "still checking session" from "definitely signed out";
+          listsResolved distinguishes "still checking this user's lists" from
+          "confirmed, they have zero" — each state gets its own screen so a
+          returning user never flashes the wrong one while data is still loading. */}
       {!authResolved ? (
         <div className="all-empty">{t('auth.checkingSession')}</div>
       ) : !user ? (
         <div className="all-empty">{t('auth.signInRequired')}</div>
-      ) : !canView ? (
-        <div className="all-empty">{t('auth.noAccess')}</div>
+      ) : !listsResolved ? (
+        <div className="all-empty">{t('lists:checkingLists')}</div>
+      ) : listsError ? (
+        <div className="all-empty list-onboarding">
+          <p>{t('lists:loadError')}</p>
+        </div>
+      ) : myLists.length === 0 ? (
+        <div className="all-empty list-onboarding">
+          <p>{t('lists:noLists')}</p>
+          <button className="signout-btn" onClick={handleCreateFirstList}>
+            {t('lists:createButton')}
+          </button>
+        </div>
       ) : (
         <>
           {toast && <div className="toast">🛒 {toast}</div>}
@@ -145,7 +208,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       )}
 
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
-      {showAdmins && <AdminsModal onClose={() => setShowAdmins(false)} />}
+      {showMembers && <ListMembersModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showFeedback && (
         <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={submitFeedbackRequest} />

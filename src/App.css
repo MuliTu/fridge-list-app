@@ -111,6 +111,33 @@ header {
   margin-bottom: 4px;
 }
 
+.list-switch-btn {
+  background: none;
+  border: 1px solid rgba(244, 241, 232, 0.25);
+  color: var(--chalk-dim);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.list-name-display {
+  color: var(--chalk-dim);
+  font-size: 11px;
+}
+
+.list-onboarding {
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+  padding: 0 24px;
+}
+
+.list-onboarding p {
+  font-size: 20px;
+  max-width: 32ch;
+}
+
 h1 {
   font-family: 'Secular One', sans-serif;
   color: var(--chalk);
