@@ -10,6 +10,26 @@ Full design/decision history (why, not just what) lives in
 
 ### Security
 - The `/api/client-log` endpoint now sanitizes caller-supplied log messages (strips CR/LF and other line separators, caps length, drops non-strings) before writing them to the server log, closing a log-injection/forging hole where an attacker could forge fake log lines via embedded newlines.
+## [2.27.3] - 2026-07-12
+
+### Fixed
+- Patched dependency vulnerabilities (npm audit): resolved the high-severity undici advisory and the transitive moderate advisories by upgrading firebase from 10.x to 12.16.0, bringing the audit to zero known vulnerabilities.
+## [2.27.2] - 2026-07-12
+
+### Security
+- Hardened the invite-email server route against HTML injection and SMTP header injection: user-controlled fields are now HTML-escaped before going into the email body, and the recipient address is validated (rejecting malformed/whitespace-bearing values with a 400) while the inviter name is length-capped and newline-stripped.
+## [2.27.6] - 2026-07-12
+
+### Security
+- A receipt's user-pasted `source_url` is now validated against an http(s)-only allowlist (`isSafeHttpUrl`) both before it's written to Firebase and before it's rendered as a link, so a `javascript:`/`data:` URL can no longer become a script-executing clickable link.
+## [2.27.1] - 2026-07-12
+
+### Security
+- The receipt-from-URL endpoint now validates every server-side fetch (the pasted link and the followed PresignedURL) against an SSRF allowlist — https-only, rejecting private/loopback/link-local/cloud-metadata targets by resolved IP — and reads at most 1MB of each response into memory, closing an open-proxy hole into internal and cloud-metadata endpoints.
+## [2.27.4] - 2026-07-12
+
+### Security
+- Responses now carry defense-in-depth security headers (`X-Frame-Options: DENY` plus CSP `frame-ancestors 'none'` against clickjacking, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`), applied to every path via the Vercel Build Output config.
 
 ## [2.27.0] - 2026-07-11
 
