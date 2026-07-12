@@ -35,7 +35,7 @@ jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), er
 import { createListApi } from './firebase'
 
 describe('updateGroceryItemCategory', () => {
-  const api = createListApi('list-1')
+  const api = createListApi('owner@example.com')
 
   beforeEach(() => {
     ;(global as any).fetch = jest.fn(() => Promise.resolve())
@@ -46,11 +46,11 @@ describe('updateGroceryItemCategory', () => {
   it('writes the new category to the correct list-scoped /groceries item path with modified metadata', () => {
     api.updateGroceryItemCategory('item-1', 'ירקות ופירות', { email: 'editor@example.com' })
 
-    expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'lists/list-1/groceries/item-1')
+    expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'users/owner@example_com/groceries/item-1')
     expect(mockUpdate).toHaveBeenCalledTimes(1)
 
     const [refArg, payload] = mockUpdate.mock.calls[0] as unknown as [{ path: string }, Record<string, unknown>]
-    expect(refArg.path).toBe('lists/list-1/groceries/item-1')
+    expect(refArg.path).toBe('users/owner@example_com/groceries/item-1')
     expect(payload.category).toBe('ירקות ופירות')
     expect(payload.modified_by).toBe('editor@example.com')
     expect(typeof payload.modified_at).toBe('string')

@@ -17,7 +17,6 @@ import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
-import { deleteList, renameList } from '../lib/firebase'
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -35,10 +34,10 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation()
   useSyncHtmlLangDir()
   const { user, authResolved, onSignIn, onSignOut, authError } = useAuth()
-  const { myLists, listsResolved, listsError, activeList, setActiveListId, createList, isOwner, canEdit, canView } =
+  const { myLists, listsResolved, listsError, activeList, setActiveListId, renameActiveList, isOwner, canEdit, canView } =
     useActiveList()
   const { status, toast } = useGroceriesFeed()
-  const { prompt, confirm } = useDialogService()
+  const { prompt } = useDialogService()
   const [showCategories, setShowCategories] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
@@ -61,25 +60,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
   // Deferring the state update by a tick lets the dropdown fully unmount first.
   const openAfterMenuCloses = (setOpen: (value: boolean) => void) => setTimeout(() => setOpen(true), 0)
 
-  const handleCreateFirstList = async () => {
-    const name = await prompt(t('lists:createPrompt'), t('lists:defaultName', { name: user?.displayName || '' }))
-    const trimmed = name?.trim()
-    if (!trimmed) return
-    createList(trimmed)
-  }
-
   const handleRenameList = async () => {
     if (!activeList) return
     const name = await prompt(t('lists:renamePrompt'), activeList.name)
     const trimmed = name?.trim()
     if (!trimmed || trimmed === activeList.name) return
-    renameList(activeList.id, trimmed)
-  }
-
-  const handleDeleteList = async () => {
-    if (!activeList) return
-    if (!(await confirm(t('lists:deleteConfirm', { listName: activeList.name })))) return
-    deleteList(activeList.id)
+    renameActiveList(trimmed)
   }
 
   return (
@@ -106,14 +92,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowCategories)}>
                       {t('menu.manageCategories')}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowMembers)}>
-                      {t('menu.shareEditing', { listName: activeList?.name || '' })}
-                    </DropdownMenuItem>
                     {isOwner && (
-                      <DropdownMenuItem onClick={handleRenameList}>{t('lists:renameMenuItem')}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowMembers)}>
+                        {t('menu.shareEditing', { listName: activeList?.name || '' })}
+                      </DropdownMenuItem>
                     )}
                     {isOwner && (
-                      <DropdownMenuItem onClick={handleDeleteList}>{t('lists:deleteMenuItem')}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleRenameList}>{t('lists:renameMenuItem')}</DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowChangelog)}>
                       {t('menu.viewChangelog')}
@@ -175,11 +160,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
       </header>
 
       {/* Viewing this app's data requires signing in with Google (anyone can — no
-          app-wide invite gate) and belonging to at least one list. authResolved
-          distinguishes "still checking session" from "definitely signed out";
-          listsResolved distinguishes "still checking this user's lists" from
-          "confirmed, they have zero" — each state gets its own screen so a
-          returning user never flashes the wrong one while data is still loading. */}
+          app-wide invite gate). Every signed-in user automatically has their own
+          list (auto-provisioned, see ListContext's ensureOwnList) — there's no
+          "create a list" onboarding step. authResolved distinguishes "still
+          checking session" from "definitely signed out"; listsResolved
+          distinguishes "still checking this user's own list + memberships" from
+          "confirmed" — each state gets its own screen so a returning user never
+          flashes the wrong one while data is still loading. */}
       {!authResolved ? (
         <div className="all-empty">{t('auth.checkingSession')}</div>
       ) : !user ? (
@@ -189,13 +176,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
       ) : listsError ? (
         <div className="all-empty list-onboarding">
           <p>{t('lists:loadError')}</p>
-        </div>
-      ) : myLists.length === 0 ? (
-        <div className="all-empty list-onboarding">
-          <p>{t('lists:noLists')}</p>
-          <button className="signout-btn" onClick={handleCreateFirstList}>
-            {t('lists:createButton')}
-          </button>
         </div>
       ) : (
         <>

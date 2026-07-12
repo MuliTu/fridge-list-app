@@ -1,13 +1,7 @@
 {
   "checkingLists": "Checking your lists...",
   "loadError": "Couldn't load your lists. The server-side permissions may not be set up yet — please try again later.",
-  "noLists": "You don't have a list yet. You can create a new one, or wait for an invite from an existing list's owner.",
-  "createButton": "➕ Create a new list",
-  "createPrompt": "What should the new list be called?",
-  "defaultName": "{{name}}'s list",
   "renamePrompt": "New name for this list",
   "renameMenuItem": "✏️ Rename list",
-  "deleteMenuItem": "🗑 Delete list",
-  "deleteConfirm": "Delete the list \"{{listName}}\"? All of its data (groceries, stock, receipts) will be permanently deleted for every member of this list.",
   "switcherAria": "Switch between lists"
 }

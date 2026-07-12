@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { addListMember, listMembersRef, onValue, removeListMember } from '../lib/firebase'
+import { inviteToList, invitesRef, onValue, removeListMember, type InviteEntry } from '../lib/firebase'
 import { useAuth } from '../hooks/AuthContext'
 import { useActiveList } from '../hooks/ListContext'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
@@ -13,19 +13,24 @@ interface ListMembersModalProps {
 
 // Per-list membership, replacing the old app-wide AdminsModal — invites now grant
 // access to this one list only, not the whole app (see src/hooks/ListContext.tsx).
+// Only the owner can invite/remove people (there's exactly one owner per list, the
+// person it was auto-provisioned for) — a non-owner member never sees this modal,
+// see the isOwner-gated menu item in Layout.tsx.
 export default function ListMembersModal({ onClose }: ListMembersModalProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const { activeList, isOwner } = useActiveList()
-  const [members, setMembers] = useState<string[]>([])
+  const { activeList } = useActiveList()
+  const [invites, setInvites] = useState<InviteEntry[]>([])
   const [newEmail, setNewEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [emailWarning, setEmailWarning] = useState<string | null>(null)
 
   useEffect(() => {
     if (!activeList) return
-    return onValue(listMembersRef(activeList.id), (snapshot) => setMembers(Object.values(snapshot.val() || {})))
-  }, [activeList?.id])
+    return onValue(invitesRef(activeList.owner), (snapshot) =>
+      setInvites(Object.values(snapshot.val() || {}) as InviteEntry[])
+    )
+  }, [activeList?.owner])
 
   if (!activeList) return null
 
@@ -38,10 +43,10 @@ export default function ListMembersModal({ onClose }: ListMembersModalProps) {
     setError(null)
     setEmailWarning(null)
     try {
-      // Best-effort — the invite itself (addListMember's Firebase write) already
+      // Best-effort — the invite itself (inviteToList's Firebase write) already
       // succeeded before the email send is even attempted, so a delivery failure
       // (e.g. SMTP not configured yet) never blocks or reverts the actual grant.
-      const result = await addListMember(activeList.id, activeList.name, activeList.owner, trimmed, user?.email)
+      const result = await inviteToList(activeList.owner, trimmed, user?.email)
       setNewEmail('')
       if (result.error) setEmailWarning(t('admins:emailNotSent'))
     } catch (err: any) {
@@ -51,7 +56,7 @@ export default function ListMembersModal({ onClose }: ListMembersModalProps) {
 
   const handleRemove = async (email: string) => {
     try {
-      await removeListMember(activeList.id, email)
+      await removeListMember(activeList.owner, email)
     } catch (err: any) {
       setError(`${t('admins:addFailed')}: ${err.message}`)
     }
@@ -66,24 +71,27 @@ export default function ListMembersModal({ onClose }: ListMembersModalProps) {
         <p className="modal-note-readonly">{t('admins:explanation')}</p>
 
         <div className="category-rows">
-          {members.map((email) => (
-            <div className="category-row" key={email}>
-              <span className="admin-email">{email}</span>
-              {email === activeList.owner ? (
-                <span className="admin-owner-tag">{t('admins:ownerTag')}</span>
-              ) : (
-                isOwner && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-[26px] w-[26px]"
-                    onClick={() => handleRemove(email)}
-                    aria-label={t('admins:removeAdmin')}
-                  >
-                    🗑
-                  </Button>
-                )
-              )}
+          <div className="category-row">
+            <span className="admin-email">{activeList.owner}</span>
+            <span className="admin-owner-tag">{t('admins:ownerTag')}</span>
+          </div>
+          {invites.map((invite) => (
+            <div className="category-row" key={invite.email}>
+              <span className="admin-email">
+                {invite.email}
+                {invite.status === 'pending' && (
+                  <span className="admin-pending-tag"> · {t('admins:pendingTag')}</span>
+                )}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-[26px] w-[26px]"
+                onClick={() => handleRemove(invite.email)}
+                aria-label={t('admins:removeAdmin')}
+              >
+                🗑
+              </Button>
             </div>
           ))}
         </div>

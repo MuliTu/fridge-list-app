@@ -3,13 +3,18 @@ export interface AuthUser {
   displayName?: string | null
 }
 
-// A household: /lists/{id}. `name`/`owner` are duplicated (denormalized) into every
-// member's /users/{email}/lists/{id} reverse-index entry so "which lists am I in"
-// is a single read instead of a read-per-list — see ListContext.
+// A household: identified by its owner's email, not a generated ID — every user
+// gets exactly one list, auto-provisioned at /users/{sanitizedEmail} on first
+// sign-in. `id` and `owner` are the same email; kept as separate fields so call
+// sites read naturally (`activeList.id` as the scoping key, `activeList.owner` for
+// ownership checks) without every consumer needing to know they're identical here.
+// `status` is only meaningful for a list the current user doesn't own — see
+// ListContext's memberOf discovery.
 export interface UserList {
   id: string
   name: string
   owner: string
+  status: 'owner' | 'pending' | 'approved'
 }
 
 export interface GroceryItem {
