@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.6] - 2026-07-12
+
+### Security
+- A receipt's user-pasted `source_url` is now validated against an http(s)-only allowlist (`isSafeHttpUrl`) both before it's written to Firebase and before it's rendered as a link, so a `javascript:`/`data:` URL can no longer become a script-executing clickable link.
+
 ## [2.27.0] - 2026-07-11
 
 ### Added
