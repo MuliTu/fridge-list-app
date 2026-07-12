@@ -1,11 +1,20 @@
 /**
+ * @jest-environment node
+ *
+ * Node environment (not the default jsdom) so the real Fetch API's Request/Response
+ * globals are available — needed by the auth-gating tests below, which invoke the
+ * route's actual POST handler.
+ *
  * SSRF guard unit tests for the receipt-URL scan route.
  * dns.lookup is mocked so nothing here touches the real network/DNS.
  */
 const lookupMock = jest.fn()
 jest.mock('node:dns/promises', () => ({ __esModule: true, default: { lookup: (...args: unknown[]) => lookupMock(...args) } }))
 
-import { __ssrfInternals } from './scan-receipt-url'
+const verifyAuthTokenMock = jest.fn()
+jest.mock('../../lib/verifyAuthToken', () => ({ verifyAuthToken: (...args: unknown[]) => verifyAuthTokenMock(...args) }))
+
+import { Route, __ssrfInternals } from './scan-receipt-url'
 
 const { isPrivateIp, isBlockedHost, validateFetchTarget } = __ssrfInternals
 
@@ -87,5 +96,43 @@ describe('validateFetchTarget', () => {
     const parsed = await validateFetchTarget('https://www.shufersal.co.il/receipt/123')
     expect(parsed).not.toBeNull()
     expect(parsed?.protocol).toBe('https:')
+  })
+})
+
+describe('POST /api/scan-receipt-url auth gating', () => {
+  const postHandler = (Route.options.server as any).handlers.POST
+
+  const callPost = (body: unknown) =>
+    postHandler({
+      request: new Request('http://localhost/api/scan-receipt-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+    })
+
+  beforeEach(() => {
+    verifyAuthTokenMock.mockReset()
+    ;(globalThis as any).fetch = jest.fn()
+  })
+
+  it('returns 401 and never touches the network when unauthenticated', async () => {
+    verifyAuthTokenMock.mockResolvedValue({ ok: false, reason: 'missing bearer token' })
+    const response = await callPost({ url: 'https://www.shufersal.co.il/receipt/123' })
+    expect(response.status).toBe(401)
+    const data = await response.json()
+    expect(data).toEqual({ error: true, message: 'unauthorized' })
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(lookupMock).not.toHaveBeenCalled()
+  })
+
+  it('still runs the SSRF/body checks once authenticated', async () => {
+    verifyAuthTokenMock.mockResolvedValue({ ok: true, uid: 'user-1' })
+    // No body at all — should hit the existing "missing url" 400, proving the
+    // handler proceeded past the auth check into its normal validation logic.
+    const response = await callPost({})
+    expect(response.status).toBe(400)
+    const data = await response.json()
+    expect(data).toEqual({ error: true, message: 'missing url' })
   })
 })

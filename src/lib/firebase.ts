@@ -38,6 +38,24 @@ const auth = getAuth(app)
 const firestore = getFirestore(app)
 const googleProvider = new GoogleAuthProvider()
 
+// The 4 server routes that proxy to n8n/Gemini or Trello (scan-receipt,
+// scan-receipt-url, categorize-item, submit-feedback) now require a valid Firebase
+// ID token server-side (see src/lib/verifyAuthToken.ts) — this attaches it. If
+// there's no signed-in user (shouldn't normally happen, since these flows are already
+// canEdit-gated in the UI) or getIdToken() itself fails, this returns an empty
+// headers object rather than throwing — the fetch still goes out and the server
+// naturally 401s it, matching this app's graceful-degradation house style (a failed
+// scan/categorization/feedback-submit already degrades to a manual fallback or a
+// recoverable error rather than a client-side crash).
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  try {
+    const token = await auth.currentUser?.getIdToken()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
 // Firebase Storage requires the paid Blaze plan (confirmed unavailable for this
 // project — both possible bucket names return NoSuchBucket). Firestore is free on
 // the Spark plan, so images/PDFs are stored as base64 documents there instead of
@@ -237,7 +255,7 @@ export const addGroceryItem = (
 export const categorizeItem = async (text: string): Promise<{ item: string; category: string }[]> => {
   const response = await fetch('/api/categorize-item', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
     body: JSON.stringify({ text })
   })
   if (!response.ok) throw new Error('סיווג הפריט נכשל (' + response.status + ')')
@@ -389,7 +407,7 @@ export const scanReceipt = async (fileBlob: Blob & { type: string }) => {
   const base64 = await blobToBase64(fileBlob)
   const response = await fetch('/api/scan-receipt', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
     body: JSON.stringify({ image_base64: base64, mime_type: fileBlob.type || 'image/jpeg' })
   })
   if (!response.ok) throw new Error('סריקת הקבלה נכשלה (' + response.status + ')')
@@ -402,7 +420,7 @@ export const scanReceipt = async (fileBlob: Blob & { type: string }) => {
 export const scanReceiptFromUrl = async (sourceUrl: string) => {
   const response = await fetch('/api/scan-receipt-url', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
     body: JSON.stringify({ url: sourceUrl })
   })
   if (!response.ok) throw new Error('קריאת הקבלה מהקישור נכשלה (' + response.status + ')')
@@ -557,7 +575,7 @@ export const submitFeedback = async ({
   try {
     const response = await fetch('/api/submit-feedback', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body: JSON.stringify(payload)
     })
     const data = await response.json().catch(() => ({}))

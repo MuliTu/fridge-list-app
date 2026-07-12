@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import dns from 'node:dns/promises'
 import { logger } from '../../lib/logger'
+import { verifyAuthToken } from '../../lib/verifyAuthToken'
 
 const RECEIPT_URL_SCAN_ENDPOINT = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-url-scan'
 
@@ -124,6 +125,17 @@ export const Route = createFileRoute('/api/scan-receipt-url')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Same reasoning as scan-receipt.tsx/categorize-item.tsx: forwards to the
+        // shared Gemini free-tier quota. Checked before the SSRF/body validation
+        // below, not instead of it — this closes a different hole (who may call this
+        // route at all), the SSRF guards below still protect against a signed-in
+        // caller supplying a malicious target URL.
+        const authResult = await verifyAuthToken(request)
+        if (!authResult.ok) {
+          logger.warn(`[scan-receipt-url] request rejected: unauthorized (${authResult.reason})`)
+          return Response.json({ error: true, message: 'unauthorized' }, { status: 401 })
+        }
+
         const { url } = (await request.json()) || {}
         if (!url || typeof url !== 'string') {
           logger.warn('[scan-receipt-url] request rejected: missing url')
