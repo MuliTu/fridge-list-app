@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.27.4] - 2026-07-12
+
+### Security
+- Responses now carry defense-in-depth security headers (`X-Frame-Options: DENY` plus CSP `frame-ancestors 'none'` against clickjacking, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`), applied to every path via the Vercel Build Output config.
+
 ## [2.27.0] - 2026-07-11
 
 ### Added
