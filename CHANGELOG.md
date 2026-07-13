@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.30.0] - 2026-07-13
+
+### Added
+- New `/api/n8n-write-groceries` server route (security-4): n8n can now write grocery items using an anonymous-but-authenticated Firebase session instead of the RTDB's REST API directly, so the write rule can eventually be tightened to `auth != null` without breaking Siri voice-add — see the PR description for the exact rollout sequencing (Console steps required before this can actually be wired up and the rule tightened).
+
 ## [2.29.0] - 2026-07-13
 
 ### Added
