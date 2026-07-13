@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.31.1] - 2026-07-13
+
+### Fixed
+- The shopping list's search/sort/"show purchased" controls now render inline on one row instead of stacking (a flex-sizing issue where the row wasn't claiming its full available width), and removed dead `.modal-actions`/`.modal-btn` CSS left over from before the shadcn migration.
+
 ## [2.31.0] - 2026-07-13
 
 ### Added
