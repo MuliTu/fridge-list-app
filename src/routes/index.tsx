@@ -280,7 +280,7 @@ function ShoppingListPage() {
         </>
       )}
 
-      {canEdit && activeList !== PERMANENT_LIST && (
+      {canEdit && (
         <button className="fab-add-btn" onClick={() => setShowAddGrocery(true)} aria-label={t('shoppingList:addItemFab')}>
           +
         </button>

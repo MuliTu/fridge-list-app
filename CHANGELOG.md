@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.32.0] - 2026-07-13
+
+### Added
+- The "+" add-item button now also appears on the permanent list, not just custom/temporary lists — previously the only way to add an item to the main household list was Siri voice-add or a receipt scan, with no manual add button in the UI at all.
+
 ## [2.31.1] - 2026-07-13
 
 ### Fixed
