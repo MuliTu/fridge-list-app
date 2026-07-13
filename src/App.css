@@ -196,6 +196,15 @@ h1 {
   flex-wrap: wrap;
   gap: 8px;
   margin: 10px auto 2px;
+  /* Without an explicit width this flex row only ever grows as wide as its
+     children need (confirmed directly: it sized to fit search+sort exactly,
+     503px, then wrapped the purchased-toggle button to a second line even
+     though max-width still had 137px of headroom) — a flex item's default
+     cross-axis stretch doesn't kick in the way a block element's width:auto
+     would here, since .frame is itself a column flex container. width: 100%
+     makes it actually claim the space max-width allows, so search + sort +
+     the purchased toggle all fit on one line together. */
+  align-self: stretch;
   max-width: 640px;
 }
 
@@ -262,14 +271,9 @@ h1 {
   color: var(--chalk);
 }
 
-.purchased-toggle-row {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0 4px;
-}
-
 .purchased-toggle-btn {
   cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .panel-header {
