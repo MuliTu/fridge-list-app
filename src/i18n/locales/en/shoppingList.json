@@ -1,5 +1,6 @@
 {
   "listPicker": {
+    "sectionLabel": "List",
     "permanentList": "Permanent list",
     "newList": "+ New list",
     "deleteList": "🗑 Delete list",

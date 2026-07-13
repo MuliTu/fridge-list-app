@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
 import { ListProvider, useActiveList } from '../hooks/ListContext'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import { ListPickerActionsProvider, useListPickerActions } from '../hooks/ListPickerActionsContext'
 import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
@@ -23,7 +24,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     <DialogServiceProvider>
       <ListProvider>
         <GroceriesFeedProvider>
-          <LayoutContent>{children}</LayoutContent>
+          <ListPickerActionsProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </ListPickerActionsProvider>
         </GroceriesFeedProvider>
       </ListProvider>
     </DialogServiceProvider>
@@ -49,6 +52,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
     useFeedbackToast()
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
+  const { actions: listPickerActions } = useListPickerActions()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
@@ -130,6 +134,45 @@ function LayoutContent({ children }: { children: ReactNode }) {
                       ))
                     ) : (
                       <div className="sidebar-item">📋 {activeList.name}</div>
+                    )}
+                  </>
+                )}
+
+                {listPickerActions && (
+                  <>
+                    <div className="sidebar-divider" />
+                    <div className="sidebar-section-label">{t('shoppingList:listPicker.sectionLabel')}</div>
+                    {listPickerActions.canEdit && (
+                      <button
+                        className="sidebar-item"
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onCreateList)}
+                      >
+                        {t('shoppingList:listPicker.newList')}
+                      </button>
+                    )}
+                    {listPickerActions.canEdit && (
+                      <button
+                        className="sidebar-item"
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onBulkUpload)}
+                      >
+                        {t('shoppingList:listPicker.bulkUpload')}
+                      </button>
+                    )}
+                    {listPickerActions.hasUnbought && (
+                      <button
+                        className="sidebar-item"
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onShareMissing)}
+                      >
+                        {t('shoppingList:listPicker.shareMissing')}
+                      </button>
+                    )}
+                    {listPickerActions.canEdit && listPickerActions.isCustomList && (
+                      <button
+                        className="sidebar-item"
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onDeleteList)}
+                      >
+                        {t('shoppingList:listPicker.deleteList')}
+                      </button>
                     )}
                   </>
                 )}

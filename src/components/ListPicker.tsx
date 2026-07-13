@@ -3,28 +3,16 @@ import { useTranslation } from 'react-i18next'
 interface ListPickerProps {
   activeList: string | null
   customLists: string[]
-  canEdit: boolean
-  hasUnbought: boolean
   onSelectList: (list: string | null) => void
-  onCreateList: () => void
-  onDeleteList: () => void
-  onShareMissing: () => void
-  onBulkUpload: () => void
 }
 
 const PERMANENT_LIST = null
 
-export default function ListPicker({
-  activeList,
-  customLists,
-  canEdit,
-  hasUnbought,
-  onSelectList,
-  onCreateList,
-  onDeleteList,
-  onShareMissing,
-  onBulkUpload
-}: ListPickerProps) {
+// Only the switcher pills live here now — creating/importing/deleting a list and
+// sharing what's missing moved into the sidebar (see ListPickerActionsContext),
+// since those are management actions, not the quick "which list am I looking at"
+// switch someone reaches for constantly while actually shopping.
+export default function ListPicker({ activeList, customLists, onSelectList }: ListPickerProps) {
   const { t } = useTranslation()
   return (
     <div className="list-picker">
@@ -43,26 +31,6 @@ export default function ListPicker({
           {name}
         </button>
       ))}
-      {canEdit && (
-        <button className="list-pill list-pill-new" onClick={onCreateList}>
-          {t('shoppingList:listPicker.newList')}
-        </button>
-      )}
-      {canEdit && (
-        <button className="list-pill" onClick={onBulkUpload}>
-          {t('shoppingList:listPicker.bulkUpload')}
-        </button>
-      )}
-      {canEdit && activeList !== PERMANENT_LIST && (
-        <button className="list-delete-btn" onClick={onDeleteList}>
-          {t('shoppingList:listPicker.deleteList')}
-        </button>
-      )}
-      {hasUnbought && (
-        <button className="list-pill" onClick={onShareMissing}>
-          {t('shoppingList:listPicker.shareMissing')}
-        </button>
-      )}
     </div>
   )
 }

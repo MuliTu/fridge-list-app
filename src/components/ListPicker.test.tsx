@@ -11,13 +11,7 @@ jest.mock('react-i18next', () => ({
 const baseProps = {
   activeList: null as string | null,
   customLists: [] as string[],
-  canEdit: false,
-  hasUnbought: false,
-  onSelectList: jest.fn(),
-  onCreateList: jest.fn(),
-  onDeleteList: jest.fn(),
-  onShareMissing: jest.fn(),
-  onBulkUpload: jest.fn()
+  onSelectList: jest.fn()
 }
 
 describe('ListPicker', () => {
@@ -52,28 +46,11 @@ describe('ListPicker', () => {
     expect(onSelectList).toHaveBeenCalledWith('מסיבה')
   })
 
-  it('hides "new list" and "delete list" when the viewer cannot edit', () => {
-    render(<ListPicker {...baseProps} canEdit={false} activeList="מסיבה" />)
+  it('does not render list-management actions (they live in the sidebar now)', () => {
+    render(<ListPicker {...baseProps} activeList="מסיבה" />)
     expect(screen.queryByText('shoppingList:listPicker.newList')).not.toBeInTheDocument()
     expect(screen.queryByText('shoppingList:listPicker.deleteList')).not.toBeInTheDocument()
-  })
-
-  it('shows "new list" when editable, but hides "delete list" while on the permanent list', () => {
-    render(<ListPicker {...baseProps} canEdit={true} activeList={null} />)
-    expect(screen.getByText('shoppingList:listPicker.newList')).toBeInTheDocument()
-    expect(screen.queryByText('shoppingList:listPicker.deleteList')).not.toBeInTheDocument()
-  })
-
-  it('shows "delete list" when editable and viewing a custom list', () => {
-    render(<ListPicker {...baseProps} canEdit={true} activeList="מסיבה" />)
-    expect(screen.getByText('shoppingList:listPicker.deleteList')).toBeInTheDocument()
-  })
-
-  it('only shows "share missing" when there are unbought items', () => {
-    const { rerender } = render(<ListPicker {...baseProps} hasUnbought={false} />)
+    expect(screen.queryByText('shoppingList:listPicker.bulkUpload')).not.toBeInTheDocument()
     expect(screen.queryByText('shoppingList:listPicker.shareMissing')).not.toBeInTheDocument()
-
-    rerender(<ListPicker {...baseProps} hasUnbought={true} />)
-    expect(screen.getByText('shoppingList:listPicker.shareMissing')).toBeInTheDocument()
   })
 })

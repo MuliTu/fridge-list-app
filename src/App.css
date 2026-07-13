@@ -196,20 +196,6 @@ h1 {
   border-color: rgba(244, 241, 232, 0.3);
 }
 
-.list-pill-new {
-  border-style: dashed;
-}
-
-.list-delete-btn {
-  background: none;
-  border: 1px solid rgba(224, 138, 138, 0.4);
-  color: #e08a8a;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
 .list-controls-row {
   display: flex;
   align-items: center;
@@ -241,7 +227,15 @@ h1 {
   background: var(--board);
   color: var(--chalk);
   box-shadow: inset 0 0 0 3px rgba(244, 241, 232, 0.06);
-  padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  /* The hamburger trigger + language switch (.user-chip) stay above the sidebar in
+     z-index so tapping the hamburger again still closes it (see Layout.tsx's
+     comment on modal={false}), but .user-chip itself is a normal in-flow element
+     inside .frame's own padding/margin, not fixed — so without this offset the
+     sidebar's own top content rendered right underneath it, visually overlapping
+     (confirmed directly: the sidebar's title sat directly behind the hamburger
+     circle). 80px clears .user-chip's real bottom edge (measured ~70px) with a
+     small margin. */
+  padding: 80px 18px calc(18px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 2px;
