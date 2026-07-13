@@ -209,11 +209,16 @@ function ShoppingListPage() {
 
   return (
     <>
-      <ListPicker
-        activeList={activeList}
-        customLists={sortedCustomLists}
-        onSelectList={(l) => navigate({ search: { list: l || undefined } })}
-      />
+      {/* Nothing to switch between when there are no custom lists yet — showing a
+          single non-interactive-feeling "permanent list" pill in that case is
+          pure clutter on a page meant to be glanced at quickly while shopping. */}
+      {sortedCustomLists.length > 0 && (
+        <ListPicker
+          activeList={activeList}
+          customLists={sortedCustomLists}
+          onSelectList={(l) => navigate({ search: { list: l || undefined } })}
+        />
+      )}
 
       {visibleEntries.length > 0 && (
         <div className="list-controls-row">

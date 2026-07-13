@@ -256,7 +256,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
         </div>
         {authError && <div className="header-error">{authError}</div>}
         <h1>🛒 {t('appTitle')}</h1>
-        <div className="sub">{t('appSubtitle')}</div>
         {canView && (
           <div className="tabs">
             <Link to="/" className="tab-btn" activeProps={{ className: 'tab-btn active' }} activeOptions={{ exact: true }}>

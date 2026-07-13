@@ -139,13 +139,6 @@ h1 {
   letter-spacing: 0.5px;
 }
 
-.sub {
-  color: var(--chalk-dim);
-  font-size: 13px;
-  margin-top: 4px;
-  font-weight: 400;
-}
-
 .tabs {
   display: flex;
   justify-content: center;
