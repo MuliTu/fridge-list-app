@@ -1,6 +1,5 @@
 {
   "appTitle": "Household List",
-  "appSubtitle": "Updates in real time",
   "loading": "Loading...",
   "tabs": {
     "shoppingList": "Shopping List",
@@ -18,6 +17,7 @@
   },
   "menu": {
     "button": "Menu",
+    "sectionSettings": "Settings",
     "manageCategories": "🗂 Manage categories",
     "shareEditing": "👥 Share editing – {{listName}}",
     "viewChangelog": "📝 Changelog",

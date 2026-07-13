@@ -1,5 +1,6 @@
 {
   "listPicker": {
+    "sectionLabel": "רשימה",
     "permanentList": "הרשימה הקבועה",
     "newList": "+ רשימה חדשה",
     "deleteList": "🗑 מחיקת הרשימה",

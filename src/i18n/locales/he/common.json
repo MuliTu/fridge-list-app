@@ -1,6 +1,5 @@
 {
   "appTitle": "רשימת הבית",
-  "appSubtitle": "מתעדכן בזמן אמת",
   "loading": "טוען...",
   "tabs": {
     "shoppingList": "רשימת קניות",
@@ -18,6 +17,7 @@
   },
   "menu": {
     "button": "תפריט",
+    "sectionSettings": "הגדרות",
     "manageCategories": "🗂 ניהול קטגוריות",
     "shareEditing": "👥 שיתוף עריכה – {{listName}}",
     "viewChangelog": "📝 יומן שינויים",

@@ -78,6 +78,14 @@ header {
   font-size: 12px;
   margin-bottom: 4px;
   flex-wrap: wrap;
+  /* The hamburger trigger lives at the same logical "end" edge the sidebar itself
+     slides in from (see .sidebar-panel) — without its own stacking context above
+     the sidebar's overlay/panel (z-index 29/30), an open sidebar visually covers
+     the trigger, so tapping it again to close (per the ticket) can't reach it.
+     Keeping .user-chip above both lets that same button toggle the sidebar closed
+     too, not just open it. */
+  position: relative;
+  z-index: 35;
 }
 
 .signout-btn {
@@ -111,21 +119,6 @@ header {
   margin-bottom: 4px;
 }
 
-.list-switch-btn {
-  background: none;
-  border: 1px solid rgba(244, 241, 232, 0.25);
-  color: var(--chalk-dim);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.list-name-display {
-  color: var(--chalk-dim);
-  font-size: 11px;
-}
-
 .list-onboarding {
   flex-direction: column;
   gap: 16px;
@@ -144,13 +137,6 @@ h1 {
   font-size: clamp(24px, 3.2vw, 36px);
   margin: 0;
   letter-spacing: 0.5px;
-}
-
-.sub {
-  color: var(--chalk-dim);
-  font-size: 13px;
-  margin-top: 4px;
-  font-weight: 400;
 }
 
 .tabs {
@@ -203,20 +189,6 @@ h1 {
   border-color: rgba(244, 241, 232, 0.3);
 }
 
-.list-pill-new {
-  border-style: dashed;
-}
-
-.list-delete-btn {
-  background: none;
-  border: 1px solid rgba(224, 138, 138, 0.4);
-  color: #e08a8a;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
 .list-controls-row {
   display: flex;
   align-items: center;
@@ -226,6 +198,10 @@ h1 {
   margin: 10px auto 2px;
   max-width: 640px;
 }
+
+/* Sidebar / hamburger menu — see src/components/ui/sheet.tsx and its usage in
+   Layout.tsx. Styled entirely with Tailwind utility classes now (no custom CSS
+   here), matching this app's other shadcn-based components (see dialog.tsx). */
 
 .list-controls-row .list-search {
   margin: 0;
@@ -1274,6 +1250,7 @@ h1 {
   .stock-item {
     padding: 10px 8px;
   }
+
 }
 
 .category-order-btns {

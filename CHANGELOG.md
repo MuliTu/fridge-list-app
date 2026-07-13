@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.31.0] - 2026-07-13
+
+### Added
+- Streamlined top navigation: the settings dropdown, list switcher, and sign-out are now a slide-in sidebar behind a single hamburger icon, decluttering the header down to just the language switch, title, and tabs — RTL/LTR-aware (mirrors edge automatically), closes on outside-tap or by tapping the hamburger again, and tuned for mobile viewports.
+
 ## [2.30.0] - 2026-07-13
 
 ### Added

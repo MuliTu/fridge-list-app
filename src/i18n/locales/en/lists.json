@@ -3,5 +3,5 @@
   "loadError": "Couldn't load your lists. The server-side permissions may not be set up yet — please try again later.",
   "renamePrompt": "New name for this list",
   "renameMenuItem": "✏️ Rename list",
-  "switcherAria": "Switch between lists"
+  "sectionLabel": "My lists"
 }

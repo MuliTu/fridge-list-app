@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DragEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,7 @@ import { isStockSuggestionEnabled } from '../hooks/useStockSuggestion'
 import { useAuth } from '../hooks/AuthContext'
 import { useActiveList, useListApi } from '../hooks/ListContext'
 import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import { useListPickerActions } from '../hooks/ListPickerActionsContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import ItemDetailModal from '../components/ItemDetailModal'
 import GroceryItemModal from '../components/GroceryItemModal'
@@ -184,19 +185,40 @@ function ShoppingListPage() {
     }
   }
 
+  // List management actions (new/import/delete/share-missing) render in the
+  // sidebar now, not on this page — Layout.tsx can't reach this route's local
+  // state directly, so this registers the current handlers into a shared slot
+  // it reads from. Cleared on unmount so navigating to /stock or /receipts hides
+  // this section instead of leaving stale actions behind.
+  const { setActions: setListPickerActions } = useListPickerActions()
+  useEffect(() => {
+    setListPickerActions({
+      canEdit,
+      isCustomList: activeList !== PERMANENT_LIST,
+      hasUnbought: visibleEntries.some((e) => !e.bought),
+      onCreateList: handleCreateList,
+      onDeleteList: handleDeleteList,
+      onShareMissing: handleShareMissing,
+      onBulkUpload: () => setShowBulkUpload(true)
+    })
+    return () => setListPickerActions(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers close over
+    // activeList/visibleEntries/canEdit already listed below; re-registering on
+    // every render would be harmless but pointless churn through the context.
+  }, [activeList, canEdit, visibleEntries.length])
+
   return (
     <>
-      <ListPicker
-        activeList={activeList}
-        customLists={sortedCustomLists}
-        canEdit={canEdit}
-        hasUnbought={visibleEntries.some((e) => !e.bought)}
-        onSelectList={(l) => navigate({ search: { list: l || undefined } })}
-        onCreateList={handleCreateList}
-        onDeleteList={handleDeleteList}
-        onShareMissing={handleShareMissing}
-        onBulkUpload={() => setShowBulkUpload(true)}
-      />
+      {/* Nothing to switch between when there are no custom lists yet — showing a
+          single non-interactive-feeling "permanent list" pill in that case is
+          pure clutter on a page meant to be glanced at quickly while shopping. */}
+      {sortedCustomLists.length > 0 && (
+        <ListPicker
+          activeList={activeList}
+          customLists={sortedCustomLists}
+          onSelectList={(l) => navigate({ search: { list: l || undefined } })}
+        />
+      )}
 
       {visibleEntries.length > 0 && (
         <div className="list-controls-row">

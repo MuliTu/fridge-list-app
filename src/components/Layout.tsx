@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
 import { ListProvider, useActiveList } from '../hooks/ListContext'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import { ListPickerActionsProvider, useListPickerActions } from '../hooks/ListPickerActionsContext'
 import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
@@ -16,14 +17,25 @@ import FeedbackStatusToast from './FeedbackStatusToast'
 import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
+import { cn } from '../lib/utils'
+
+// Shared Tailwind utility strings for sidebar rows — kept as constants rather than
+// repeating the same long className string at every call site below.
+const sidebarItemClass =
+  "flex w-full cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2 py-3 text-start font-['Rubik',sans-serif] text-sm text-foreground hover:bg-accent focus-visible:bg-accent"
+const sidebarItemActiveClass = 'bg-accent shadow-[inset_0_0_0_1px_rgba(244,241,232,0.15)]'
+const sidebarSectionLabelClass = 'mx-0.5 mb-0.5 mt-3 text-[11px] text-muted-foreground opacity-80'
+const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-[rgba(244,241,232,0.12)]'
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <DialogServiceProvider>
       <ListProvider>
         <GroceriesFeedProvider>
-          <LayoutContent>{children}</LayoutContent>
+          <ListPickerActionsProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </ListPickerActionsProvider>
         </GroceriesFeedProvider>
       </ListProvider>
     </DialogServiceProvider>
@@ -42,23 +54,31 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const { categories } = useCategories()
   // Feedback submission is non-blocking: the modal closes on submit and this drives
   // a transient status toast (pending → success/error) that outlives the modal.
   const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
     useFeedbackToast()
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
+  const { actions: listPickerActions } = useListPickerActions()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
-  // Opening a Dialog directly from a DropdownMenuItem's onClick races the dropdown's
-  // own closing cleanup (which resets document.body's scroll/pointer-events lock)
+  // Opening a Dialog directly from a sidebar item's onClick races the sidebar's own
+  // closing cleanup (which resets document.body's scroll/pointer-events lock)
   // against the dialog's opening lock on the same element — whichever cleanup runs
   // last can clobber the other, permanently leaving <body> with `pointer-events:
-  // none` after the dialog closes (confirmed directly: every button on the page
-  // stopped responding to real clicks after closing a modal opened this way).
-  // Deferring the state update by a tick lets the dropdown fully unmount first.
-  const openAfterMenuCloses = (setOpen: (value: boolean) => void) => setTimeout(() => setOpen(true), 0)
+  // none` after the dialog closes (confirmed directly with the old DropdownMenu this
+  // sidebar replaced: every button on the page stopped responding to real clicks
+  // after closing a modal opened this way; the sidebar is itself a Radix Dialog, so
+  // the same race applies here). Closing the sidebar first, then deferring the
+  // follow-up action by a tick, lets the sidebar fully unmount before anything else
+  // opens.
+  const runAfterSidebarCloses = (fn: () => void) => {
+    setSidebarOpen(false)
+    setTimeout(fn, 0)
+  }
 
   const handleRenameList = async () => {
     if (!activeList) return
@@ -80,61 +100,154 @@ function LayoutContent({ children }: { children: ReactNode }) {
             {t(`language.${otherLanguage}`)}
           </button>
           {user ? (
-            <>
-              {canEdit && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="icon-btn" aria-label={t('menu.button')}>
-                      ⚙️
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowCategories)}>
+            // modal={false}: a fully modal Radix Dialog locks the rest of the page
+            // (document.body gets pointer-events: none, and everything outside the
+            // dialog gets aria-hidden) for as long as it's open — correct for a true
+            // dialog, but it means the hamburger trigger itself becomes unclickable
+            // while the sidebar is open, breaking "tap the hamburger again to close"
+            // (confirmed directly: elementFromPoint at the trigger's own coordinates
+            // resolved to a different element once the lock kicked in). Navigation
+            // drawers are the standard exception to full modality for exactly this
+            // reason — non-modal still gets Escape-to-close and outside-tap-to-close
+            // for free from Radix's own dismissable-layer behavior, it just doesn't
+            // lock the rest of the page.
+            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
+              <SheetTrigger asChild>
+                <button className="icon-btn" aria-label={t('menu.button')}>
+                  ☰
+                </button>
+              </SheetTrigger>
+              <SheetContent closeLabel={t('actions.close')} hideClose>
+                <SheetHeader>
+                  <SheetTitle>{t('menu.button')}</SheetTitle>
+                </SheetHeader>
+
+                {activeList && (
+                  <>
+                    {myLists.length > 1 && <div className={sidebarSectionLabelClass}>{t('lists:sectionLabel')}</div>}
+                    {myLists.length > 1 ? (
+                      myLists.map((l) => (
+                        <button
+                          key={l.id}
+                          className={cn(sidebarItemClass, l.id === activeList.id && sidebarItemActiveClass)}
+                          onClick={() => {
+                            setActiveListId(l.id)
+                            setSidebarOpen(false)
+                          }}
+                        >
+                          📋 {l.name}
+                          {l.id === activeList.id ? ' ✓' : ''}
+                        </button>
+                      ))
+                    ) : (
+                      <div className={sidebarItemClass}>📋 {activeList.name}</div>
+                    )}
+                  </>
+                )}
+
+                {listPickerActions && (
+                  <>
+                    <div className={sidebarDividerClass} />
+                    <div className={sidebarSectionLabelClass}>{t('shoppingList:listPicker.sectionLabel')}</div>
+                    {listPickerActions.canEdit && (
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onCreateList)}
+                      >
+                        {t('shoppingList:listPicker.newList')}
+                      </button>
+                    )}
+                    {listPickerActions.canEdit && (
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onBulkUpload)}
+                      >
+                        {t('shoppingList:listPicker.bulkUpload')}
+                      </button>
+                    )}
+                    {listPickerActions.hasUnbought && (
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onShareMissing)}
+                      >
+                        {t('shoppingList:listPicker.shareMissing')}
+                      </button>
+                    )}
+                    {listPickerActions.canEdit && listPickerActions.isCustomList && (
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(listPickerActions.onDeleteList)}
+                      >
+                        {t('shoppingList:listPicker.deleteList')}
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {canEdit && (
+                  <>
+                    <div className={sidebarDividerClass} />
+                    <div className={sidebarSectionLabelClass}>{t('menu.sectionSettings')}</div>
+                    <button
+                      className={sidebarItemClass}
+                      onClick={() => runAfterSidebarCloses(() => setShowCategories(true))}
+                    >
                       {t('menu.manageCategories')}
-                    </DropdownMenuItem>
-                    {isOwner && (
-                      <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowMembers)}>
-                        {t('menu.shareEditing', { listName: activeList?.name || '' })}
-                      </DropdownMenuItem>
-                    )}
-                    {isOwner && (
-                      <DropdownMenuItem onClick={handleRenameList}>{t('lists:renameMenuItem')}</DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowChangelog)}>
-                      {t('menu.viewChangelog')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openAfterMenuCloses(setShowFeedback)}>
-                      {t('menu.sendFeedback')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); toggleStockSuggestion() }}>
-                      {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {myLists.length > 1 && activeList && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="list-switch-btn" aria-label={t('lists:switcherAria')}>
-                      📋 {activeList.name}
                     </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {myLists.map((l) => (
-                      <DropdownMenuItem key={l.id} onClick={() => setActiveListId(l.id)}>
-                        {l.id === activeList.id ? '✓ ' : ''}
-                        {l.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {myLists.length === 1 && activeList && <span className="list-name-display">📋 {activeList.name}</span>}
-              <span>{user.displayName || user.email}</span>
-              <button className="signout-btn" onClick={onSignOut}>
-                {t('auth.signOut')}
-              </button>
-            </>
+                    {isOwner && (
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
+                      >
+                        {t('menu.shareEditing', { listName: activeList?.name || '' })}
+                      </button>
+                    )}
+                    {isOwner && (
+                      <button className={sidebarItemClass} onClick={() => runAfterSidebarCloses(handleRenameList)}>
+                        {t('lists:renameMenuItem')}
+                      </button>
+                    )}
+                    <button
+                      className={sidebarItemClass}
+                      onClick={() => runAfterSidebarCloses(() => setShowChangelog(true))}
+                    >
+                      {t('menu.viewChangelog')}
+                    </button>
+                    <button
+                      className={sidebarItemClass}
+                      onClick={() => runAfterSidebarCloses(() => setShowFeedback(true))}
+                    >
+                      {t('menu.sendFeedback')}
+                    </button>
+                    <button
+                      className={sidebarItemClass}
+                      onClick={() => {
+                        setSidebarOpen(false)
+                        toggleStockSuggestion()
+                      }}
+                    >
+                      {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
+                    </button>
+                  </>
+                )}
+
+                <div className={sidebarDividerClass} />
+                <div className="break-words px-2 pb-2.5 pt-1.5 text-xs text-muted-foreground">
+                  {user.displayName || user.email}
+                </div>
+                <div className="mt-auto pt-2.5">
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => {
+                      setSidebarOpen(false)
+                      onSignOut()
+                    }}
+                  >
+                    {t('auth.signOut')}
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
           ) : (
             <button className="signout-btn" onClick={onSignIn}>
               {t('auth.signIn')}
@@ -143,7 +256,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
         </div>
         {authError && <div className="header-error">{authError}</div>}
         <h1>🛒 {t('appTitle')}</h1>
-        <div className="sub">{t('appSubtitle')}</div>
         {canView && (
           <div className="tabs">
             <Link to="/" className="tab-btn" activeProps={{ className: 'tab-btn active' }} activeOptions={{ exact: true }}>
