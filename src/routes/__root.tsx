@@ -39,6 +39,14 @@ export const Route = createRootRoute({
 // this whole module tree).
 function useRegisterServiceWorker() {
   useEffect(() => {
+    // Dev-mode only: Vite serves unhashed paths (/src/App.css, etc.) that change
+    // on every edit, but the service worker's cache-first strategy for static
+    // assets can't tell an edited file from an unchanged one at the same URL —
+    // confirmed causing real, repeated confusion in local dev, where an old
+    // cached response kept being served after a real code change. Production
+    // is unaffected: Vite content-hashes every build asset, so cache-first is
+    // actually correct there (a changed file gets a new URL).
+    if (!import.meta.env.PROD) return
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
     const register = () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {

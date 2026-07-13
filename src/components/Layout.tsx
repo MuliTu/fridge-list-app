@@ -18,6 +18,15 @@ import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
+import { cn } from '../lib/utils'
+
+// Shared Tailwind utility strings for sidebar rows — kept as constants rather than
+// repeating the same long className string at every call site below.
+const sidebarItemClass =
+  "flex w-full cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2 py-3 text-start font-['Rubik',sans-serif] text-sm text-foreground hover:bg-accent focus-visible:bg-accent"
+const sidebarItemActiveClass = 'bg-accent shadow-[inset_0_0_0_1px_rgba(244,241,232,0.15)]'
+const sidebarSectionLabelClass = 'mx-0.5 mb-0.5 mt-3 text-[11px] text-muted-foreground opacity-80'
+const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-[rgba(244,241,232,0.12)]'
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -115,14 +124,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
                 {activeList && (
                   <>
-                    {myLists.length > 1 && (
-                      <div className="sidebar-section-label">{t('lists:sectionLabel')}</div>
-                    )}
+                    {myLists.length > 1 && <div className={sidebarSectionLabelClass}>{t('lists:sectionLabel')}</div>}
                     {myLists.length > 1 ? (
                       myLists.map((l) => (
                         <button
                           key={l.id}
-                          className={`sidebar-item${l.id === activeList.id ? ' active' : ''}`}
+                          className={cn(sidebarItemClass, l.id === activeList.id && sidebarItemActiveClass)}
                           onClick={() => {
                             setActiveListId(l.id)
                             setSidebarOpen(false)
@@ -133,18 +140,18 @@ function LayoutContent({ children }: { children: ReactNode }) {
                         </button>
                       ))
                     ) : (
-                      <div className="sidebar-item">📋 {activeList.name}</div>
+                      <div className={sidebarItemClass}>📋 {activeList.name}</div>
                     )}
                   </>
                 )}
 
                 {listPickerActions && (
                   <>
-                    <div className="sidebar-divider" />
-                    <div className="sidebar-section-label">{t('shoppingList:listPicker.sectionLabel')}</div>
+                    <div className={sidebarDividerClass} />
+                    <div className={sidebarSectionLabelClass}>{t('shoppingList:listPicker.sectionLabel')}</div>
                     {listPickerActions.canEdit && (
                       <button
-                        className="sidebar-item"
+                        className={sidebarItemClass}
                         onClick={() => runAfterSidebarCloses(listPickerActions.onCreateList)}
                       >
                         {t('shoppingList:listPicker.newList')}
@@ -152,7 +159,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     )}
                     {listPickerActions.canEdit && (
                       <button
-                        className="sidebar-item"
+                        className={sidebarItemClass}
                         onClick={() => runAfterSidebarCloses(listPickerActions.onBulkUpload)}
                       >
                         {t('shoppingList:listPicker.bulkUpload')}
@@ -160,7 +167,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     )}
                     {listPickerActions.hasUnbought && (
                       <button
-                        className="sidebar-item"
+                        className={sidebarItemClass}
                         onClick={() => runAfterSidebarCloses(listPickerActions.onShareMissing)}
                       >
                         {t('shoppingList:listPicker.shareMissing')}
@@ -168,7 +175,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     )}
                     {listPickerActions.canEdit && listPickerActions.isCustomList && (
                       <button
-                        className="sidebar-item"
+                        className={sidebarItemClass}
                         onClick={() => runAfterSidebarCloses(listPickerActions.onDeleteList)}
                       >
                         {t('shoppingList:listPicker.deleteList')}
@@ -179,41 +186,41 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
                 {canEdit && (
                   <>
-                    <div className="sidebar-divider" />
-                    <div className="sidebar-section-label">{t('menu.sectionSettings')}</div>
+                    <div className={sidebarDividerClass} />
+                    <div className={sidebarSectionLabelClass}>{t('menu.sectionSettings')}</div>
                     <button
-                      className="sidebar-item"
+                      className={sidebarItemClass}
                       onClick={() => runAfterSidebarCloses(() => setShowCategories(true))}
                     >
                       {t('menu.manageCategories')}
                     </button>
                     {isOwner && (
                       <button
-                        className="sidebar-item"
+                        className={sidebarItemClass}
                         onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
                       >
                         {t('menu.shareEditing', { listName: activeList?.name || '' })}
                       </button>
                     )}
                     {isOwner && (
-                      <button className="sidebar-item" onClick={() => runAfterSidebarCloses(handleRenameList)}>
+                      <button className={sidebarItemClass} onClick={() => runAfterSidebarCloses(handleRenameList)}>
                         {t('lists:renameMenuItem')}
                       </button>
                     )}
                     <button
-                      className="sidebar-item"
+                      className={sidebarItemClass}
                       onClick={() => runAfterSidebarCloses(() => setShowChangelog(true))}
                     >
                       {t('menu.viewChangelog')}
                     </button>
                     <button
-                      className="sidebar-item"
+                      className={sidebarItemClass}
                       onClick={() => runAfterSidebarCloses(() => setShowFeedback(true))}
                     >
                       {t('menu.sendFeedback')}
                     </button>
                     <button
-                      className="sidebar-item"
+                      className={sidebarItemClass}
                       onClick={() => {
                         setSidebarOpen(false)
                         toggleStockSuggestion()
@@ -224,11 +231,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   </>
                 )}
 
-                <div className="sidebar-divider" />
-                <div className="sidebar-user">{user.displayName || user.email}</div>
-                <div className="sidebar-signout-row">
+                <div className={sidebarDividerClass} />
+                <div className="break-words px-2 pb-2.5 pt-1.5 text-xs text-muted-foreground">
+                  {user.displayName || user.email}
+                </div>
+                <div className="mt-auto pt-2.5">
                   <button
-                    className="sidebar-item"
+                    className={sidebarItemClass}
                     onClick={() => {
                       setSidebarOpen(false)
                       onSignOut()
