@@ -18,6 +18,7 @@
   },
   "menu": {
     "button": "תפריט",
+    "sectionSettings": "הגדרות",
     "manageCategories": "🗂 ניהול קטגוריות",
     "shareEditing": "👥 שיתוף עריכה – {{listName}}",
     "viewChangelog": "📝 יומן שינויים",

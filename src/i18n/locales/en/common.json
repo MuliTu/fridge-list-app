@@ -18,6 +18,7 @@
   },
   "menu": {
     "button": "Menu",
+    "sectionSettings": "Settings",
     "manageCategories": "🗂 Manage categories",
     "shareEditing": "👥 Share editing – {{listName}}",
     "viewChangelog": "📝 Changelog",

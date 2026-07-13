@@ -78,6 +78,14 @@ header {
   font-size: 12px;
   margin-bottom: 4px;
   flex-wrap: wrap;
+  /* The hamburger trigger lives at the same logical "end" edge the sidebar itself
+     slides in from (see .sidebar-panel) — without its own stacking context above
+     the sidebar's overlay/panel (z-index 29/30), an open sidebar visually covers
+     the trigger, so tapping it again to close (per the ticket) can't reach it.
+     Keeping .user-chip above both lets that same button toggle the sidebar closed
+     too, not just open it. */
+  position: relative;
+  z-index: 35;
 }
 
 .signout-btn {
@@ -109,21 +117,6 @@ header {
   color: #e08a8a;
   font-size: 11px;
   margin-bottom: 4px;
-}
-
-.list-switch-btn {
-  background: none;
-  border: 1px solid rgba(244, 241, 232, 0.25);
-  color: var(--chalk-dim);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.list-name-display {
-  color: var(--chalk-dim);
-  font-size: 11px;
 }
 
 .list-onboarding {
@@ -225,6 +218,140 @@ h1 {
   gap: 8px;
   margin: 10px auto 2px;
   max-width: 640px;
+}
+
+/* Sidebar / hamburger menu — replaces the settings DropdownMenu + inline header
+   chrome (list switcher, sign out) with a single slide-in drawer. Anchored via
+   inset-inline-end + margin-inline-end (not translateX) so it opens from the
+   correct edge in both RTL (Hebrew, default) and LTR (English) with zero JS/dir
+   branching — matches the hamburger button's own position at the flex-end of
+   .user-chip, which is the same logical "end" edge. */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 29;
+}
+
+.sidebar-panel {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: min(300px, 86vw);
+  background: var(--board);
+  color: var(--chalk);
+  box-shadow: inset 0 0 0 3px rgba(244, 241, 232, 0.06);
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  z-index: 30;
+  font-family: 'Rubik', sans-serif;
+  transition: margin-inline-end 0.25s ease, opacity 0.2s ease;
+}
+
+.sidebar-panel[data-state='closed'] {
+  margin-inline-end: min(-300px, -86vw);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar-panel[data-state='open'] {
+  margin-inline-end: 0;
+  opacity: 1;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+/* Reserves room so the title never runs under the absolutely-positioned close
+   button, only when SheetContent actually renders one. This app's own usage
+   passes `hideClose` (its hamburger trigger stays visible above the sidebar and
+   already toggles it closed — see Layout.tsx and Sheet's `modal={false}`), so
+   this is a no-op today; kept for a future consumer that renders both together. */
+.sidebar-panel:has(.sidebar-close-btn) .sidebar-header {
+  padding-inline-end: 34px;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-family: 'Secular One', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--chalk);
+}
+
+.sidebar-close-btn {
+  position: absolute;
+  inset-inline-end: 18px;
+  top: 18px;
+  background: none;
+  border: 1px solid rgba(244, 241, 232, 0.2);
+  color: var(--chalk-dim);
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sidebar-section-label {
+  font-size: 11px;
+  color: var(--chalk-dim);
+  opacity: 0.8;
+  margin: 12px 2px 2px;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: rgba(244, 241, 232, 0.12);
+  margin: 10px 0;
+  flex-shrink: 0;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--chalk);
+  font-family: 'Rubik', sans-serif;
+  font-size: 14px;
+  text-align: start;
+  padding: 12px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.sidebar-item:hover,
+.sidebar-item:focus-visible {
+  background: var(--board-edge);
+}
+
+.sidebar-item.active {
+  background: var(--board-edge);
+  box-shadow: inset 0 0 0 1px rgba(244, 241, 232, 0.15);
+}
+
+.sidebar-user {
+  font-size: 12px;
+  color: var(--chalk-dim);
+  padding: 6px 8px 10px;
+  word-break: break-word;
+}
+
+.sidebar-signout-row {
+  margin-top: auto;
+  padding-top: 10px;
 }
 
 .list-controls-row .list-search {
@@ -1273,6 +1400,20 @@ h1 {
 
   .stock-item {
     padding: 10px 8px;
+  }
+
+  .sidebar-panel {
+    width: min(300px, 88vw);
+  }
+
+  .sidebar-item {
+    padding: 13px 8px;
+    font-size: 15px;
+  }
+
+  .sidebar-close-btn {
+    width: 32px;
+    height: 32px;
   }
 }
 
