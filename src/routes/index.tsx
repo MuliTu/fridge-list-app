@@ -224,6 +224,13 @@ function ShoppingListPage() {
         <div className="list-controls-row">
           <ShoppingListSearch value={search} onChange={setSearch} />
           <ShoppingListSort value={sortOption} onChange={setSortOption} />
+          {purchasedCount > 0 && (
+            <button className="list-pill purchased-toggle-btn" onClick={toggleShowPurchased}>
+              {showPurchased
+                ? t('shoppingList:purchased.hide')
+                : t('shoppingList:purchased.show', { count: purchasedCount })}
+            </button>
+          )}
         </div>
       )}
 
@@ -231,15 +238,6 @@ function ShoppingListPage() {
         <ListSkeleton variant="flat" sections={3} rows={3} />
       ) : (
         <>
-          {purchasedCount > 0 && (
-            <div className="purchased-toggle-row">
-              <button className="list-pill purchased-toggle-btn" onClick={toggleShowPurchased}>
-                {showPurchased
-                  ? t('shoppingList:purchased.hide')
-                  : t('shoppingList:purchased.show', { count: purchasedCount })}
-              </button>
-            </div>
-          )}
           {isEmpty ? (
             <div className="all-empty">
               {query
