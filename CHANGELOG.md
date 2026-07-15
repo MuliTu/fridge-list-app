@@ -1,10 +1,15 @@
 # Changelog
 
-Ahttps://github.com/MuliTu/fridge-list-app/pull/42/conflict?name=package.json&ancestor_oid=3e96db9a366794d0bc841e197e0856e9fde3f45c&base_oid=d844949b3834cd23c5247a4476cd59c9fbfe0557&head_oid=ac4f140869bf69fc401e8fe4be710f285ce764bell notable changes to this project are documented here. Format loosely follows
+All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/), versioned against `package.json`.
 Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
+
+## [2.33.0] - 2026-07-15
+
+### Added
+- A first-time onboarding tutorial with mock-data walkthrough steps covering voice/manual add, categories, stock, receipts, and list sharing, with a "don't show this again" toggle and a "🎓 Show tutorial" sidebar item to replay it anytime.
 
 ## [2.32.0] - 2026-07-13
 

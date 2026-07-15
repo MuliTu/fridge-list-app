@@ -14,9 +14,11 @@ import ListMembersModal from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
 import FeedbackModal from './FeedbackModal'
 import FeedbackStatusToast from './FeedbackStatusToast'
+import OnboardingModal from './OnboardingModal'
 import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
+import { useOnboarding } from '../hooks/useOnboarding'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
 import { cn } from '../lib/utils'
 
@@ -62,6 +64,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
     useFeedbackToast()
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
   const { actions: listPickerActions } = useListPickerActions()
+  const { isOpen: onboardingOpen, close: closeOnboarding, replay: replayOnboarding } = useOnboarding()
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
@@ -183,6 +186,14 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     )}
                   </>
                 )}
+
+                <div className={sidebarDividerClass} />
+                <button
+                  className={sidebarItemClass}
+                  onClick={() => runAfterSidebarCloses(replayOnboarding)}
+                >
+                  {t('menu.viewOnboarding')}
+                </button>
 
                 {canEdit && (
                   <>
@@ -307,6 +318,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
           <div className="status">
             {status} · v{appVersion}
           </div>
+          {onboardingOpen && <OnboardingModal onClose={closeOnboarding} />}
         </>
       )}
 
