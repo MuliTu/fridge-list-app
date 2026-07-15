@@ -1,0 +1,64 @@
+{
+  "skip": "Skip",
+  "back": "Back",
+  "next": "Next",
+  "done": "Let's go",
+  "dontShowAgain": "Don't show this again",
+  "stepIndicator": "{{current}} of {{total}}",
+  "steps": {
+    "welcome": {
+      "title": "Welcome 👋",
+      "body": "This is your household's shared shopping list. Everyone can add items by voice through Siri, and see them here in real time.",
+      "mock": {
+        "listName": "Permanent list"
+      }
+    },
+    "addItems": {
+      "title": "Adding items 🎙️",
+      "body": "Tell Siri \"add milk to the list\", or type it manually — the item is added and auto-categorized. Check it off once you've bought it.",
+      "mock": {
+        "item1Name": "Milk",
+        "item1Meta": "Added by Siri",
+        "item2Name": "Bread",
+        "item2Meta": "Bought by Muli"
+      }
+    },
+    "organize": {
+      "title": "Organized by category 🗂",
+      "body": "The list is automatically split into categories, so it's easy to know what to grab on each aisle.",
+      "mock": {
+        "cat1": "Vegetables",
+        "cat2": "Dairy & eggs",
+        "cat3": "Bread & bakery"
+      }
+    },
+    "stock": {
+      "title": "Track your stock 📦",
+      "body": "The \"Stock\" tab tracks quantities at home. Low items are highlighted, and one tap adds them to the shopping list.",
+      "mock": {
+        "itemName": "Toilet paper",
+        "quantity": "Quantity: 1 pc",
+        "lowStock": "Running low",
+        "addToList": "🛒 To list"
+      }
+    },
+    "receipts": {
+      "title": "Scan receipts 🧾",
+      "body": "Photograph a receipt or paste a link to a digital invoice — items and prices are extracted automatically, once you confirm them.",
+      "mock": {
+        "storeName": "Shufersal",
+        "total": "$38.50",
+        "priceUp": "▲ Price went up"
+      }
+    },
+    "sharing": {
+      "title": "Lists & sharing 👥",
+      "body": "Create temporary lists for events, and invite other household members to edit the list.",
+      "mock": {
+        "list1": "Permanent list",
+        "list2": "Party",
+        "newList": "+ New list"
+      }
+    }
+  }
+}
