@@ -32,6 +32,8 @@ export interface GroceryItem {
   list_name?: string | null
   created_by?: string | null
   isFresh?: boolean
+  quantity?: number | null
+  unit?: string | null
 }
 
 export interface Category {

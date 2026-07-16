@@ -63,6 +63,11 @@
     "categorizing": "Categorizing...",
     "addFailed": "Add failed"
   },
+  "quantityUnit": {
+    "noUnit": "No unit",
+    "invalidQuantity": "Quantity must be a number greater than zero",
+    "unitRequiresQuantity": "Enter a quantity to select a unit"
+  },
   "restockPrompt": {
     "title": "Update stock",
     "message": "You marked \"{{itemName}}\" as bought — add it to stock?",

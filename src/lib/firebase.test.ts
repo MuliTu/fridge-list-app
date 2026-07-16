@@ -41,7 +41,8 @@ jest.mock('firebase/firestore', () => ({
 }))
 jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }))
 
-import { categorizeItem, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
+import { push, update } from 'firebase/database'
+import { categorizeItem, createListApi, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
 
 // Pulls out the single fetch call made to `urlSubstring` (ignoring the fire-and-forget
 // /api/client-log calls logClientAction makes alongside some of these).
@@ -131,6 +132,47 @@ describe('auth header attachment on server-route calls', () => {
       await submitFeedback({ request: 'add dark mode' })
       const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/submit-feedback')
       expect((options.headers as Record<string, string>).Authorization).toBeUndefined()
+    })
+  })
+})
+
+describe('grocery item quantity/unit persistence', () => {
+  const listApi = createListApi('owner@example.com')
+
+  beforeEach(() => {
+    ;(push as jest.Mock).mockClear()
+    ;(update as jest.Mock).mockClear()
+  })
+
+  describe('addGroceryItem', () => {
+    it('writes quantity/unit when provided', () => {
+      listApi.addGroceryItem({ name: 'עגבניות', category: 'ירקות', quantity: 2, unit: 'ק"ג' }, null)
+      const [, data] = (push as jest.Mock).mock.calls[0]
+      expect(data.quantity).toBe(2)
+      expect(data.unit).toBe('ק"ג')
+    })
+
+    it('writes null quantity/unit when omitted, rather than undefined', () => {
+      listApi.addGroceryItem({ name: 'לחם', category: 'מאפים' }, null)
+      const [, data] = (push as jest.Mock).mock.calls[0]
+      expect(data.quantity).toBeNull()
+      expect(data.unit).toBeNull()
+    })
+  })
+
+  describe('saveItemDetails', () => {
+    it('writes quantity/unit alongside the other fields', async () => {
+      await listApi.saveItemDetails('item-1', { note: null, quantity: 5, unit: 'יח\'' })
+      const [, fields] = (update as jest.Mock).mock.calls[0]
+      expect(fields.quantity).toBe(5)
+      expect(fields.unit).toBe('יח\'')
+    })
+
+    it('clears quantity/unit back to null when omitted (edit-to-remove)', async () => {
+      await listApi.saveItemDetails('item-1', { note: null })
+      const [, fields] = (update as jest.Mock).mock.calls[0]
+      expect(fields.quantity).toBeNull()
+      expect(fields.unit).toBeNull()
     })
   })
 })

@@ -34,6 +34,12 @@ export default function ShoppingListItemRow({
       <span className="item-row">
         <span className="item-top">
           <span>{entry.item}</span>
+          {entry.quantity != null && (
+            <span className="item-quantity">
+              ({entry.quantity}
+              {entry.unit ? ` ${entry.unit}` : ''})
+            </span>
+          )}
           {entry.note && <span className="item-icon">📝</span>}
           {entry.image_url && <span className="item-icon">📷</span>}
           <button

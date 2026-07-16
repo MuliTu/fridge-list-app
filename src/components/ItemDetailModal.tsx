@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { formatDateTime } from '../lib/formatDateTime'
 import { getImageDataUrl } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { NO_UNIT, OTHER_UNIT, UNIT_PRESETS, resolveQuantityUnit } from '../lib/units'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import type { Category, GroceryItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
@@ -20,7 +21,10 @@ interface ItemDetailModalProps {
   categories?: Category[]
   onSignIn: () => void
   onClose: () => void
-  onSave: (key: string, details: { name: string; note: string; imageFile: File | null }) => Promise<unknown>
+  onSave: (
+    key: string,
+    details: { name: string; note: string; imageFile: File | null; quantity: number | null; unit: string | null }
+  ) => Promise<unknown>
   onDelete: (key: string) => Promise<unknown>
   onMoveCategory?: (key: string, category: string) => void
 }
@@ -51,6 +55,10 @@ export default function ItemDetailModal({
   const [category, setCategory] = useState(currentCategory)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(entry.image_url || null)
+  const [quantityText, setQuantityText] = useState(entry.quantity != null ? String(entry.quantity) : '')
+  const initialUnitIsCustom = !!entry.unit && !(UNIT_PRESETS as string[]).includes(entry.unit)
+  const [unit, setUnit] = useState<string>(initialUnitIsCustom ? OTHER_UNIT : entry.unit || NO_UNIT)
+  const [customUnit, setCustomUnit] = useState(initialUnitIsCustom ? entry.unit || '' : '')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,10 +88,21 @@ export default function ItemDetailModal({
 
   const handleSave = async () => {
     if (!nameValid) return
+    const resolved = resolveQuantityUnit({ quantityText, unit, customUnit })
+    if (resolved.error) {
+      setError(t(`common:quantityUnit.${resolved.error}`))
+      return
+    }
     setSaving(true)
     setError(null)
     try {
-      await onSave(entry.key, { name: trimmedName, note, imageFile })
+      await onSave(entry.key, {
+        name: trimmedName,
+        note,
+        imageFile,
+        quantity: resolved.quantity,
+        unit: resolved.unit
+      })
       onClose()
     } catch (err: any) {
       setError(`${t('common:itemDetail.saveFailed')}: ${err.message}`)
@@ -152,6 +171,44 @@ export default function ItemDetailModal({
               onChange={(e) => setNote(e.target.value)}
               rows={3}
             />
+
+            <div className="modal-input-row">
+              <Label>
+                {t('stock:editModal.quantity')}
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={quantityText}
+                  onChange={(e) => setQuantityText(e.target.value)}
+                />
+              </Label>
+              <Label>
+                {t('stock:editModal.unit')}
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_UNIT}>{t('common:quantityUnit.noUnit')}</SelectItem>
+                    {UNIT_PRESETS.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={OTHER_UNIT}>{t('stock:editModal.otherUnit')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Label>
+            </div>
+
+            {unit === OTHER_UNIT && (
+              <Input
+                placeholder={t('stock:editModal.customUnitPlaceholder')}
+                value={customUnit}
+                onChange={(e) => setCustomUnit(e.target.value)}
+              />
+            )}
 
             {onMoveCategory && categories.length > 0 && (
               <Label className="modal-category-move">
