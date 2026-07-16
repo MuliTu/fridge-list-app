@@ -83,4 +83,35 @@ describe('ShoppingListItemRow', () => {
     )
     expect(screen.getByText('📷')).toBeInTheDocument()
   })
+
+  it('shows no quantity annotation when quantity is absent', () => {
+    render(
+      <ul>
+        <ShoppingListItemRow entry={baseEntry} onClick={jest.fn()} onInfoClick={jest.fn()} />
+      </ul>
+    )
+    expect(screen.queryByText(/\(/)).not.toBeInTheDocument()
+  })
+
+  it('shows "(quantity unit)" when both are set', () => {
+    render(
+      <ul>
+        <ShoppingListItemRow
+          entry={{ ...baseEntry, quantity: 2, unit: 'ק"ג' }}
+          onClick={jest.fn()}
+          onInfoClick={jest.fn()}
+        />
+      </ul>
+    )
+    expect(screen.getByText('(2 ק"ג)')).toBeInTheDocument()
+  })
+
+  it('shows "(quantity)" with no unit when only quantity is set', () => {
+    render(
+      <ul>
+        <ShoppingListItemRow entry={{ ...baseEntry, quantity: 5, unit: null }} onClick={jest.fn()} onInfoClick={jest.fn()} />
+      </ul>
+    )
+    expect(screen.getByText('(5)')).toBeInTheDocument()
+  })
 })

@@ -63,6 +63,11 @@
     "categorizing": "מסווג...",
     "addFailed": "הוספה נכשלה"
   },
+  "quantityUnit": {
+    "noUnit": "ללא יחידה",
+    "invalidQuantity": "הכמות חייבת להיות מספר גדול מאפס",
+    "unitRequiresQuantity": "יש להזין כמות כדי לבחור יחידה"
+  },
   "restockPrompt": {
     "title": "עדכון מלאי",
     "message": "סימנתם \"{{itemName}}\" כנקנה — להוסיף למלאי?",

@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.34.0] - 2026-07-16
+
+### Added
+- Shopping list items can now optionally carry a quantity and unit (e.g. "2 ק"ג"), settable when adding an item manually or editing an existing one, with validation requiring a positive quantity and disallowing a unit without one.
+
 ## [2.33.0] - 2026-07-15
 
 ### Added

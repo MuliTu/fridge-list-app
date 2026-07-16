@@ -285,13 +285,20 @@ export function createListApi(ownerEmail: string) {
 
   const saveItemDetails = async (
     key: string,
-    { name, note, imageFile }: { name?: string; note?: string | null; imageFile?: File | null },
+    {
+      name,
+      note,
+      imageFile,
+      quantity,
+      unit
+    }: { name?: string; note?: string | null; imageFile?: File | null; quantity?: number | null; unit?: string | null },
     user?: AuthUser | null
   ) => {
-    const fields: Record<string, unknown> = { note: note ?? null }
-    // Same "always write, even if unchanged" pattern this function already used for
-    // `note` — an idempotent re-write of an unchanged name is harmless, and this way
-    // the caller doesn't need to diff against the original value itself.
+    // quantity/unit follow the same "always write, even if unchanged" pattern as
+    // `note` below — the edit modal always sends its full current form state, so an
+    // idempotent re-write (including writing back to null to clear them) is harmless
+    // and the caller doesn't need to diff against the original value itself.
+    const fields: Record<string, unknown> = { note: note ?? null, quantity: quantity ?? null, unit: unit ?? null }
     if (name != null) fields.item = name
 
     if (imageFile) {
@@ -366,7 +373,11 @@ export function createListApi(ownerEmail: string) {
     })
   }
 
-  const addGroceryItem = (item: { name: string; category: string }, listName: string | null, user?: AuthUser | null) => {
+  const addGroceryItem = (
+    item: { name: string; category: string; quantity?: number | null; unit?: string | null },
+    listName: string | null,
+    user?: AuthUser | null
+  ) => {
     logClientAction(
       `[groceries] addGroceryItem: list=${ownerEmail} name=${item.name} sublist=${listName || 'permanent'} by=${user?.email || 'anonymous'}`
     )
@@ -377,7 +388,9 @@ export function createListApi(ownerEmail: string) {
       added_at: new Date().toISOString(),
       raw_text: 'נוסף ידנית',
       list_name: listName || null,
-      created_by: user?.email || null
+      created_by: user?.email || null,
+      quantity: item.quantity ?? null,
+      unit: item.unit ?? null
     })
   }
 
