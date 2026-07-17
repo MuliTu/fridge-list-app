@@ -9,7 +9,7 @@ interface OnboardingModalProps {
   onClose: (dontShowAgain: boolean) => void
 }
 
-const STEP_KEYS = ['welcome', 'addItems', 'organize', 'stock', 'receipts', 'sharing'] as const
+const STEP_KEYS = ['welcome', 'addItems', 'search', 'organize', 'lists', 'stock', 'receipts'] as const
 
 const mockChipClass = 'rounded-full px-3 py-1 text-sm text-white'
 const mockCardClass = 'flex items-center justify-between gap-2 rounded-xl bg-background px-3 py-2 text-sm'
@@ -36,6 +36,7 @@ function StepVisual({ step, t }: { step: (typeof STEP_KEYS)[number]; t: (key: st
             <span className="flex items-center gap-2">
               <span>🥛</span>
               <span>{t('steps.addItems.mock.item1Name')}</span>
+              <span className="text-xs text-muted-foreground">{t('steps.addItems.mock.item1Quantity')}</span>
             </span>
             <span className="text-xs text-muted-foreground">{t('steps.addItems.mock.item1Meta')}</span>
           </div>
@@ -46,6 +47,20 @@ function StepVisual({ step, t }: { step: (typeof STEP_KEYS)[number]; t: (key: st
               <span>{t('steps.addItems.mock.item2Name')}</span>
             </span>
             <span className="text-xs text-muted-foreground">{t('steps.addItems.mock.item2Meta')}</span>
+          </div>
+        </div>
+      )
+    case 'search':
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="rounded-full bg-background px-3 py-1.5 text-sm text-muted-foreground">
+            🔍 {t('steps.search.mock.query')}
+          </div>
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-sm">
+            <span>{t('steps.search.mock.noResults')}</span>
+            <Button size="sm" variant="secondary" disabled>
+              {t('steps.search.mock.addAsNew')}
+            </Button>
           </div>
         </div>
       )
@@ -93,17 +108,17 @@ function StepVisual({ step, t }: { step: (typeof STEP_KEYS)[number]; t: (key: st
           <div className="mt-1 text-xs text-muted-foreground">{t('steps.receipts.mock.priceUp')}</div>
         </div>
       )
-    case 'sharing':
+    case 'lists':
       return (
         <div className="flex flex-wrap justify-center gap-2 py-1">
           <span className="rounded-full border border-border px-3 py-1 text-sm">
-            📋 {t('steps.sharing.mock.list1')}
+            📋 {t('steps.lists.mock.list1')}
           </span>
           <span className="rounded-full border border-border px-3 py-1 text-sm">
-            🎉 {t('steps.sharing.mock.list2')}
+            🎉 {t('steps.lists.mock.list2')}
           </span>
           <span className="rounded-full border border-dashed border-border px-3 py-1 text-sm text-muted-foreground">
-            {t('steps.sharing.mock.newList')}
+            {t('steps.lists.mock.newList')}
           </span>
         </div>
       )

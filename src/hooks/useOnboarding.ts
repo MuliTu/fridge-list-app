@@ -1,30 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getOnboardingDismissed, setOnboardingDismissed } from '../lib/firebase'
 
-const STORAGE_KEY = 'onboardingDismissed'
+// Cross-device preference now (was localStorage-only) — lives at
+// /users/{email}/config/onboardingDismissed (see configRef in lib/firebase.ts), the
+// first of what's meant to become a general home for per-user configurable settings.
+// isOpen starts false and stays false until the Firebase read resolves with
+// dismissed=false, so a returning user on a fresh device never flashes the tutorial
+// before their real preference loads; replay() can still force it open at any time
+// regardless of that read's timing.
+export function useOnboarding(email: string | null | undefined) {
+  const [isOpen, setIsOpen] = useState(false)
 
-const readStored = (): boolean => {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-// Client-only UI preference, same localStorage-only philosophy as
-// useCollapsedSections/useStockSuggestion — never written to Firebase, so dismissing
-// the tutorial on the tablet has no effect on anyone's phone. Defaults to open (not
-// dismissed) so a brand-new device always sees it once.
-export function useOnboarding() {
-  const [isOpen, setIsOpen] = useState<boolean>(() => !readStored())
+  useEffect(() => {
+    if (!email) return
+    let cancelled = false
+    getOnboardingDismissed(email).then((dismissed) => {
+      if (!cancelled && !dismissed) setIsOpen(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [email])
 
   const close = (dontShowAgain: boolean) => {
     setIsOpen(false)
-    if (dontShowAgain) {
-      try {
-        localStorage.setItem(STORAGE_KEY, 'true')
-      } catch {
+    if (dontShowAgain && email) {
+      setOnboardingDismissed(email).catch(() => {
         // best-effort persistence only
-      }
+      })
     }
   }
 

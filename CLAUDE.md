@@ -878,6 +878,34 @@ Left untranslated/English on purpose (unlike the rest of the app's UI): this is 
 tracking utility for whoever's developing the app, not end-user-facing copy, and
 translating years of technical release notes wasn't worth it for that audience.
 
+## First-time onboarding (`src/components/OnboardingModal.tsx`, `src/hooks/useOnboarding.ts`)
+
+A 7-step mock-data walkthrough (welcome → adding items → search → categories →
+lists/sharing → stock → receipts) shown once per user, with a "🎓 Show tutorial"
+sidebar item (ungated) to replay it anytime. As of 2026-07-17 the steps cover the
+app's current feature set, not just the original 6 — the old "sharing" step (which
+described the pre-multi-tenant "custom/temporary lists + invite people to the shared
+list" model) was rewritten into a "lists" step describing the real multi-tenant
+behavior (own list, invites, switching, bulk import with dedup), and two new steps
+were added (search, and a quantity/unit mention folded into the addItems step).
+
+**Dismissal is now a cross-device Firebase preference, not `localStorage`.** The
+"don't show this again" checkbox on the last step writes
+`onboardingDismissed: true` to `/users/{sanitizeEmailKey(email)}/config`
+(`configRef`/`getOnboardingDismissed`/`setOnboardingDismissed` in `src/lib/firebase.ts`)
+instead of a per-device `localStorage` key — dismissing the tutorial on one device now
+dismisses it everywhere that user signs in. `useOnboarding(email)` needs no new
+Firebase rule: `/users/{uid}/config` rides along under whatever rule already covers
+the rest of `/users/{uid}` (confirmed via a direct REST `PUT`, unlike `/whats_new`,
+which needed a brand-new rule since it's a fully global path outside `/users`).
+`isOpen` starts `false` and only flips to `true` after the read resolves with no prior
+dismissal, so a returning user never sees a flash of the tutorial before their real
+preference loads; `replay()` can still force it open at any time regardless of that
+read's timing.
+
+**`config` is meant to become the general home for per-user settings going forward**
+— `onboardingDismissed` is the first key under it, not the only one planned.
+
 ## What's New feed (`/whats_new`, `src/components/WhatsNewModal.tsx`)
 
 A separate, lighter-weight sibling to the Changelog viewer above — added 2026-07-17,

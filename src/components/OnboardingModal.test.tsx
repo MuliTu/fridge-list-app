@@ -8,7 +8,7 @@ jest.mock('react-i18next', () => ({
   })
 }))
 
-const STEP_COUNT = 6
+const STEP_COUNT = 7
 
 describe('OnboardingModal', () => {
   it('starts on the welcome step', () => {
@@ -38,7 +38,7 @@ describe('OnboardingModal', () => {
       await user.click(screen.getByRole('button', { name: 'next' }))
     }
 
-    expect(screen.getByText('steps.sharing.title')).toBeInTheDocument()
+    expect(screen.getByText('steps.receipts.title')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'next' })).not.toBeInTheDocument()
     expect(screen.getByRole('checkbox')).toBeInTheDocument()
   })
