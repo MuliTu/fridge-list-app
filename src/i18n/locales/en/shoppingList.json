@@ -2,6 +2,7 @@
   "listPicker": {
     "sectionLabel": "List",
     "permanentList": "Permanent list",
+    "activeListLabel": "Currently viewing: {{listName}}",
     "newList": "+ New list",
     "deleteList": "🗑 Delete list",
     "shareMissing": "📤 Share what's missing",

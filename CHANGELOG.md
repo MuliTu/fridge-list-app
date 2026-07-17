@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.36.0] - 2026-07-17
+
+### Added
+- The shopping list now shows a clear "currently viewing" label above the list content, naming the active list (permanent or custom) so it's obvious at a glance from tablet-viewing distance which list is being shown.
+
 ## [2.35.0] - 2026-07-17
 
 ### Fixed
