@@ -8,19 +8,29 @@
   "steps": {
     "welcome": {
       "title": "Welcome 👋",
-      "body": "This is your household's shared shopping list. Everyone can add items by voice through Siri, and see them here in real time.",
+      "body": "This is your shopping list. Add items by voice through Siri or manually, and share the list with your household.",
       "mock": {
         "listName": "Permanent list"
       }
     },
     "addItems": {
       "title": "Adding items 🎙️",
-      "body": "Tell Siri \"add milk to the list\", or type it manually — the item is added and auto-categorized. Check it off once you've bought it.",
+      "body": "Tell Siri \"add milk to the list\", or type it manually — the item is added and auto-categorized. You can also set a quantity and unit, and check it off once bought.",
       "mock": {
         "item1Name": "Milk",
+        "item1Quantity": "(2 liters)",
         "item1Meta": "Added by Siri",
         "item2Name": "Bread",
         "item2Meta": "Bought by Muli"
+      }
+    },
+    "search": {
+      "title": "Quick search 🔍",
+      "body": "Search for an item in the list, and if it's not there yet — add it straight from the search box.",
+      "mock": {
+        "query": "cottage cheese",
+        "noResults": "No matches for \"cottage cheese\"",
+        "addAsNew": "Add as new item"
       }
     },
     "organize": {
@@ -30,6 +40,15 @@
         "cat1": "Vegetables",
         "cat2": "Dairy & eggs",
         "cat3": "Bread & bakery"
+      }
+    },
+    "lists": {
+      "title": "Multiple lists, your way 📋",
+      "body": "Everyone has their own list. Invite family members to edit it, switch between lists, and even import a whole list by pasting it in.",
+      "mock": {
+        "list1": "Permanent list",
+        "list2": "Party",
+        "newList": "+ New list"
       }
     },
     "stock": {
@@ -49,15 +68,6 @@
         "storeName": "Shufersal",
         "total": "$38.50",
         "priceUp": "▲ Price went up"
-      }
-    },
-    "sharing": {
-      "title": "Lists & sharing 👥",
-      "body": "Create temporary lists for events, and invite other household members to edit the list.",
-      "mock": {
-        "list1": "Permanent list",
-        "list2": "Party",
-        "newList": "+ New list"
       }
     }
   }

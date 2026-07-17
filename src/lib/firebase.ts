@@ -192,6 +192,19 @@ export const userNameRef = (email: string) => ref(db, `users/${sanitizeEmailKey(
 export const memberOfRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/memberOf`)
 export const invitesRef = (ownerEmail: string) => ref(db, `users/${sanitizeEmailKey(ownerEmail)}/invites`)
 
+// Home for per-user, cross-device preferences going forward (starting with
+// onboardingDismissed below) — nested under the user's own node, so it rides along
+// with whatever read/write rule already covers `/users/{uid}` (no new rule needed,
+// unlike the fully-global `/whats_new` node).
+export const configRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/config`)
+
+export const getOnboardingDismissed = async (email: string): Promise<boolean> => {
+  const snapshot = await get(configRef(email))
+  return snapshot.val()?.onboardingDismissed === true
+}
+
+export const setOnboardingDismissed = (email: string) => update(configRef(email), { onboardingDismissed: true })
+
 // Global, sibling to `users` — app-wide "what's new" info (see WhatsNew in types.ts),
 // not owned by any particular list. Needs its own RTDB rule (not applied yet, same
 // category as the other manual Console steps this project has — see CLAUDE.md).

@@ -66,7 +66,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
     useFeedbackToast()
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
   const { actions: listPickerActions } = useListPickerActions()
-  const { isOpen: onboardingOpen, close: closeOnboarding, replay: replayOnboarding } = useOnboarding()
+  const { isOpen: onboardingOpen, close: closeOnboarding, replay: replayOnboarding } = useOnboarding(user?.email)
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
