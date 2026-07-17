@@ -1,5 +1,6 @@
 {
   "title": "Changelog",
   "explanation": "App version history — for technical tracking only.",
+  "loading": "Loading release history...",
   "loadError": "Failed to load the changelog"
 }

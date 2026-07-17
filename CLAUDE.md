@@ -3,9 +3,13 @@
 This file exists to bring a fresh Claude Code session up to speed on this project without
 re-deriving everything from scratch. Read this before making changes.
 
-**Versioning**: every notable change bumps `package.json`'s version and gets an entry in
-[`CHANGELOG.md`](CHANGELOG.md) — check there for a chronological "what shipped when"
-view; this file stays organized by topic/module instead.
+**Versioning**: every notable change bumps `package.json`'s version and gets a
+[GitHub Release](https://github.com/MuliTu/fridge-list-app/releases) (tag `vX.Y.Z`,
+one-sentence-per-bullet notes) once its PR is merged — check there for a chronological
+"what shipped when" view; this file stays organized by topic/module instead. Versioning
+moved off a tracked `CHANGELOG.md` file to GitHub Releases on 2026-07-17 — all prior
+`CHANGELOG.md` history was converted into Releases (`v1.0.0` through `v2.36.0`) rather
+than lost.
 
 ## What this project is
 
@@ -744,6 +748,13 @@ the list to anyone who opens it, not a determined technical attacker.
    others in gap #7 because "Build Card" falls back to a raw-request card (labelled
    `needs-clarification`) rather than dying. Adding a fallback model here is the same
    follow-up as gap #7.
+9. **`GITHUB_RELEASES_TOKEN` not yet provisioned.** The in-app changelog viewer's new
+   `/api/releases` server route (see the In-app changelog viewer section above) is
+   written and tested, but needs a real fine-grained GitHub PAT (read-only
+   Contents/Metadata scope on this repo) set as an env var — locally in `.env.local`
+   and in Vercel's project settings — before it actually returns data instead of a
+   `not_configured` 503. Not something this codebase can generate on its own, same
+   category as the SMTP credentials gap that used to be here (now provisioned).
 
 ## Frontend app (fridge-list-app/)
 
@@ -754,8 +765,10 @@ Still talks directly to Firebase from the browser exactly as before; TanStack St
 SSR only renders the static shell (header/theme), since `/groceries`, `/stock`,
 `/receipts`, `/categories`, `/admins` are realtime `onValue` push subscriptions, not
 one-shot fetches, so they deliberately aren't wired through server loaders. Migrated
-from a plain Vite SPA in v2.0.0, restructured + converted to TS in v2.2.0 — see
-`CHANGELOG.md` for what changed structurally.
+from a plain Vite SPA in v2.0.0, restructured + converted to TS in v2.2.0 — see the
+[v2.0.0](https://github.com/MuliTu/fridge-list-app/releases/tag/v2.0.0) and
+[v2.2.0](https://github.com/MuliTu/fridge-list-app/releases/tag/v2.2.0) GitHub Releases
+for what changed structurally.
 
 ```
 npm install
@@ -841,16 +854,24 @@ failure must never block the actual Firebase write.
 ## In-app changelog viewer (`src/components/ChangelogModal.tsx`)
 
 A "📝 יומן שינויים"/"Changelog" item in the settings menu (`canEdit`-gated, same menu
-as "Manage categories"/"Share editing") opens a modal that renders this repo's own
-`CHANGELOG.md` **inside the app**, for tracking — imported via Vite's `?raw` suffix
-(`import CHANGELOG_MD from '../../CHANGELOG.md?raw'`, bundled at build time, type
-declared in `src/vite-env.d.ts`) and rendered with a small hand-rolled markdown-to-HTML
-parser (headers, `-` bullets with indented continuation lines, `**bold**`, `` `code` ``,
-`[text](url)` links) rather than a new markdown dependency — this file's structure is
-simple and consistent enough not to need one. Left untranslated/English on purpose
-(unlike the rest of the app's UI): this is a tracking utility for whoever's developing
-the app, not end-user-facing copy, and translating years of technical changelog
-entries wasn't worth it for that audience.
+as "Manage categories"/"Share editing") opens a modal that fetches and renders this
+repo's [GitHub Releases](https://github.com/MuliTu/fridge-list-app/releases) **inside
+the app**, for tracking — as of 2026-07-17 this replaced an earlier version that
+imported a tracked `CHANGELOG.md` file directly via Vite's `?raw` suffix (that file no
+longer exists; see the Versioning note at the top of this doc for why). `getReleases()`
+in `src/lib/firebase.ts` calls a new same-origin server route, `src/routes/api/releases.tsx`
+(same URL-hiding/auth pattern as the receipt-scan/categorize-item endpoints —
+`verifyAuthToken`-gated, same graceful-degradation-on-missing-config style as
+`send-invite-email.tsx`'s SMTP vars), which proxies GitHub's Releases API using a
+server-side-only PAT (`GITHUB_RELEASES_TOKEN` env var — **not yet provisioned as of this
+writing**, a manual step outside this codebase; until it's set, the modal shows a
+translated "failed to load" message rather than crashing). Each release's `body` is
+rendered with the same small hand-rolled markdown-to-HTML parser as before (headers,
+`-` bullets with indented continuation lines, `**bold**`, `` `code` ``, `[text](url)`
+links) rather than a markdown dependency — release notes only ever use that subset.
+Left untranslated/English on purpose (unlike the rest of the app's UI): this is a
+tracking utility for whoever's developing the app, not end-user-facing copy, and
+translating years of technical release notes wasn't worth it for that audience.
 
 ## i18n (Hebrew/English, RTL/LTR)
 
