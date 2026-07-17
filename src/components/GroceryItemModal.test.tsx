@@ -57,3 +57,31 @@ describe('GroceryItemModal quantity/unit', () => {
     expect(categorizeItem).not.toHaveBeenCalled()
   })
 })
+
+describe('GroceryItemModal initialName', () => {
+  beforeEach(() => {
+    ;(categorizeItem as jest.Mock).mockReset()
+  })
+
+  it('leaves the name field empty when initialName is not provided (unchanged FAB-triggered behavior)', () => {
+    render(<GroceryItemModal listName={null} onClose={jest.fn()} onAdd={jest.fn()} />)
+    expect(screen.getByPlaceholderText('common:groceryItem.namePlaceholder')).toHaveValue('')
+  })
+
+  it('pre-fills the name field with initialName when provided', () => {
+    render(<GroceryItemModal listName={null} initialName="banana" onClose={jest.fn()} onAdd={jest.fn()} />)
+    expect(screen.getByPlaceholderText('common:groceryItem.namePlaceholder')).toHaveValue('banana')
+  })
+
+  it('adds the pre-filled name through the normal categorize flow when confirmed unedited', async () => {
+    ;(categorizeItem as jest.Mock).mockResolvedValue([{ item: 'banana', category: 'פירות' }])
+    const user = userEvent.setup()
+    const onAdd = jest.fn(() => Promise.resolve())
+    render(<GroceryItemModal listName={null} initialName="banana" onClose={jest.fn()} onAdd={onAdd} />)
+
+    await user.click(screen.getByRole('button', { name: 'common:actions.add' }))
+
+    expect(categorizeItem).toHaveBeenCalledWith('banana')
+    expect(onAdd).toHaveBeenCalledWith({ name: 'banana', category: 'פירות', quantity: null, unit: null })
+  })
+})

@@ -11,6 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 interface GroceryItemModalProps {
   listName: string | null
+  // Pre-fills the name field — used when this modal is opened from the shopping
+  // list search's "no results, add it?" prompt (SearchSuggestAdd) instead of the
+  // usual empty-start FAB. Absent/undefined leaves the field empty as before.
+  initialName?: string
   onClose: () => void
   onAdd: (item: {
     name: string
@@ -20,9 +24,9 @@ interface GroceryItemModalProps {
   }) => Promise<unknown> | PromiseLike<unknown>
 }
 
-export default function GroceryItemModal({ listName, onClose, onAdd }: GroceryItemModalProps) {
+export default function GroceryItemModal({ listName, initialName, onClose, onAdd }: GroceryItemModalProps) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName ?? '')
   const [quantityText, setQuantityText] = useState('')
   const [unit, setUnit] = useState<string>(NO_UNIT)
   const [customUnit, setCustomUnit] = useState('')
