@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import CHANGELOG_MD from '../../CHANGELOG.md?raw'
+import { getReleases, type ReleaseInfo } from '../lib/firebase'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 
@@ -15,11 +16,11 @@ const renderInline = (s: string) =>
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
 
-// CHANGELOG.md is written for engineers (see CLAUDE.md), not translated/localized —
-// rendered as-is here since this view is for technical tracking, not end users.
-// A tiny hand-rolled parser instead of pulling in a markdown dependency: the file
-// only ever uses #/##/### headers, "- " bullets (with indented continuation lines),
-// **bold**, `code`, and [text](url) links — no fenced code blocks, tables, etc.
+// GitHub Release notes are written for engineers (see CLAUDE.md), not translated/
+// localized — rendered as-is here since this view is for technical tracking, not end
+// users. A tiny hand-rolled parser instead of pulling in a markdown dependency: release
+// bodies only ever use #/##/### headers, "- " bullets (with indented continuation
+// lines), **bold**, `code`, and [text](url) links — no fenced code blocks, tables, etc.
 const renderChangelogHtml = (markdown: string) => {
   let html = ''
   let inList = false
@@ -61,6 +62,14 @@ const renderChangelogHtml = (markdown: string) => {
 
 export default function ChangelogModal({ onClose }: ChangelogModalProps) {
   const { t } = useTranslation('changelog')
+  const [releases, setReleases] = useState<ReleaseInfo[] | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    getReleases()
+      .then(setReleases)
+      .catch(() => setError(true))
+  }, [])
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -70,7 +79,20 @@ export default function ChangelogModal({ onClose }: ChangelogModalProps) {
         </DialogHeader>
         <p className="modal-note-readonly">{t('explanation')}</p>
 
-        <div className="changelog-body" dir="ltr" dangerouslySetInnerHTML={{ __html: renderChangelogHtml(CHANGELOG_MD) }} />
+        {error ? (
+          <p className="modal-note-readonly">{t('loadError')}</p>
+        ) : !releases ? (
+          <p className="modal-note-readonly">{t('loading')}</p>
+        ) : (
+          <div className="changelog-body" dir="ltr">
+            {releases.map((release) => (
+              <div key={release.tag_name}>
+                <h2>{release.name || release.tag_name}</h2>
+                <div dangerouslySetInnerHTML={{ __html: renderChangelogHtml(release.body) }} />
+              </div>
+            ))}
+          </div>
+        )}
 
         <DialogFooter>
           <Button onClick={onClose}>{t('common:actions.close')}</Button>

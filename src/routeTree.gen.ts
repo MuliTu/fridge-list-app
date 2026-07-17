@@ -16,6 +16,7 @@ import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedb
 import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
+import { Route as ApiReleasesRouteImport } from './routes/api/releases'
 import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
 import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
 import { Route as ApiCategorizeItemRouteImport } from './routes/api/categorize-item'
@@ -55,6 +56,11 @@ const ApiScanReceiptRoute = ApiScanReceiptRouteImport.update({
   path: '/api/scan-receipt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReleasesRoute = ApiReleasesRouteImport.update({
+  id: '/api/releases',
+  path: '/api/releases',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiN8nWriteGroceriesRoute = ApiN8nWriteGroceriesRouteImport.update({
   id: '/api/n8n-write-groceries',
   path: '/api/n8n-write-groceries',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
+  '/api/releases': typeof ApiReleasesRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
+  '/api/releases': typeof ApiReleasesRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
+  '/api/releases': typeof ApiReleasesRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/api/categorize-item'
     | '/api/client-log'
     | '/api/n8n-write-groceries'
+    | '/api/releases'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/api/categorize-item'
     | '/api/client-log'
     | '/api/n8n-write-groceries'
+    | '/api/releases'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/api/categorize-item'
     | '/api/client-log'
     | '/api/n8n-write-groceries'
+    | '/api/releases'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   ApiCategorizeItemRoute: typeof ApiCategorizeItemRoute
   ApiClientLogRoute: typeof ApiClientLogRoute
   ApiN8nWriteGroceriesRoute: typeof ApiN8nWriteGroceriesRoute
+  ApiReleasesRoute: typeof ApiReleasesRoute
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
   ApiSendInviteEmailRoute: typeof ApiSendInviteEmailRoute
@@ -211,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiScanReceiptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/releases': {
+      id: '/api/releases'
+      path: '/api/releases'
+      fullPath: '/api/releases'
+      preLoaderRoute: typeof ApiReleasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/n8n-write-groceries': {
       id: '/api/n8n-write-groceries'
       path: '/api/n8n-write-groceries'
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCategorizeItemRoute: ApiCategorizeItemRoute,
   ApiClientLogRoute: ApiClientLogRoute,
   ApiN8nWriteGroceriesRoute: ApiN8nWriteGroceriesRoute,
+  ApiReleasesRoute: ApiReleasesRoute,
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
   ApiSendInviteEmailRoute: ApiSendInviteEmailRoute,

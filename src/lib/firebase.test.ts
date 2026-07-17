@@ -1,6 +1,6 @@
 /**
- * Covers getAuthHeaders() (internal to firebase.ts) via its 4 callers — categorizeItem,
- * scanReceipt, scanReceiptFromUrl, submitFeedback — which now attach
+ * Covers getAuthHeaders() (internal to firebase.ts) via its 5 callers — categorizeItem,
+ * scanReceipt, scanReceiptFromUrl, submitFeedback, getReleases — which now attach
  * `Authorization: Bearer <idToken>` to their same-origin server-route calls (see
  * src/lib/verifyAuthToken.ts for the server side of this). Firebase is mocked at the
  * module boundary per .claude/skills/senior-qa-jest — this must never touch the real
@@ -42,7 +42,7 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }))
 
 import { push, update } from 'firebase/database'
-import { categorizeItem, createListApi, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
+import { categorizeItem, createListApi, getReleases, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
 
 // Pulls out the single fetch call made to `urlSubstring` (ignoring the fire-and-forget
 // /api/client-log calls logClientAction makes alongside some of these).
@@ -81,6 +81,22 @@ describe('auth header attachment on server-route calls', () => {
       mockCurrentUser = { getIdToken: jest.fn().mockRejectedValue(new Error('token refresh failed')) }
       await expect(categorizeItem('חלב')).resolves.toBeDefined()
       const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/categorize-item')
+      expect((options.headers as Record<string, string>).Authorization).toBeUndefined()
+    })
+  })
+
+  describe('getReleases', () => {
+    it('attaches Authorization: Bearer <token> when a user is signed in', async () => {
+      mockCurrentUser = { getIdToken: jest.fn().mockResolvedValue('real-id-token') }
+      await getReleases()
+      const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/releases')
+      expect((options.headers as Record<string, string>).Authorization).toBe('Bearer real-id-token')
+    })
+
+    it('sends no Authorization header (and does not throw) when no user is signed in', async () => {
+      mockCurrentUser = null
+      await expect(getReleases()).resolves.toBeDefined()
+      const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/releases')
       expect((options.headers as Record<string, string>).Authorization).toBeUndefined()
     })
   })

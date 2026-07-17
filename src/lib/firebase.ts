@@ -141,6 +141,22 @@ export const categorizeItem = async (text: string): Promise<{ item: string; cate
   return data.items || []
 }
 
+export interface ReleaseInfo {
+  tag_name: string
+  name: string
+  published_at: string
+  body: string
+}
+
+// Same-origin proxy as categorizeItem above — /api/releases holds the GitHub token
+// server-side (this repo is private, so the Releases API 404s without one).
+export const getReleases = async (): Promise<ReleaseInfo[]> => {
+  const response = await fetch('/api/releases', { headers: await getAuthHeaders() })
+  if (!response.ok) throw new Error('טעינת יומן השינויים נכשלה (' + response.status + ')')
+  const data = await response.json()
+  return data.releases || []
+}
+
 // ---------------------------------------------------------------------------
 // Lists (households): /users/{sanitizedOwnerEmail}
 // ---------------------------------------------------------------------------
