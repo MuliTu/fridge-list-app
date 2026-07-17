@@ -45,6 +45,14 @@ export interface Category {
   order?: number
 }
 
+// Global, not per-list — lives at the RTDB root (`/whats_new`), same tier as `/users`,
+// since it's app-wide release info rather than household data. Single object (not a
+// history), so a new version simply overwrites the previous one.
+export interface WhatsNew {
+  version: string
+  updates: string[]
+}
+
 export interface StockItem {
   key: string
   name: string

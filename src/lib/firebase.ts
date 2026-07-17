@@ -192,6 +192,11 @@ export const userNameRef = (email: string) => ref(db, `users/${sanitizeEmailKey(
 export const memberOfRef = (email: string) => ref(db, `users/${sanitizeEmailKey(email)}/memberOf`)
 export const invitesRef = (ownerEmail: string) => ref(db, `users/${sanitizeEmailKey(ownerEmail)}/invites`)
 
+// Global, sibling to `users` — app-wide "what's new" info (see WhatsNew in types.ts),
+// not owned by any particular list. Needs its own RTDB rule (not applied yet, same
+// category as the other manual Console steps this project has — see CLAUDE.md).
+export const whatsNewRef = ref(db, 'whats_new')
+
 // Idempotent — only writes `name` if this user has never been provisioned as an
 // owner before (a fresh /users/{email} node may already exist with nothing but a
 // memberOf entry, written by someone else's invite, before this user ever signed

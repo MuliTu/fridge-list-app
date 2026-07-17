@@ -12,6 +12,7 @@ import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
 import CategoriesModal from './CategoriesModal'
 import ListMembersModal from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
+import WhatsNewModal from './WhatsNewModal'
 import FeedbackModal from './FeedbackModal'
 import FeedbackStatusToast from './FeedbackStatusToast'
 import OnboardingModal from './OnboardingModal'
@@ -55,6 +56,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showCategories, setShowCategories] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { categories } = useCategories()
@@ -188,6 +190,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
                 )}
 
                 <div className={sidebarDividerClass} />
+                <button
+                  className={sidebarItemClass}
+                  onClick={() => runAfterSidebarCloses(() => setShowWhatsNew(true))}
+                >
+                  {t('menu.viewWhatsNew')}
+                </button>
                 <button
                   className={sidebarItemClass}
                   onClick={() => runAfterSidebarCloses(replayOnboarding)}
@@ -325,6 +333,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
       {showMembers && <ListMembersModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
+      {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
       {showFeedback && (
         <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={submitFeedbackRequest} />
       )}

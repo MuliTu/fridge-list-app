@@ -755,6 +755,11 @@ the list to anyone who opens it, not a determined technical attacker.
    and in Vercel's project settings — before it actually returns data instead of a
    `not_configured` 503. Not something this codebase can generate on its own, same
    category as the SMTP credentials gap that used to be here (now provisioned).
+10. **`/whats_new` Firebase rule not applied, and no data published yet.** See the
+    What's New feed section above — confirmed via a direct REST probe that both read
+    and write are currently denied. Add the rule, then populate
+    `{ version, updates: [...] }` (Console or REST `PUT`) as part of shipping the next
+    notable release, alongside its version bump and GitHub Release.
 
 ## Frontend app (fridge-list-app/)
 
@@ -872,6 +877,37 @@ links) rather than a markdown dependency — release notes only ever use that su
 Left untranslated/English on purpose (unlike the rest of the app's UI): this is a
 tracking utility for whoever's developing the app, not end-user-facing copy, and
 translating years of technical release notes wasn't worth it for that audience.
+
+## What's New feed (`/whats_new`, `src/components/WhatsNewModal.tsx`)
+
+A separate, lighter-weight sibling to the Changelog viewer above — added 2026-07-17,
+meant for regular end users rather than engineers. A "🆕 מה חדש"/"What's New" item in
+the sidebar menu (ungated — visible to any signed-in user, not `canEdit`-only like most
+of the settings section, since every signed-in user already has `canEdit === canView`
+in the current multi-tenant list model anyway) opens `WhatsNewModal`, which subscribes
+live (`useWhatsNew()` → `onValue(whatsNewRef, ...)`) to a single **global** Firebase
+node — `/whats_new`, a sibling to `/users`, not owned by any particular list, since
+it's app-wide release info. Shape (see `WhatsNew` in `src/types.ts`):
+
+```
+{ version: string, updates: string[] }
+```
+
+A single object, not a history — each new version's data overwrites the previous one
+entirely (the exhaustive multi-version history lives in GitHub Releases instead, see
+above). `updates` is plain, untranslated prose (same precedent as category/list names,
+item notes — freeform dynamic content this app doesn't run through i18n), meant to be
+short, plain-language bullets a non-technical household member can read, unlike the
+Changelog's engineer-facing detail.
+
+**Not yet populated, and no in-app write path exists.** Nothing in this codebase writes
+to `/whats_new` — it's meant to be updated manually (Firebase Console, or a REST `PUT`)
+as part of shipping a notable release, alongside the version bump and GitHub Release.
+**The Firebase rule also isn't applied yet** (confirmed via a direct REST probe: both
+read and write currently 401 `Permission denied`) — needs
+`"whats_new": { ".read": true, ".write": true }` added in the Console, same open
+philosophy as `/categories`, before this feature shows real data instead of the empty
+state.
 
 ## i18n (Hebrew/English, RTL/LTR)
 
