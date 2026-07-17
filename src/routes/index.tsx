@@ -365,6 +365,7 @@ function ShoppingListPage() {
         <BulkUploadModal
           listName={activeList}
           categories={categories}
+          existingItemNames={visibleEntries.filter((e) => !e.bought).map((e) => e.item)}
           onClose={() => setShowBulkUpload(false)}
           onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
         />

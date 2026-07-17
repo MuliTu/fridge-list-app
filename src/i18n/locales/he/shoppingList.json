@@ -22,7 +22,9 @@
     "back": "חזרה",
     "saveCount": "הוספה ({{count}})",
     "addFailed": "ההוספה נכשלה",
-    "fileReadFailed": "קריאת הקובץ נכשלה: {{message}}"
+    "fileReadFailed": "קריאת הקובץ נכשלה: {{message}}",
+    "duplicateBadge": "כבר ברשימה",
+    "includeAnyway": "הוספה בכל זאת"
   },
   "search": {
     "placeholder": "חיפוש ברשימה…",

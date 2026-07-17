@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.38.0] - 2026-07-17
+
+### Added
+- Bulk-uploading a list now flags rows that match an existing unbought item on the active list as duplicates, excludes them from the save by default, and lets you include them anyway via a per-row checkbox.
+
 ## [2.37.0] - 2026-07-17
 
 ### Added

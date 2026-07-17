@@ -22,7 +22,9 @@
     "back": "Back",
     "saveCount": "Add ({{count}})",
     "addFailed": "Adding failed",
-    "fileReadFailed": "Failed to read the file: {{message}}"
+    "fileReadFailed": "Failed to read the file: {{message}}",
+    "duplicateBadge": "Already on your list",
+    "includeAnyway": "Include anyway"
   },
   "search": {
     "placeholder": "Search the list…",

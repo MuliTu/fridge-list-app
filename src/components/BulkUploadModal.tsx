@@ -9,10 +9,16 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Checkbox } from './ui/checkbox'
 
 interface BulkUploadModalProps {
   listName: string | null
   categories: Category[]
+  // Names of unbought entries currently on the active list — used to flag rows that
+  // look like duplicates during review (see ParsedRow.isDuplicate below). Only unbought
+  // entries are passed in by the caller, matching the same "already on your list, not
+  // yet bought" notion used elsewhere in the app (e.g. findUnboughtGroceryItemByName).
+  existingItemNames: string[]
   onClose: () => void
   onAdd: (item: { name: string; category: string }) => Promise<unknown> | PromiseLike<unknown>
 }
@@ -20,6 +26,16 @@ interface BulkUploadModalProps {
 interface ParsedRow {
   name: string
   category: string
+  // Computed once, right after parsing/categorizing, by comparing normalizeName(name)
+  // against the caller-supplied existingItemNames — same trim/lowercase matching used
+  // everywhere else in the app (no fuzzy/typo tolerance, a known accepted limitation).
+  // Rows added later (manual "+ add row") or edited afterwards keep whatever value they
+  // started with; this isn't live-recomputed on every keystroke.
+  isDuplicate: boolean
+  // Whether this row will actually be saved. Duplicate rows default to false (excluded)
+  // so a bulk upload that overlaps the current list doesn't blindly create duplicates;
+  // non-duplicate rows are always true and don't show a checkbox at all.
+  included: boolean
 }
 
 // Each non-empty line is one item. A comma splits "name,category" (proper CSV) — the
@@ -41,7 +57,13 @@ const parseRawList = (raw: string): { name: string; explicitCategory: string | n
     })
     .filter((entry) => entry.name.length > 0)
 
-export default function BulkUploadModal({ listName, categories, onClose, onAdd }: BulkUploadModalProps) {
+export default function BulkUploadModal({
+  listName,
+  categories,
+  existingItemNames,
+  onClose,
+  onAdd
+}: BulkUploadModalProps) {
   const { t } = useTranslation(['shoppingList', 'common'])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<'input' | 'review'>('input')
@@ -94,14 +116,20 @@ export default function BulkUploadModal({ listName, categories, onClose, onAdd }
       return pool.splice(idx, 1)[0].category
     }
 
+    const existingNames = new Set(existingItemNames.map((name) => normalizeName(name)))
+    const withDuplicateFlag = (name: string, category: string): ParsedRow => {
+      const isDuplicate = existingNames.has(normalizeName(name))
+      return { name, category, isDuplicate, included: !isDuplicate }
+    }
+
     const nextRows: ParsedRow[] = parsed.map((p) => {
       // An explicit category is honored only if it's a real category; otherwise fall
       // back to "אחר" (same fallback the rest of the app uses for unknown categories).
       if (p.explicitCategory && categoryMap.has(p.explicitCategory)) {
-        return { name: p.name, category: p.explicitCategory }
+        return withDuplicateFlag(p.name, p.explicitCategory)
       }
       const category = p.explicitCategory ? OTHER_CATEGORY_NAME : takeCategory(p.name)
-      return { name: p.name, category: categoryMap.has(category) ? category : OTHER_CATEGORY_NAME }
+      return withDuplicateFlag(p.name, categoryMap.has(category) ? category : OTHER_CATEGORY_NAME)
     })
 
     setRows(nextRows)
@@ -118,11 +146,19 @@ export default function BulkUploadModal({ listName, categories, onClose, onAdd }
   }
 
   const addRow = () => {
-    setRows((prev) => [...prev, { name: '', category: categories[0]?.name || OTHER_CATEGORY_NAME }])
+    setRows((prev) => [
+      ...prev,
+      { name: '', category: categories[0]?.name || OTHER_CATEGORY_NAME, isDuplicate: false, included: true }
+    ])
+  }
+
+  const toggleIncluded = (index: number) => {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, included: !row.included } : row)))
   }
 
   const handleSave = async () => {
     const cleanRows = rows
+      .filter((row) => row.included)
       .map((row) => ({ name: row.name.trim(), category: row.category }))
       .filter((row) => row.name.length > 0)
 
@@ -186,34 +222,45 @@ export default function BulkUploadModal({ listName, categories, onClose, onAdd }
           <>
             <div className="receipt-review-items">
               {rows.map((row, i) => (
-                <div className="bulk-review-row" key={i}>
-                  <Input
-                    className="bulk-review-name"
-                    placeholder={t('shoppingList:bulkUpload.namePlaceholder')}
-                    value={row.name}
-                    onChange={(e) => updateRow(i, 'name', e.target.value)}
-                  />
-                  <Select value={row.category} onValueChange={(value) => updateRow(i, 'category', value)}>
-                    <SelectTrigger className="bulk-review-category">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.key} value={c.name}>
-                          {c.icon} {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-[26px] w-[26px]"
-                    onClick={() => removeRow(i)}
-                    aria-label={t('shoppingList:bulkUpload.removeRow')}
-                  >
-                    ✕
-                  </Button>
+                <div className="flex flex-col gap-1" key={i}>
+                  <div className="bulk-review-row">
+                    <Input
+                      className="bulk-review-name"
+                      placeholder={t('shoppingList:bulkUpload.namePlaceholder')}
+                      value={row.name}
+                      onChange={(e) => updateRow(i, 'name', e.target.value)}
+                    />
+                    <Select value={row.category} onValueChange={(value) => updateRow(i, 'category', value)}>
+                      <SelectTrigger className="bulk-review-category">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c) => (
+                          <SelectItem key={c.key} value={c.name}>
+                            {c.icon} {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-[26px] w-[26px]"
+                      onClick={() => removeRow(i)}
+                      aria-label={t('shoppingList:bulkUpload.removeRow')}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                  {row.isDuplicate && (
+                    <label className="flex items-center gap-1.5 text-xs">
+                      <Checkbox checked={row.included} onCheckedChange={() => toggleIncluded(i)} />
+                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-300">
+                        {t('shoppingList:bulkUpload.duplicateBadge')}
+                      </span>
+                      <span className="text-muted-foreground">{t('shoppingList:bulkUpload.includeAnyway')}</span>
+                    </label>
+                  )}
                 </div>
               ))}
             </div>
@@ -229,7 +276,9 @@ export default function BulkUploadModal({ listName, categories, onClose, onAdd }
                 {t('shoppingList:bulkUpload.back')}
               </Button>
               <Button onClick={handleSave} disabled={working}>
-                {working ? t('common:actions.adding') : t('shoppingList:bulkUpload.saveCount', { count: rows.length })}
+                {working
+                  ? t('common:actions.adding')
+                  : t('shoppingList:bulkUpload.saveCount', { count: rows.filter((row) => row.included).length })}
               </Button>
             </DialogFooter>
           </>
