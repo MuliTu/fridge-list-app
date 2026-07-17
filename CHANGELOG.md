@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.35.0] - 2026-07-17
+
+### Fixed
+- The floating "+" add-item button (and its secondary variant) now stays pinned to the bottom of the screen on phone-width viewports instead of drifting to the bottom of the scrollable list content.
+
 ## [2.34.0] - 2026-07-16
 
 ### Added

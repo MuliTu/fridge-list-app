@@ -1222,6 +1222,15 @@ h1 {
     padding: 10px 8px;
   }
 
+  .fab-add-btn {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .fab-secondary {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
 }
 
 .category-order-btns {
