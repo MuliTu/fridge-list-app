@@ -19,6 +19,7 @@ import GroceryItemModal from '../components/GroceryItemModal'
 import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
+import ActiveListLabel from '../components/ActiveListLabel'
 import ShoppingListSearch from '../components/ShoppingListSearch'
 import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
@@ -219,6 +220,12 @@ function ShoppingListPage() {
           onSelectList={(l) => navigate({ search: { list: l || undefined } })}
         />
       )}
+
+      {/* Unconditional (unlike the pills above, which only render once a custom list
+          exists) — this is the glanceable "which list is this" indicator, so it needs
+          to show for the permanent list too, not just when there's something to
+          switch between. See ActiveListLabel.tsx for the full reasoning. */}
+      <ActiveListLabel activeList={activeList} />
 
       {visibleEntries.length > 0 && (
         <div className="list-controls-row">

@@ -2,6 +2,7 @@
   "listPicker": {
     "sectionLabel": "רשימה",
     "permanentList": "הרשימה הקבועה",
+    "activeListLabel": "מציגים כעת: {{listName}}",
     "newList": "+ רשימה חדשה",
     "deleteList": "🗑 מחיקת הרשימה",
     "shareMissing": "📤 שיתוף מה חסר",
