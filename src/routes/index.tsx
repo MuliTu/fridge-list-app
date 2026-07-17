@@ -21,6 +21,7 @@ import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
 import ActiveListLabel from '../components/ActiveListLabel'
 import ShoppingListSearch from '../components/ShoppingListSearch'
+import SearchSuggestAdd from '../components/SearchSuggestAdd'
 import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
@@ -51,6 +52,11 @@ function ShoppingListPage() {
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
   const [restockTarget, setRestockTarget] = useState<{ entry: GroceryItem; existing: StockItem | null } | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
+  // Set only when the add-item modal is opened from the search's "no results,
+  // add it?" prompt (SearchSuggestAdd) — pre-fills GroceryItemModal's name field.
+  // Cleared whenever the modal opens/closes any other way so a stale value never
+  // leaks into a later FAB-triggered add.
+  const [addModalInitialName, setAddModalInitialName] = useState<string | undefined>(undefined)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
@@ -170,6 +176,11 @@ function ShoppingListPage() {
     navigate({ search: { list: undefined } })
   }
 
+  const handleSuggestAdd = () => {
+    setAddModalInitialName(search.trim())
+    setShowAddGrocery(true)
+  }
+
   const handleShareMissing = () => {
     const missing = visibleEntries.filter((e) => !e.bought)
     if (missing.length === 0) return
@@ -246,13 +257,17 @@ function ShoppingListPage() {
       ) : (
         <>
           {isEmpty ? (
-            <div className="all-empty">
-              {query
-                ? t('shoppingList:search.noResults', { query: search.trim() })
-                : purchasedCount > 0
-                  ? t('shoppingList:purchased.allPurchased')
-                  : t('shoppingList:empty')}
-            </div>
+            query && canEdit ? (
+              <SearchSuggestAdd query={search.trim()} onSuggestAdd={handleSuggestAdd} />
+            ) : (
+              <div className="all-empty">
+                {query
+                  ? t('shoppingList:search.noResults', { query: search.trim() })
+                  : purchasedCount > 0
+                    ? t('shoppingList:purchased.allPurchased')
+                    : t('shoppingList:empty')}
+              </div>
+            )
           ) : (
             <div className="flat-list">
               {visibleCategories.map(({ name, color, icon }) => (
@@ -288,7 +303,14 @@ function ShoppingListPage() {
       )}
 
       {canEdit && (
-        <button className="fab-add-btn" onClick={() => setShowAddGrocery(true)} aria-label={t('shoppingList:addItemFab')}>
+        <button
+          className="fab-add-btn"
+          onClick={() => {
+            setAddModalInitialName(undefined)
+            setShowAddGrocery(true)
+          }}
+          aria-label={t('shoppingList:addItemFab')}
+        >
           +
         </button>
       )}
@@ -330,7 +352,11 @@ function ShoppingListPage() {
       {showAddGrocery && (
         <GroceryItemModal
           listName={activeList}
-          onClose={() => setShowAddGrocery(false)}
+          initialName={addModalInitialName}
+          onClose={() => {
+            setShowAddGrocery(false)
+            setAddModalInitialName(undefined)
+          }}
           onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
         />
       )}

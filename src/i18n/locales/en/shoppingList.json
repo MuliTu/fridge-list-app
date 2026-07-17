@@ -28,7 +28,8 @@
     "placeholder": "Search the list…",
     "label": "Search shopping list",
     "clear": "Clear search",
-    "noResults": "No items found matching \"{{query}}\""
+    "noResults": "No items found matching \"{{query}}\"",
+    "suggestAdd": "Add \"{{query}}\" as a new item"
   },
   "sort": {
     "label": "Sort list",

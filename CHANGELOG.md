@@ -6,6 +6,11 @@ Full design/decision history (why, not just what) lives in
 [`CONVERSATION.md`](CONVERSATION.md); architecture reference lives in
 [`CLAUDE.md`](CLAUDE.md).
 
+## [2.37.0] - 2026-07-17
+
+### Added
+- A zero-match shopping list search now offers an inline "add as a new item" prompt that opens the add-item modal pre-filled with the searched text.
+
 ## [2.36.0] - 2026-07-17
 
 ### Added
