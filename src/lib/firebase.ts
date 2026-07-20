@@ -260,7 +260,12 @@ const createFeedbackRecord = async (message: string, user?: AuthUser | null): Pr
     error: null,
     retryCount: 0,
     lastAttemptAt: null,
-    ticket: null
+    ticket: null,
+    // Ticket F3's idempotency guard only ever gets stamped by the retry job's own
+    // adapter (see src/lib/retryFeedback.ts) — the live submit flow below never
+    // touches it, so it starts (and stays) null until the record's first retry claim,
+    // if it ever needs one.
+    attemptId: null
   }
   await set(newRef, record)
   return key

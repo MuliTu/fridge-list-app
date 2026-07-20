@@ -127,6 +127,65 @@ describe('GET /api/retry-feedback', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1)
     expect(response.status).toBe(200)
     const data = await response.json()
-    expect(data).toEqual({ processed: 1, succeeded: 1, failed: 0, skipped: 0 })
+    expect(data).toEqual({
+      processed: 1,
+      succeeded: 1,
+      failed: 0,
+      skipped: 0,
+      needsAttention: 0,
+      notified: false
+    })
+  })
+
+  // Ticket F3: a record left over from a previous run with a non-null attemptId must
+  // not be retried through n8n — it should flow straight to needs_attention, and the
+  // route should fire a second webhook call (the maintainer notification, reusing the
+  // same FEEDBACK_WEBHOOK_URL — see notifyMaintainers in retry-feedback.tsx) rather
+  // than the normal callN8n retry call.
+  it('routes a stale-attemptId record to needs_attention and sends exactly one maintainer notification, without retrying it through n8n', async () => {
+    isFirebaseAdminConfiguredMock.mockReturnValue(true)
+    getAdminDatabaseMock.mockReturnValue(
+      makeFakeDb({
+        stuck: {
+          createdAt: '2026-07-20T08:00:00.000Z',
+          updatedAt: '2026-07-20T08:00:00.000Z',
+          userId: 'someone@example.com',
+          username: 'Someone',
+          message: 'add a dark mode toggle',
+          status: 'processing',
+          error: null,
+          retryCount: 1,
+          lastAttemptAt: '2026-07-20T08:00:00.000Z',
+          ticket: null,
+          attemptId: 'leftover-from-a-crashed-run'
+        }
+      })
+    )
+    ;(globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true })
+    })
+
+    const response = await callGet({ authorization: `Bearer ${CRON_SECRET}` })
+
+    // Exactly one fetch: the maintainer notification. callN8n (the would-be retry) is
+    // never reached at all for this record.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    const [, requestInit] = (globalThis.fetch as jest.Mock).mock.calls[0]
+    const sentBody = JSON.parse(requestInit.body)
+    expect(sentBody.request).toMatch(/stuck/)
+    expect(sentBody.source).toBe('fridge-list-app-retry-job-notification')
+
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data).toEqual({
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      skipped: 0,
+      needsAttention: 1,
+      notified: true
+    })
   })
 })
