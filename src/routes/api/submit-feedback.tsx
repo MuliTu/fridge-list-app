@@ -52,7 +52,28 @@ export const Route = createFileRoute('/api/submit-feedback')({
             )
           }
           logger.success(`[submit-feedback] upstream ok: card=${data.cardUrl || 'created'}`)
-          return Response.json(data, { status: 200 })
+
+          // Normalize whatever n8n's "Respond" node sends into a clean { id, url, title }
+          // shape the client can persist onto its own FeedbackRecord (see F1 ticket /
+          // src/types.ts). n8n's raw payload isn't confirmed live this session (the
+          // n8n MCP connector returned 404/unreachable when checked) — this is a
+          // best-effort, documented assumption: `cardUrl` is already known-present
+          // (see the log line above, which predates this change and reads it directly),
+          // and `cardId`/`cardName` are assumed to sit alongside it on the same "Build
+          // Card" response per CLAUDE.md's Trello module docs. Falls back to the Trello
+          // node's own raw field names (`id`/`url`/`name`) in case n8n forwards those
+          // instead, and finally to the original request text for `title` so this is
+          // never left half-populated. `data` itself is still spread through unchanged
+          // underneath, so nothing that already reads `data.cardUrl` breaks.
+          const ticket =
+            data.cardUrl || data.url
+              ? {
+                  id: String(data.cardId || data.id || ''),
+                  url: String(data.cardUrl || data.url || ''),
+                  title: String(data.cardName || data.name || requestText)
+                }
+              : null
+          return Response.json({ ...data, ticket }, { status: 200 })
         } catch (err: any) {
           logger.error(`[submit-feedback] upstream call failed: ${err.message}`)
           return Response.json({ error: true, message: 'feedback upstream failed' }, { status: 502 })
