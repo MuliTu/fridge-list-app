@@ -2,7 +2,7 @@ import type { FeedbackRecord } from '../types'
 
 // Normalizes whatever n8n's "Build Card"/"Respond" node sends back into the clean
 // { id, url, title } shape both the live submit flow (src/routes/api/submit-feedback.tsx)
-// and the hourly retry job (src/routes/api/retry-feedback.tsx, ticket F2) persist onto a
+// and the daily retry job (src/routes/api/retry-feedback.tsx, ticket F2) persist onto a
 // FeedbackRecord (see src/types.ts). Extracted into its own module specifically so both
 // call sites share one implementation instead of copy-pasting it — F2's design brief
 // says to "mirror" submit-feedback.tsx's derivation logic exactly, and a shared function

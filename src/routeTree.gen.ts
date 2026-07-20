@@ -18,6 +18,7 @@ import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
 import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedback'
 import { Route as ApiReleasesRouteImport } from './routes/api/releases'
+import { Route as ApiPurchaseHabitSummaryRouteImport } from './routes/api/purchase-habit-summary'
 import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
 import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
 import { Route as ApiCategorizeItemRouteImport } from './routes/api/categorize-item'
@@ -67,6 +68,11 @@ const ApiReleasesRoute = ApiReleasesRouteImport.update({
   path: '/api/releases',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPurchaseHabitSummaryRoute = ApiPurchaseHabitSummaryRouteImport.update({
+  id: '/api/purchase-habit-summary',
+  path: '/api/purchase-habit-summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiN8nWriteGroceriesRoute = ApiN8nWriteGroceriesRouteImport.update({
   id: '/api/n8n-write-groceries',
   path: '/api/n8n-write-groceries',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
+  '/api/purchase-habit-summary': typeof ApiPurchaseHabitSummaryRoute
   '/api/releases': typeof ApiReleasesRoute
   '/api/retry-feedback': typeof ApiRetryFeedbackRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
+  '/api/purchase-habit-summary': typeof ApiPurchaseHabitSummaryRoute
   '/api/releases': typeof ApiReleasesRoute
   '/api/retry-feedback': typeof ApiRetryFeedbackRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
+  '/api/purchase-habit-summary': typeof ApiPurchaseHabitSummaryRoute
   '/api/releases': typeof ApiReleasesRoute
   '/api/retry-feedback': typeof ApiRetryFeedbackRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/api/categorize-item'
     | '/api/client-log'
     | '/api/n8n-write-groceries'
+    | '/api/purchase-habit-summary'
     | '/api/releases'
     | '/api/retry-feedback'
     | '/api/scan-receipt'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/api/categorize-item'
     | '/api/client-log'
     | '/api/n8n-write-groceries'
+    | '/api/purchase-habit-summary'
     | '/api/releases'
     | '/api/retry-feedback'
     | '/api/scan-receipt'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/api/categorize-item'
     | '/api/client-log'
     | '/api/n8n-write-groceries'
+    | '/api/purchase-habit-summary'
     | '/api/releases'
     | '/api/retry-feedback'
     | '/api/scan-receipt'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   ApiCategorizeItemRoute: typeof ApiCategorizeItemRoute
   ApiClientLogRoute: typeof ApiClientLogRoute
   ApiN8nWriteGroceriesRoute: typeof ApiN8nWriteGroceriesRoute
+  ApiPurchaseHabitSummaryRoute: typeof ApiPurchaseHabitSummaryRoute
   ApiReleasesRoute: typeof ApiReleasesRoute
   ApiRetryFeedbackRoute: typeof ApiRetryFeedbackRoute
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReleasesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/purchase-habit-summary': {
+      id: '/api/purchase-habit-summary'
+      path: '/api/purchase-habit-summary'
+      fullPath: '/api/purchase-habit-summary'
+      preLoaderRoute: typeof ApiPurchaseHabitSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/n8n-write-groceries': {
       id: '/api/n8n-write-groceries'
       path: '/api/n8n-write-groceries'
@@ -282,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCategorizeItemRoute: ApiCategorizeItemRoute,
   ApiClientLogRoute: ApiClientLogRoute,
   ApiN8nWriteGroceriesRoute: ApiN8nWriteGroceriesRoute,
+  ApiPurchaseHabitSummaryRoute: ApiPurchaseHabitSummaryRoute,
   ApiReleasesRoute: ApiReleasesRoute,
   ApiRetryFeedbackRoute: ApiRetryFeedbackRoute,
   ApiScanReceiptRoute: ApiScanReceiptRoute,
