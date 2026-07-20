@@ -16,6 +16,7 @@ import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedb
 import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
+import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedback'
 import { Route as ApiReleasesRouteImport } from './routes/api/releases'
 import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
 import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
@@ -56,6 +57,11 @@ const ApiScanReceiptRoute = ApiScanReceiptRouteImport.update({
   path: '/api/scan-receipt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRetryFeedbackRoute = ApiRetryFeedbackRouteImport.update({
+  id: '/api/retry-feedback',
+  path: '/api/retry-feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReleasesRoute = ApiReleasesRouteImport.update({
   id: '/api/releases',
   path: '/api/releases',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
   '/api/releases': typeof ApiReleasesRoute
+  '/api/retry-feedback': typeof ApiRetryFeedbackRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
   '/api/releases': typeof ApiReleasesRoute
+  '/api/retry-feedback': typeof ApiRetryFeedbackRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/api/client-log': typeof ApiClientLogRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
   '/api/releases': typeof ApiReleasesRoute
+  '/api/retry-feedback': typeof ApiRetryFeedbackRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/api/client-log'
     | '/api/n8n-write-groceries'
     | '/api/releases'
+    | '/api/retry-feedback'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/client-log'
     | '/api/n8n-write-groceries'
     | '/api/releases'
+    | '/api/retry-feedback'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/api/client-log'
     | '/api/n8n-write-groceries'
     | '/api/releases'
+    | '/api/retry-feedback'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   ApiClientLogRoute: typeof ApiClientLogRoute
   ApiN8nWriteGroceriesRoute: typeof ApiN8nWriteGroceriesRoute
   ApiReleasesRoute: typeof ApiReleasesRoute
+  ApiRetryFeedbackRoute: typeof ApiRetryFeedbackRoute
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
   ApiSendInviteEmailRoute: typeof ApiSendInviteEmailRoute
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiScanReceiptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/retry-feedback': {
+      id: '/api/retry-feedback'
+      path: '/api/retry-feedback'
+      fullPath: '/api/retry-feedback'
+      preLoaderRoute: typeof ApiRetryFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/releases': {
       id: '/api/releases'
       path: '/api/releases'
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiClientLogRoute: ApiClientLogRoute,
   ApiN8nWriteGroceriesRoute: ApiN8nWriteGroceriesRoute,
   ApiReleasesRoute: ApiReleasesRoute,
+  ApiRetryFeedbackRoute: ApiRetryFeedbackRoute,
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
   ApiSendInviteEmailRoute: ApiSendInviteEmailRoute,
