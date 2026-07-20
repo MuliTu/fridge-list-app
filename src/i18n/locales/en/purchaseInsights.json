@@ -1,0 +1,9 @@
+{
+  "title": "Purchase Insights",
+  "explanation": "Based on items you've checked off the shopping list.",
+  "weeklyTitle": "This week",
+  "monthlyTitle": "This month",
+  "frequentTitle": "Frequently purchased (last 90 days)",
+  "itemCount": "{{itemName}} — {{count}}",
+  "empty": "Nothing purchased in this period yet."
+}
