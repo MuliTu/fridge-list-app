@@ -101,7 +101,7 @@ function ShoppingListPage() {
 
   const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
-    listApi.setBought(entry.key, newBought, user)
+    listApi.setBought(entry, newBought, user)
     // Offer to reflect the purchase in the home inventory. Unlike before, the prompt
     // now appears whether or not the item is already tracked in /stock: an existing
     // match adds to its quantity, a miss offers to create a fresh stock entry. Gated by

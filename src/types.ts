@@ -53,6 +53,23 @@ export interface WhatsNew {
   updates: string[]
 }
 
+// Append-only purchase-event log — one record per manual/voice "bought" checkbox
+// transition to true (never on uncheck, never mutated/deleted after write). Lives at
+// /users/{sanitizeEmailKey(ownerEmail)}/purchaseHistory/{pushId} — per-owner, like
+// groceries/stock/receipts/categories, since this app is fully multi-tenant. Source is
+// deliberately the bought checkbox only, not receipts (receipts already have their own
+// separate price-history feature) — see recordPurchaseEvent in src/lib/firebase.ts.
+// Purely a write path for now; a future ticket (consumption insights / AI habit
+// summary) reads from this — no aggregation/UI is built against it yet.
+export interface PurchaseEvent {
+  itemName: string
+  category: string
+  quantity: number | null
+  unit: string | null
+  purchasedAt: string
+  purchasedBy: string | null
+}
+
 export interface StockItem {
   key: string
   name: string
