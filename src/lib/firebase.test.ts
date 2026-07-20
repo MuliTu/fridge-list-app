@@ -41,7 +41,7 @@ jest.mock('firebase/firestore', () => ({
 }))
 jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }))
 
-import { push, update } from 'firebase/database'
+import { push, set, update } from 'firebase/database'
 import { categorizeItem, createListApi, getReleases, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
 import { logger } from './logger'
 
@@ -150,6 +150,104 @@ describe('auth header attachment on server-route calls', () => {
       const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/submit-feedback')
       expect((options.headers as Record<string, string>).Authorization).toBeUndefined()
     })
+  })
+})
+
+// F1 — persists every submitFeedback() attempt to /feedbacks (see FeedbackRecord in
+// src/types.ts) as a durability/observability layer on top of the existing
+// submit → n8n → Gemini → Trello flow, without changing that flow's own behavior or
+// submitFeedback()'s existing { error, message } return shape. push/set/update are
+// mocked at the module boundary per .claude/skills/senior-qa-jest — this never
+// touches the real n8n-vocal-2-db project.
+describe('submitFeedback: Firebase feedback tracking (F1)', () => {
+  beforeEach(() => {
+    mockCurrentUser = null
+    ;(push as jest.Mock).mockClear()
+    ;(set as jest.Mock).mockReset().mockResolvedValue(undefined)
+    ;(update as jest.Mock).mockReset().mockResolvedValue(undefined)
+  })
+
+  // Restore set()/update() to their harmless resolved-default state — otherwise a
+  // mockRejectedValue set inside one of these tests would leak into later, unrelated
+  // describe blocks in this same file (both mocks are shared at the module level).
+  afterEach(() => {
+    ;(set as jest.Mock).mockReset().mockResolvedValue(undefined)
+    ;(update as jest.Mock).mockReset().mockResolvedValue(undefined)
+  })
+
+  it('creates a "new" record, marks it processing, then ends at ticket_created with ticket/error:null populated', async () => {
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
+      })
+    })
+
+    const result = await submitFeedback({
+      request: 'add dark mode',
+      user: { email: 'user@example.com', displayName: 'User' }
+    })
+    expect(result).toEqual({ error: false })
+
+    // First write: the initial "new" record, via set() on the pushed ref.
+    const [, initialRecord] = (set as jest.Mock).mock.calls[0]
+    expect(initialRecord).toMatchObject({
+      userId: 'user@example.com',
+      username: 'User',
+      message: 'add dark mode',
+      status: 'new',
+      error: null,
+      retryCount: 0,
+      lastAttemptAt: null,
+      ticket: null
+    })
+
+    const updateCalls = (update as jest.Mock).mock.calls
+    // Second write: flips to processing and stamps lastAttemptAt before the fetch.
+    expect(updateCalls[0][1]).toMatchObject({ status: 'processing' })
+    expect(updateCalls[0][1].lastAttemptAt).toEqual(expect.any(String))
+
+    // Final write: ticket_created, error cleared, ticket populated from the response.
+    const finalUpdate = updateCalls[updateCalls.length - 1][1]
+    expect(finalUpdate).toMatchObject({
+      status: 'ticket_created',
+      error: null,
+      ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
+    })
+  })
+
+  it('ends at "error" with a populated error and incremented retryCount on a failed submission', async () => {
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: true, message: 'feedback upstream failed' })
+    })
+
+    const result = await submitFeedback({ request: 'add dark mode' })
+    expect(result).toEqual({ error: true, message: 'feedback upstream failed' })
+
+    const updateCalls = (update as jest.Mock).mock.calls
+    const finalUpdate = updateCalls[updateCalls.length - 1][1]
+    expect(finalUpdate).toMatchObject({
+      status: 'error',
+      error: { message: 'feedback upstream failed' },
+      retryCount: 1
+    })
+  })
+
+  it('does not throw or change submitFeedback()\'s return value when the Firebase write itself fails', async () => {
+    ;(set as jest.Mock).mockRejectedValue(new Error('permission denied'))
+    ;(update as jest.Mock).mockRejectedValue(new Error('permission denied'))
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
+      })
+    })
+
+    await expect(submitFeedback({ request: 'add dark mode' })).resolves.toEqual({ error: false })
   })
 })
 

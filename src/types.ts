@@ -98,3 +98,22 @@ export interface Receipt {
   scanned_at: string
   scanned_by?: string | null
 }
+
+// Global, not per-list — lives at the RTDB root (`/feedbacks`), same tier as `/users`/
+// `/whats_new`, since feedback isn't owned by any particular household list. This is a
+// durability/observability layer over the existing submit → n8n → Gemini → Trello flow
+// (see submitFeedback in firebase.ts, and the In-app feedback module in CLAUDE.md) — it
+// records every submission attempt and its outcome, but never changes what that flow
+// itself does.
+export interface FeedbackRecord {
+  createdAt: string
+  updatedAt: string
+  userId: string
+  username: string
+  message: string
+  status: 'new' | 'processing' | 'ticket_created' | 'error'
+  error: null | { message: string; detail?: string }
+  retryCount: number
+  lastAttemptAt: string | null
+  ticket: null | { id: string; url: string; title: string }
+}

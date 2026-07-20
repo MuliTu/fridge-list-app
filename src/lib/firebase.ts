@@ -7,7 +7,7 @@ import { logger } from './logger'
 import { normalizeName } from './normalizeName'
 import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
-import type { AuthUser, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
+import type { AuthUser, FeedbackRecord, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
 import { version as APP_VERSION } from '../../package.json'
 
 // Logs client-side actions (grocery/stock/receipt/category/list writes) to the
@@ -209,6 +209,48 @@ export const setOnboardingDismissed = (email: string) => update(configRef(email)
 // not owned by any particular list. Needs its own RTDB rule (not applied yet, same
 // category as the other manual Console steps this project has — see CLAUDE.md).
 export const whatsNewRef = ref(db, 'whats_new')
+
+// Global, sibling to `users`/`whats_new` — feedback isn't owned by any particular
+// list. A durability/observability layer over submitFeedback's existing
+// submit → n8n → Gemini → Trello flow (see FeedbackRecord in types.ts and the In-app
+// feedback module in CLAUDE.md): every submission attempt gets a record here so it's
+// trackable even if the Trello card creation itself fails or the browser tab closes
+// before the network call resolves. Needs its own RTDB rule, same open philosophy as
+// `/whats_new`/`/categories` (not applied yet, same category as this project's other
+// manual Console steps).
+export const feedbacksRef = ref(db, 'feedbacks')
+
+// Small, purpose-built helpers (matching getOnboardingDismissed/setOnboardingDismissed's
+// style) rather than exposing raw push/update to callers — submitFeedback is the only
+// intended caller of both.
+const createFeedbackRecord = async (message: string, user?: AuthUser | null): Promise<string> => {
+  const newRef = push(feedbacksRef)
+  const key = newRef.key as string
+  const now = new Date().toISOString()
+  const record: Omit<FeedbackRecord, never> = {
+    createdAt: now,
+    updatedAt: now,
+    // Raw email, not sanitizeEmailKey's path-safe form — this is a data field, not a
+    // path segment. Falls back to 'anonymous' rather than null since FeedbackRecord's
+    // userId is typed as a plain string (this flow is already canEdit/sign-in-gated in
+    // the UI, so an anonymous submitter shouldn't normally happen).
+    userId: user?.email || 'anonymous',
+    username: user?.displayName || user?.email || 'Anonymous',
+    message,
+    status: 'new',
+    error: null,
+    retryCount: 0,
+    lastAttemptAt: null,
+    ticket: null
+  }
+  await set(newRef, record)
+  return key
+}
+
+const updateFeedbackRecord = (
+  key: string,
+  updates: Partial<Pick<FeedbackRecord, 'status' | 'error' | 'retryCount' | 'lastAttemptAt' | 'ticket'>>
+) => update(ref(db, `feedbacks/${key}`), { ...updates, updatedAt: new Date().toISOString() })
 
 // Idempotent — only writes `name` if this user has never been provisioned as an
 // owner before (a fresh /users/{email} node may already exist with nothing but a
@@ -835,6 +877,27 @@ export const submitFeedback = async ({
     appVersion: APP_VERSION
   }
   logClientAction(`[feedback] submitFeedback: from=${payload.name} lang=${payload.language} route=${payload.route}`)
+
+  // Durability/observability layer (see FeedbackRecord in types.ts): persists this
+  // submission and its outcome to /feedbacks alongside the existing n8n/Trello flow.
+  // Every one of these Firebase calls is wrapped so a write failure here can never
+  // block or change the actual submission below — same graceful-degradation
+  // philosophy as logClientAction (log and continue, don't throw).
+  let feedbackKey: string | null = null
+  try {
+    feedbackKey = await createFeedbackRecord(request, user)
+  } catch (err: any) {
+    logClientAction(`[feedback] createFeedbackRecord failed (continuing anyway): ${err.message}`)
+  }
+
+  if (feedbackKey) {
+    try {
+      await updateFeedbackRecord(feedbackKey, { status: 'processing', lastAttemptAt: new Date().toISOString() })
+    } catch (err: any) {
+      logClientAction(`[feedback] updateFeedbackRecord(processing) failed (continuing anyway): ${err.message}`)
+    }
+  }
+
   try {
     const response = await fetch('/api/submit-feedback', {
       method: 'POST',
@@ -844,11 +907,44 @@ export const submitFeedback = async ({
     const data = await response.json().catch(() => ({}))
     if (!response.ok || data.error) {
       logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${data.message || 'unknown'}`)
+      if (feedbackKey) {
+        try {
+          await updateFeedbackRecord(feedbackKey, {
+            status: 'error',
+            error: { message: data.message || 'feedback upstream failed' },
+            retryCount: 1
+          })
+        } catch (err: any) {
+          logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${err.message}`)
+        }
+      }
       return { error: true, message: data.message }
+    }
+    if (feedbackKey) {
+      try {
+        await updateFeedbackRecord(feedbackKey, {
+          status: 'ticket_created',
+          error: null,
+          ticket: data.ticket || null
+        })
+      } catch (err: any) {
+        logClientAction(`[feedback] updateFeedbackRecord(ticket_created) failed (continuing anyway): ${err.message}`)
+      }
     }
     return { error: false }
   } catch (err: any) {
     logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
+    if (feedbackKey) {
+      try {
+        await updateFeedbackRecord(feedbackKey, {
+          status: 'error',
+          error: { message: err.message },
+          retryCount: 1
+        })
+      } catch (updateErr: any) {
+        logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${updateErr.message}`)
+      }
+    }
     return { error: true, message: err.message }
   }
 }
