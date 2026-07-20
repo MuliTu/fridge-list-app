@@ -9,9 +9,9 @@
     "bulkUpload": "📥 Import list"
   },
   "bulkUpload": {
-    "title": "Import items",
-    "instructions": "Paste a list — one item per line — or upload a CSV file. You can add a category after a comma (e.g. milk, Dairy). Items without a category are categorized automatically.",
-    "placeholder": "milk\nbread\ntomatoes, Vegetables & fruit",
+    "title": "Import & update items",
+    "instructions": "Paste a list — one item per line — or upload a CSV file. Add an amount after a comma, and a unit after the amount (e.g. cucumbers,10,kg), or a category after a comma (e.g. milk, Dairy). Items already on your list are detected automatically and offered as a quantity update instead of a duplicate; items without a category are categorized automatically.",
+    "placeholder": "milk\nbread\ntomatoes, Vegetables & fruit\ncucumbers,10,kg",
     "chooseFile": "📄 Choose file",
     "parse": "Continue",
     "categorizing": "Categorizing items...",
@@ -20,11 +20,12 @@
     "removeRow": "Remove row",
     "addRow": "+ Add row",
     "back": "Back",
-    "saveCount": "Add ({{count}})",
-    "addFailed": "Adding failed",
+    "saveCount": "Save ({{count}})",
+    "addFailed": "Saving failed",
     "fileReadFailed": "Failed to read the file: {{message}}",
-    "duplicateBadge": "Already on your list",
-    "includeAnyway": "Include anyway"
+    "matchFound": "Similar product already on your list:",
+    "updateExisting": "Update \"{{name}}\"",
+    "addAsNew": "Add as new item"
   },
   "search": {
     "placeholder": "Search the list…",

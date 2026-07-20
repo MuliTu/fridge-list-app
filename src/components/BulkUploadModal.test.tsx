@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BulkUploadModal from './BulkUploadModal'
 import { categorizeItem } from '../lib/firebase'
@@ -27,41 +27,68 @@ const parseAndReview = async (raw: string) => {
   return user
 }
 
-describe('BulkUploadModal duplicate detection', () => {
+const clickSave = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: /shoppingList:bulkUpload.saveCount/ }))
+}
+
+describe('BulkUploadModal — existing-product matching (bulk update)', () => {
   beforeEach(() => {
     ;(categorizeItem as jest.Mock).mockReset()
   })
 
-  it('flags a row matching an existing list entry as a duplicate, excluded from onAdd by default', async () => {
-    ;(categorizeItem as jest.Mock).mockResolvedValue([{ item: 'חלב', category: 'מוצרי חלב' }])
+  it('defaults an exact-name match to updating the existing item, not creating a duplicate', async () => {
+    ;(categorizeItem as jest.Mock).mockResolvedValue([])
     const onAdd = jest.fn(() => Promise.resolve())
+    const onUpdateQuantity = jest.fn(() => Promise.resolve())
 
     render(
       <BulkUploadModal
         listName={null}
         categories={categories}
-        existingItemNames={['חלב']}
+        existingEntries={[{ key: 'existing-1', name: 'חלב', category: 'מוצרי חלב' }]}
         onClose={jest.fn()}
         onAdd={onAdd}
+        onUpdateQuantity={onUpdateQuantity}
       />
     )
 
     const user = await parseAndReview('חלב\nלחם,מאפים')
+    expect(await screen.findByText('shoppingList:bulkUpload.matchFound')).toBeInTheDocument()
 
-    // Duplicate badge shows for the חלב row, and its checkbox starts unchecked.
-    expect(await screen.findByText('shoppingList:bulkUpload.duplicateBadge')).toBeInTheDocument()
-    const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes).toHaveLength(1)
-    expect(checkboxes[0]).toHaveAttribute('data-state', 'unchecked')
+    await clickSave(user)
 
-    await user.click(screen.getByRole('button', { name: /shoppingList:bulkUpload.saveCount/ }))
-
-    // Only the non-duplicate row (לחם) is saved; the duplicate (חלב) is skipped.
+    // The matched row (חלב) updates the existing item instead of calling onAdd.
+    expect(onUpdateQuantity).toHaveBeenCalledTimes(1)
+    expect(onUpdateQuantity).toHaveBeenCalledWith('existing-1', { quantity: null, unit: null })
+    // The unmatched row (לחם) still creates a new item, exactly as before.
     expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd).toHaveBeenCalledWith({ name: 'לחם', category: 'מאפים' })
+    expect(onAdd).toHaveBeenCalledWith({ name: 'לחם', category: 'מאפים', quantity: null, unit: null })
   })
 
-  it('includes a flagged duplicate row when the user toggles its checkbox on', async () => {
+  it('defaults a fuzzy plural match to updating the existing item (מלפפון -> מלפפונים)', async () => {
+    ;(categorizeItem as jest.Mock).mockResolvedValue([])
+    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[{ key: 'cucumber-key', name: 'מלפפונים', category: 'אחר' }]}
+        onClose={jest.fn()}
+        onAdd={jest.fn()}
+        onUpdateQuantity={onUpdateQuantity}
+      />
+    )
+
+    const user = await parseAndReview('מלפפון,10')
+    expect(await screen.findByText('shoppingList:bulkUpload.matchFound')).toBeInTheDocument()
+
+    await clickSave(user)
+
+    expect(onUpdateQuantity).toHaveBeenCalledWith('cucumber-key', { quantity: 10, unit: null })
+  })
+
+  it('parses "name,amount,unit" into quantity + unit for a new item', async () => {
     ;(categorizeItem as jest.Mock).mockResolvedValue([])
     const onAdd = jest.fn(() => Promise.resolve())
 
@@ -69,27 +96,20 @@ describe('BulkUploadModal duplicate detection', () => {
       <BulkUploadModal
         listName={null}
         categories={categories}
-        existingItemNames={['חלב']}
+        existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
+        onUpdateQuantity={jest.fn()}
       />
     )
 
-    const user = await parseAndReview('חלב,מוצרי חלב')
+    const user = await parseAndReview('מלפפונים,10,ק"ג')
+    await clickSave(user)
 
-    const checkbox = await screen.findByRole('checkbox')
-    expect(checkbox).toHaveAttribute('data-state', 'unchecked')
-
-    await user.click(checkbox)
-    expect(checkbox).toHaveAttribute('data-state', 'checked')
-
-    await user.click(screen.getByRole('button', { name: /shoppingList:bulkUpload.saveCount/ }))
-
-    expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd).toHaveBeenCalledWith({ name: 'חלב', category: 'מוצרי חלב' })
+    expect(onAdd).toHaveBeenCalledWith({ name: 'מלפפונים', category: 'אחר', quantity: 10, unit: 'ק"ג' })
   })
 
-  it('behaves exactly as before when nothing on the list overlaps: no badge, no checkbox, row auto-included', async () => {
+  it('still honors an explicit non-numeric second column as a category (backward compatible)', async () => {
     ;(categorizeItem as jest.Mock).mockResolvedValue([])
     const onAdd = jest.fn(() => Promise.resolve())
 
@@ -97,20 +117,68 @@ describe('BulkUploadModal duplicate detection', () => {
       <BulkUploadModal
         listName={null}
         categories={categories}
-        existingItemNames={['חלב']}
+        existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
+        onUpdateQuantity={jest.fn()}
       />
     )
 
-    const user = await parseAndReview('עגבניות,מאפים')
+    const user = await parseAndReview('עגבניות, מוצרי חלב')
+    await clickSave(user)
 
-    expect(screen.queryByText('shoppingList:bulkUpload.duplicateBadge')).not.toBeInTheDocument()
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+    expect(onAdd).toHaveBeenCalledWith({ name: 'עגבניות', category: 'מוצרי חלב', quantity: null, unit: null })
+  })
 
-    await user.click(screen.getByRole('button', { name: /shoppingList:bulkUpload.saveCount/ }))
+  it('behaves as before when nothing on the list matches at all: no suggestion shown, row added as new', async () => {
+    ;(categorizeItem as jest.Mock).mockResolvedValue([])
+    const onAdd = jest.fn(() => Promise.resolve())
 
-    expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd).toHaveBeenCalledWith({ name: 'עגבניות', category: 'מאפים' })
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[{ key: 'k1', name: 'חלב', category: 'מוצרי חלב' }]}
+        onClose={jest.fn()}
+        onAdd={onAdd}
+        onUpdateQuantity={jest.fn()}
+      />
+    )
+
+    const user = await parseAndReview('שוקולד,מאפים')
+    expect(screen.queryByText('shoppingList:bulkUpload.matchFound')).not.toBeInTheDocument()
+
+    await clickSave(user)
+
+    expect(onAdd).toHaveBeenCalledWith({ name: 'שוקולד', category: 'מאפים', quantity: null, unit: null })
+  })
+
+  it('rejects an invalid quantity at save time with a blocking error, without calling onAdd/onUpdateQuantity', async () => {
+    ;(categorizeItem as jest.Mock).mockResolvedValue([])
+    const onAdd = jest.fn(() => Promise.resolve())
+    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={onAdd}
+        onUpdateQuantity={onUpdateQuantity}
+      />
+    )
+
+    const user = await parseAndReview('לחם,מאפים')
+    // fireEvent.change bypasses the number input's native character filtering, so a
+    // genuinely invalid value (negative) actually lands in the field's state.
+    const qtyInput = screen.getByPlaceholderText('stock:editModal.quantity')
+    fireEvent.change(qtyInput, { target: { value: '-5' } })
+
+    await clickSave(user)
+
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(onUpdateQuantity).not.toHaveBeenCalled()
+    expect(await screen.findByText(/common:quantityUnit.invalidQuantity/)).toBeInTheDocument()
   })
 })

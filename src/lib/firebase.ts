@@ -465,6 +465,23 @@ export function createListApi(ownerEmail: string) {
     return touchModified(key, fields, user)
   }
 
+  // Narrower sibling of saveItemDetails, for BulkUploadModal's "bulk update" path only:
+  // sets just quantity/unit on an existing item. Deliberately does NOT reuse
+  // saveItemDetails, which always overwrites `note` back to `null` when not given
+  // (safe there, since the edit modal always sends its full current form state) — a
+  // bulk quantity update has no form state for note/image and must never silently wipe
+  // them out just because the bulk-review row didn't carry them.
+  const updateGroceryItemQuantity = (
+    key: string,
+    fields: { quantity: number | null; unit: string | null },
+    user?: AuthUser | null
+  ) => {
+    logClientAction(
+      `[groceries] updateGroceryItemQuantity: list=${ownerEmail} key=${key} quantity=${fields.quantity} unit=${fields.unit} by=${user?.email || 'anonymous'}`
+    )
+    return touchModified(key, { quantity: fields.quantity, unit: fields.unit }, user)
+  }
+
   const deleteItem = async (key: string, imageRef?: string | null) => {
     logClientAction(`[groceries] deleteItem: list=${ownerEmail} key=${key}`)
     if (imageRef) await deleteImageDoc('groceryImages', imageRef)
@@ -792,6 +809,7 @@ export function createListApi(ownerEmail: string) {
     recordPurchaseEvent,
     updateGroceryItemCategory,
     saveItemDetails,
+    updateGroceryItemQuantity,
     deleteItem,
     addStockItem,
     adjustStockQuantity,

@@ -68,3 +68,54 @@ export function resolveQuantityUnit({ quantityText, unit, customUnit }: Quantity
 
   return { quantity, unit: effectiveUnit, error: null }
 }
+
+// Free-text unit aliases accepted when parsing pasted/typed text (BulkUploadModal) —
+// people write "kilo"/"kg"/"ליטר"/"liters" etc rather than picking from the dropdown.
+// Keys are matched case-insensitively; Hebrew presets are matched as exact literals
+// alongside their common shorthand. Not used anywhere quantity/unit is entered via the
+// picker UI itself (GroceryItemModal/ItemDetailModal) — only for parsing raw text.
+const UNIT_ALIASES: Record<string, StockUnit> = {
+  kilo: StockUnit.Kilogram,
+  kilos: StockUnit.Kilogram,
+  kilogram: StockUnit.Kilogram,
+  kilograms: StockUnit.Kilogram,
+  kg: StockUnit.Kilogram,
+  'ק"ג': StockUnit.Kilogram,
+  קג: StockUnit.Kilogram,
+  gram: StockUnit.Gram,
+  grams: StockUnit.Gram,
+  g: StockUnit.Gram,
+  גרם: StockUnit.Gram,
+  liter: StockUnit.Liter,
+  liters: StockUnit.Liter,
+  litre: StockUnit.Liter,
+  litres: StockUnit.Liter,
+  l: StockUnit.Liter,
+  ליטר: StockUnit.Liter,
+  ml: StockUnit.Milliliter,
+  milliliter: StockUnit.Milliliter,
+  milliliters: StockUnit.Milliliter,
+  'מ"ל': StockUnit.Milliliter,
+  package: StockUnit.Package,
+  packages: StockUnit.Package,
+  pack: StockUnit.Package,
+  חבילה: StockUnit.Package,
+  piece: StockUnit.Piece,
+  pieces: StockUnit.Piece,
+  unit: StockUnit.Piece,
+  units: StockUnit.Piece,
+  amount: StockUnit.Piece,
+  "יח'": StockUnit.Piece,
+  יח: StockUnit.Piece
+}
+
+// Resolves free text (e.g. from a parsed bulk-import row) to a known StockUnit, or
+// null if it doesn't match any recognized preset/alias — callers fall back to treating
+// the raw text as a custom unit in that case.
+export function matchUnitAlias(text: string): StockUnit | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const exactPreset = UNIT_PRESETS.find((preset) => preset === trimmed)
+  if (exactPreset) return exactPreset
+  return UNIT_ALIASES[trimmed.toLowerCase()] ?? null
+}
