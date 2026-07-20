@@ -7,7 +7,7 @@ import { logger } from './logger'
 import { normalizeName } from './normalizeName'
 import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
-import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
+import type { AuthUser, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
 import { version as APP_VERSION } from '../../package.json'
 
 // Logs client-side actions (grocery/stock/receipt/category/list writes) to the
@@ -293,6 +293,7 @@ export function createListApi(ownerEmail: string) {
   const stockRef = ref(db, `${base}/stock`)
   const receiptsRef = ref(db, `${base}/receipts`)
   const categoriesRef = ref(db, `${base}/categories`)
+  const purchaseHistoryRef = ref(db, `${base}/purchaseHistory`)
 
   const touchModified = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
     update(ref(db, `${base}/groceries/${key}`), {
@@ -301,9 +302,60 @@ export function createListApi(ownerEmail: string) {
       modified_by: user?.email || null
     })
 
-  const setBought = (key: string, bought: boolean, user?: AuthUser | null) => {
-    logClientAction(`[groceries] setBought: list=${ownerEmail} key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
-    return touchModified(key, { bought }, user)
+  // Append-only purchase-event log (see PurchaseEvent in ../types) — pushes one record
+  // per manual/voice "bought" checkbox transition to true. Called only from setBought
+  // below, and only on a genuine false -> true transition (never on uncheck, and
+  // deliberately NOT called from the receipt-reconcile flow — addPurchasedGroceryItem/
+  // applyReceiptReconciliation below intentionally skip this, per the product decision
+  // that this log's source of truth is the checkbox interaction only; receipts already
+  // have their own separate price-history feature, see getReceiptPriceHistory below).
+  // Never mutates/deletes existing events. Fire-and-forget and self-contained error
+  // handling: a failure here must never block or throw out of the actual `bought`
+  // write, same graceful-degradation philosophy as logClientAction's /api/client-log
+  // forwarding above.
+  const recordPurchaseEvent = (
+    entry: { item: string; category: string; quantity?: number | null; unit?: string | null },
+    user?: AuthUser | null
+  ) => {
+    try {
+      const event: PurchaseEvent = {
+        itemName: entry.item,
+        category: entry.category,
+        quantity: entry.quantity ?? null,
+        unit: entry.unit ?? null,
+        purchasedAt: new Date().toISOString(),
+        purchasedBy: user?.email ?? null
+      }
+      return Promise.resolve(push(purchaseHistoryRef, event)).catch((err) => {
+        logger.warn(
+          `[purchaseHistory] recordPurchaseEvent failed: list=${ownerEmail} item=${entry.item} message=${err?.message || err}`
+        )
+      })
+    } catch (err: any) {
+      logger.warn(
+        `[purchaseHistory] recordPurchaseEvent failed: list=${ownerEmail} item=${entry.item} message=${err?.message || err}`
+      )
+      return Promise.resolve()
+    }
+  }
+
+  const setBought = (
+    entry: Pick<GroceryItem, 'key' | 'item' | 'category' | 'bought' | 'quantity' | 'unit'>,
+    bought: boolean,
+    user?: AuthUser | null
+  ) => {
+    logClientAction(
+      `[groceries] setBought: list=${ownerEmail} key=${entry.key} bought=${bought} by=${user?.email || 'anonymous'}`
+    )
+    // Only a genuine false -> true transition counts as "purchased" for the history
+    // log — unchecking (true -> false) never appends, and this guard also protects
+    // against a redundant true -> true call (shouldn't happen from the current UI,
+    // which only ever calls this with the flipped value, but keeps the log honest
+    // either way).
+    if (bought && !entry.bought) {
+      recordPurchaseEvent(entry, user)
+    }
+    return touchModified(entry.key, { bought }, user)
   }
 
   // Reassign a grocery item to a different category (used by drag-and-drop between
@@ -428,6 +480,11 @@ export function createListApi(ownerEmail: string) {
     })
   }
 
+  // Deliberately does NOT call recordPurchaseEvent — this writes a grocery item that
+  // arrived already-bought via the receipt-reconcile flow, not a checkbox transition.
+  // See the purchase-event-log data-source decision on recordPurchaseEvent above:
+  // purchaseHistory tracks the bought checkbox only; receipts have their own separate
+  // price-history feature (getReceiptPriceHistory below).
   const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
     logClientAction(`[groceries] addPurchasedGroceryItem: list=${ownerEmail} name=${item.name} by=${user?.email || 'anonymous'}`)
     const now = new Date().toISOString()
@@ -447,6 +504,10 @@ export function createListApi(ownerEmail: string) {
   // Firebase calls (one multi-path update() per collection touched) instead of one
   // write per line item — a receipt with N items no longer means N separate
   // adjustStockQuantity/setBought/addPurchasedGroceryItem round-trips.
+  // Also deliberately does NOT call recordPurchaseEvent for the same reason as
+  // addPurchasedGroceryItem above — the `groceryBoughtKeys`/`newGroceryItems` writes
+  // below mark items bought directly (bypassing setBought entirely), and this flow is
+  // receipt-sourced, not a checkbox transition.
   const applyReceiptReconciliation = (
     ops: {
       stockAdjustments: { key: string; quantity: number }[]
@@ -660,7 +721,9 @@ export function createListApi(ownerEmail: string) {
     stockRef,
     receiptsRef,
     categoriesRef,
+    purchaseHistoryRef,
     setBought,
+    recordPurchaseEvent,
     updateGroceryItemCategory,
     saveItemDetails,
     deleteItem,

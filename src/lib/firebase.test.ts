@@ -43,6 +43,7 @@ jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), er
 
 import { push, update } from 'firebase/database'
 import { categorizeItem, createListApi, getReleases, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
+import { logger } from './logger'
 
 // Pulls out the single fetch call made to `urlSubstring` (ignoring the fire-and-forget
 // /api/client-log calls logClientAction makes alongside some of these).
@@ -190,5 +191,98 @@ describe('grocery item quantity/unit persistence', () => {
       expect(fields.quantity).toBeNull()
       expect(fields.unit).toBeNull()
     })
+  })
+})
+
+/**
+ * Append-only purchase-event log (see PurchaseEvent in ../types) — setBought's new
+ * side effect. Source is the bought checkbox only (false -> true transitions), never
+ * receipts (see the addPurchasedGroceryItem/applyReceiptReconciliation comments in
+ * firebase.ts for that scoping decision) and never the uncheck direction. A failed
+ * event-log write must never block or throw out of the actual `bought` write.
+ */
+describe('setBought / purchase history log', () => {
+  const listApi = createListApi('owner@example.com')
+  const user = { email: 'user@example.com' }
+  const baseEntry = {
+    key: 'item-1',
+    item: 'חלב',
+    category: 'מוצרי חלב',
+    bought: false,
+    quantity: 2,
+    unit: 'ליטר'
+  }
+
+  const purchaseHistoryCall = () =>
+    (push as jest.Mock).mock.calls.find(([refArg]) => String(refArg.path).includes('purchaseHistory'))
+
+  beforeEach(() => {
+    ;(push as jest.Mock).mockReset()
+    ;(push as jest.Mock).mockImplementation(() => ({ key: 'mock-key' }))
+    ;(update as jest.Mock).mockClear()
+    ;(logger.warn as jest.Mock).mockClear()
+  })
+
+  it('appends a purchase event with the right shape on a false -> true transition', async () => {
+    await listApi.setBought(baseEntry, true, user)
+
+    const call = purchaseHistoryCall()
+    expect(call).toBeDefined()
+    const [, event] = call!
+    expect(event).toEqual({
+      itemName: 'חלב',
+      category: 'מוצרי חלב',
+      quantity: 2,
+      unit: 'ליטר',
+      purchasedAt: expect.any(String),
+      purchasedBy: 'user@example.com'
+    })
+    // the bought write itself still happens, unaffected by the new side effect
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
+  })
+
+  it('falls back to null quantity/unit/purchasedBy when absent, never undefined', async () => {
+    await listApi.setBought({ ...baseEntry, quantity: undefined as any, unit: undefined as any }, true, undefined)
+    const [, event] = purchaseHistoryCall()!
+    expect(event.quantity).toBeNull()
+    expect(event.unit).toBeNull()
+    expect(event.purchasedBy).toBeNull()
+  })
+
+  it('does NOT append a purchase event on a true -> false transition (unchecking)', async () => {
+    await listApi.setBought({ ...baseEntry, bought: true }, false, user)
+    expect(purchaseHistoryCall()).toBeUndefined()
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: false }))
+  })
+
+  it('does not throw or block the bought write when the event-log write rejects', async () => {
+    ;(push as jest.Mock).mockImplementation((refArg: any) =>
+      String(refArg.path).includes('purchaseHistory') ? Promise.reject(new Error('network error')) : { key: 'mock-key' }
+    )
+
+    let thrown: unknown = null
+    try {
+      await listApi.setBought(baseEntry, true, user)
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeNull()
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
+  })
+
+  it('does not throw when push() itself throws synchronously for the event log', async () => {
+    ;(push as jest.Mock).mockImplementation((refArg: any) => {
+      if (String(refArg.path).includes('purchaseHistory')) throw new Error('sync failure')
+      return { key: 'mock-key' }
+    })
+
+    let thrown: unknown = null
+    try {
+      await listApi.setBought(baseEntry, true, user)
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeNull()
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
   })
 })
