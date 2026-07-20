@@ -14,6 +14,8 @@
 // buildCommand.
 import { cp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import path from 'node:path'
+import { nodeFileTrace } from '@vercel/nft'
 
 const OUT = '.vercel/output'
 const FUNC = `${OUT}/functions/index.func`
@@ -43,6 +45,31 @@ if (existsSync(`${OUT}/static/_shell.html`)) {
 // runtime. Keep the original .js filenames (rather than renaming to .mjs) since
 // server.js's import() calls reference these exact relative paths/filenames.
 await cp('dist/server', FUNC, { recursive: true })
+
+// `firebase-admin` (added for ticket F2's retry-feedback route) is the one dependency
+// vite.config.ts deliberately keeps OUT of the noExternal bundle (see that file's
+// comment) — bundling its transitive dependency tree (grpc/gcp-metadata/google-gax,
+// written assuming real Node `require` semantics) into dist/server's single Rollup
+// chunk broke at runtime with `TypeError: Cannot read properties of undefined
+// (reading 'SDK_VERSION')`, confirmed by hitting this directly. Because it stays a
+// real bare `require`/`import` in dist/server/server.js, this function's own
+// node_modules needs an actual `firebase-admin` (plus whatever it transitively
+// needs) sitting next to it — unlike every other dependency here, which is fully
+// inlined and needs nothing on disk at runtime.
+//
+// `@vercel/nft` (the same dependency-tracing tool Vercel's own Next.js/Node builders
+// use internally) statically traces every file dist/server/server.js could `require`/
+// `import` at runtime and reports back just the files actually reachable — this
+// copies only that traced subset of node_modules instead of the entire (much larger)
+// root node_modules folder, keeping the function bundle small.
+const { fileList } = await nodeFileTrace(['dist/server/server.js'])
+const nodeModuleFiles = [...fileList].filter((f) => f.startsWith('node_modules/'))
+for (const file of nodeModuleFiles) {
+  const dest = path.join(FUNC, file)
+  await mkdir(path.dirname(dest), { recursive: true })
+  await cp(file, dest)
+}
+console.log(`vercel-build.mjs: copied ${nodeModuleFiles.length} traced node_modules files (firebase-admin + deps) into ${FUNC}`)
 
 await writeFile(
   `${FUNC}/index.mjs`,

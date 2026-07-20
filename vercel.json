@@ -1,4 +1,10 @@
 {
   "buildCommand": "npm run build && node scripts/vercel-build.mjs",
-  "framework": null
+  "framework": null,
+  "crons": [
+    {
+      "path": "/api/retry-feedback",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

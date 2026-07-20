@@ -1,7 +1,7 @@
 {
   "name": "fridge-list",
   "private": true,
-  "version": "2.45.0",
+  "version": "2.46.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,6 +28,7 @@
     "clsx": "^2.1.1",
     "consola": "^3.4.2",
     "firebase": "^12.16.0",
+    "firebase-admin": "^14.2.0",
     "i18next": "^26.3.4",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
@@ -47,6 +48,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "@vercel/nft": "^1.10.2",
     "@vitejs/plugin-react": "^6.0.1",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
