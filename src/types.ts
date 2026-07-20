@@ -105,15 +105,33 @@ export interface Receipt {
 // (see submitFeedback in firebase.ts, and the In-app feedback module in CLAUDE.md) — it
 // records every submission attempt and its outcome, but never changes what that flow
 // itself does.
+// 'needs_attention' (ticket F3) is a terminal status distinct from 'error': it means a
+// human needs to look at this record directly (either its retries are exhausted, or a
+// previous retry attempt's outcome is genuinely unknown — see `attemptId` below) rather
+// than "the hourly job will keep trying." Once a record is in this status it is never
+// picked up by the retry job again (see ELIGIBLE_STATUSES in retryFeedback.ts) — it's
+// reported once, via the maintainer-notification path, at the moment it transitions
+// here, not re-reported on every subsequent run.
 export interface FeedbackRecord {
   createdAt: string
   updatedAt: string
   userId: string
   username: string
   message: string
-  status: 'new' | 'processing' | 'ticket_created' | 'error'
+  status: 'new' | 'processing' | 'ticket_created' | 'error' | 'needs_attention'
   error: null | { message: string; detail?: string }
   retryCount: number
   lastAttemptAt: string | null
   ticket: null | { id: string; url: string; title: string }
+  // Idempotency guard (ticket F3). Stamped with a fresh, unique value by the retry
+  // job's `claimForProcessing` at the same moment it flips status to 'processing' (one
+  // atomic transaction — see retryFeedback.ts), and always cleared back to `null` by
+  // whichever call durably records the attempt's outcome (`markTicketCreated`,
+  // `markError`, or `markNeedsAttention`). A record found with a non-null `attemptId` on
+  // a later read means a previous attempt's outcome was never durably written back
+  // (e.g. the process crashed mid-write after the n8n/Trello call already succeeded) —
+  // that's genuinely ambiguous (a duplicate Trello card is possible), so it is never
+  // auto-retried; it's routed straight to 'needs_attention' instead. Absent on records
+  // created before this ticket; treat `undefined` the same as `null` wherever read.
+  attemptId?: string | null
 }
