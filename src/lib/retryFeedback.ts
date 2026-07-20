@@ -110,7 +110,7 @@ export interface RetryFeedbacksResult {
   notified: boolean
 }
 
-// Orchestrates one full run of the hourly safety net: find everything eligible, claim
+// Orchestrates one full run of the daily safety net: find everything eligible, claim
 // each one exclusively, replay it through n8n, and record the outcome. Note this reads
 // records once at the top (getAllFeedbacks) and then re-checks eligibility per-record
 // via the transaction inside claimForProcessing — a record can legitimately fail the

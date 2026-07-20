@@ -5,6 +5,7 @@ import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
 import { logger } from './logger'
 import { normalizeName } from './normalizeName'
+import type { HabitChange } from './purchaseHabitChanges'
 import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
 import type { AuthUser, FeedbackRecord, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
@@ -155,6 +156,24 @@ export const getReleases = async (): Promise<ReleaseInfo[]> => {
   if (!response.ok) throw new Error('טעינת יומן השינויים נכשלה (' + response.status + ')')
   const data = await response.json()
   return data.releases || []
+}
+
+// Same-origin proxy as categorizeItem/getReleases above — /api/purchase-habit-summary
+// (see that route for the full request/response contract and the "n8n workflow not
+// yet built" caveat) holds the n8n webhook URL server-side. Takes the already-
+// aggregated HabitChange[] from computeHabitChanges (src/lib/purchaseHabitChanges.ts),
+// never raw purchase-history events. Returns [] (not an error) whenever there's
+// nothing to say, same graceful "no data" shape used elsewhere rather than a special
+// case the caller has to distinguish from a real failure.
+export const getPurchaseHabitSummary = async (changes: HabitChange[]): Promise<string[]> => {
+  const response = await fetch('/api/purchase-habit-summary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+    body: JSON.stringify({ changes })
+  })
+  if (!response.ok) throw new Error('טעינת סיכום שינויי ההרגלים נכשלה (' + response.status + ')')
+  const data = await response.json()
+  return data.summary || []
 }
 
 // ---------------------------------------------------------------------------
