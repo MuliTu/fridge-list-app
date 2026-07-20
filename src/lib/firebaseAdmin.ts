@@ -4,7 +4,7 @@ import { logger } from './logger'
 
 // Server-only — never import this from client code (a service-account private key must
 // never reach the browser bundle). Used by src/routes/api/retry-feedback.tsx (ticket F2,
-// the hourly feedback-retry safety net) so it can run a real Firebase Admin SDK
+// the daily feedback-retry safety net) so it can run a real Firebase Admin SDK
 // transaction against /feedbacks — the browser client SDK (src/lib/firebase.ts) has no
 // equivalent for "atomically claim this record only if no one else already did," which
 // is the actual reason this job needs Admin SDK access instead of reusing the existing

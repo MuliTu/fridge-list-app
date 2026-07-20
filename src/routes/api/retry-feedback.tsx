@@ -5,15 +5,18 @@ import { logger } from '../../lib/logger'
 import { MAX_RETRY_COUNT, retryEligibleFeedbacks, type FeedbackRetryAdapter, type N8nFeedbackCaller } from '../../lib/retryFeedback'
 import type { FeedbackRecord } from '../../types'
 
-// Ticket F2 — the hourly safety net over the existing submit → n8n → Gemini → Trello
+// Ticket F2 — the daily safety net over the existing submit → n8n → Gemini → Trello
 // feedback flow (see CLAUDE.md's In-app feedback module, and FeedbackRecord in
 // src/types.ts from ticket F1). Vercel Cron (see vercel.json's "crons" entry) hits this
-// path once an hour; it finds every /feedbacks record still stuck in 'new' or 'error'
-// with retryCount < 5 and replays it through n8n. Orchestration and scheduling live here,
-// in this app's own backend — not inside n8n — deliberately, so an ngrok/n8n outage only
-// ever means "this hour's retry attempt failed, try again next hour" rather than "the
-// whole retry system is down" (see the ticket brainstorm this came out of; ngrok
-// instability is an already-documented known gap, CLAUDE.md's Known gaps #2).
+// path once a day at 04:00 UTC — Vercel's Hobby plan caps cron jobs at once per day,
+// and cron schedules always run in UTC (no per-project timezone setting), so "4am" here
+// means 04:00 UTC, not local time. It finds every /feedbacks record still stuck in
+// 'new' or 'error' with retryCount < 5 and replays it through n8n. Orchestration and
+// scheduling live here, in this app's own backend — not inside n8n — deliberately, so
+// an ngrok/n8n outage only ever means "today's retry attempt failed, try again
+// tomorrow" rather than "the whole retry system is down" (see the ticket brainstorm
+// this came out of; ngrok instability is an already-documented known gap, CLAUDE.md's
+// Known gaps #2).
 //
 // Same n8n webhook URL submit-feedback.tsx already uses, reused for consistency — held
 // server-side only here too, never shipped to a browser.
