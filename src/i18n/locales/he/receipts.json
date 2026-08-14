@@ -6,6 +6,8 @@
   "addToStockBtn": "📦 הוספה למלאי",
   "deleteConfirm": "למחוק את הקבלה מ-{{date}}?",
   "deleteConfirmUnknownDate": "תאריך לא ידוע",
+  "deleteFailed": "המחיקה נכשלה: {{message}}",
+  "imageLoadFailed": "טעינת תמונת הקבלה נכשלה: {{message}}",
   "loading": "⏳ סורק את הקבלה...",
   "processing": "⏳ מעבד את הקבלה...",
   "queueProgress": "⏳ טוען קבלה {{current}} מתוך {{total}}...",

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { categorizeItem } from '../lib/firebase'
 import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
@@ -25,6 +26,7 @@ import SearchSuggestAdd from '../components/SearchSuggestAdd'
 import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
+import QuickAddBar from '../components/QuickAddBar'
 import ListSkeleton from '../components/ListSkeleton'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
 import type { GroceryItem, StockItem } from '../types'
@@ -58,6 +60,7 @@ function ShoppingListPage() {
   // leaks into a later FAB-triggered add.
   const [addModalInitialName, setAddModalInitialName] = useState<string | undefined>(undefined)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const quickAddInputRef = useRef<HTMLInputElement>(null)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
   // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
@@ -74,17 +77,20 @@ function ShoppingListPage() {
 
   const visibleEntries = allEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
 
-  // Hide purchased (bought) items by default so the list stays focused on what's left
-  // to buy; the toggle below reveals them (still visually distinguished via `.bought`).
   const purchasedCount = visibleEntries.filter((e) => e.bought).length
-  const displayEntries = showPurchased ? visibleEntries : visibleEntries.filter((e) => !e.bought)
+  const activeEntries = visibleEntries.filter((e) => !e.bought)
+  const purchasedEntries = visibleEntries.filter((e) => e.bought)
 
   // Client-side name search: case-insensitive substring match on the item name, layered
   // on top of the existing hide-purchased filter so the two coexist. Empty query = no-op.
   const query = search.trim().toLowerCase()
-  const searchedEntries = query
-    ? displayEntries.filter((e) => (e.item || '').toLowerCase().includes(query))
-    : displayEntries
+  const matchesSearch = (entry: GroceryItem) => !query || (entry.item || '').toLowerCase().includes(query)
+  const searchedEntries = activeEntries.filter(matchesSearch)
+  const searchedPurchasedEntries = sortGroceryItems(
+    purchasedEntries.filter(matchesSearch),
+    sortOption,
+    i18n.language
+  )
 
   const grouped: Record<string, GroceryItem[]> = {}
   searchedEntries.forEach((entry) => {
@@ -97,7 +103,8 @@ function ShoppingListPage() {
   })
 
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
-  const isEmpty = visibleCategories.length === 0
+  const activeResultsEmpty = visibleCategories.length === 0
+  const allResultsEmpty = activeResultsEmpty && searchedPurchasedEntries.length === 0
 
   const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
@@ -114,9 +121,23 @@ function ShoppingListPage() {
     }
   }
 
-  const handleItemClick = (entry: GroceryItem) => {
+  const handleItemCheckedChange = (entry: GroceryItem) => {
     if (!canEdit) return
     handleToggleBought(entry)
+  }
+
+  const handleQuickAdd = async (name: string) => {
+    let items: { item: string; category: string }[] = []
+    try {
+      items = await categorizeItem(name)
+    } catch {
+      // Categorization is an enhancement; adding to "Other" keeps the quick path reliable.
+    }
+    if (items.length === 0) items = [{ item: name, category: OTHER_CATEGORY_NAME }]
+
+    for (const item of items) {
+      await listApi.addGroceryItem({ name: item.item, category: item.category }, activeList, user)
+    }
   }
 
   // Drag-and-drop re-categorization (desktop/tablet, native HTML5 DnD). The item's
@@ -221,82 +242,99 @@ function ShoppingListPage() {
 
   return (
     <>
-      {/* Nothing to switch between when there are no custom lists yet — showing a
-          single non-interactive-feeling "permanent list" pill in that case is
-          pure clutter on a page meant to be glanced at quickly while shopping. */}
-      {sortedCustomLists.length > 0 && (
-        <ListPicker
-          activeList={activeList}
-          customLists={sortedCustomLists}
-          onSelectList={(l) => navigate({ search: { list: l || undefined } })}
-        />
-      )}
+      {/* Keep the permanent-list pill visible even before custom lists exist so
+          the context switcher has a stable position and the active context remains
+          explicit at a glance. */}
+      <ListPicker
+        activeList={activeList}
+        customLists={sortedCustomLists}
+        onSelectList={(l) => navigate({ search: { list: l || undefined } })}
+      />
 
-      {/* Unconditional (unlike the pills above, which only render once a custom list
-          exists) — this is the glanceable "which list is this" indicator, so it needs
-          to show for the permanent list too, not just when there's something to
-          switch between. See ActiveListLabel.tsx for the full reasoning. */}
+      {/* This second, textual cue keeps the active context unambiguous without
+          relying on the selected pill's color alone. */}
       <ActiveListLabel activeList={activeList} />
+
+      {canEdit && <QuickAddBar ref={quickAddInputRef} onAdd={handleQuickAdd} />}
 
       {visibleEntries.length > 0 && (
         <div className="list-controls-row">
           <ShoppingListSearch value={search} onChange={setSearch} />
           <ShoppingListSort value={sortOption} onChange={setSortOption} />
-          {purchasedCount > 0 && (
-            <button className="list-pill purchased-toggle-btn" onClick={toggleShowPurchased}>
-              {showPurchased
-                ? t('shoppingList:purchased.hide')
-                : t('shoppingList:purchased.show', { count: purchasedCount })}
-            </button>
-          )}
         </div>
       )}
 
-      {isLoading && isEmpty ? (
+      {isLoading && visibleEntries.length === 0 ? (
         <ListSkeleton variant="flat" sections={3} rows={3} />
       ) : (
         <>
-          {isEmpty ? (
-            query && canEdit ? (
-              <SearchSuggestAdd query={search.trim()} onSuggestAdd={handleSuggestAdd} />
-            ) : (
-              <div className="all-empty">
-                {query
-                  ? t('shoppingList:search.noResults', { query: search.trim() })
-                  : purchasedCount > 0
-                    ? t('shoppingList:purchased.allPurchased')
-                    : t('shoppingList:empty')}
-              </div>
-            )
+          {query && allResultsEmpty && canEdit ? (
+            <SearchSuggestAdd query={search.trim()} onSuggestAdd={handleSuggestAdd} />
+          ) : visibleEntries.length === 0 ? (
+            <div className="all-empty">{t('shoppingList:empty')}</div>
           ) : (
-            <div className="flat-list">
+            <div className="shopping-list-scroll">
+              {activeResultsEmpty && (
+                <div className="shopping-empty-card">
+                  {query
+                    ? t('shoppingList:search.noResults', { query: search.trim() })
+                    : t('shoppingList:purchased.allPurchased')}
+                </div>
+              )}
               {visibleCategories.map(({ name, color, icon }) => (
-            <CategorySection
-              key={name}
-              name={name}
-              color={color}
-              icon={icon}
-              collapsed={isCollapsed(name)}
-              onToggle={() => toggle(name)}
-              dragOver={dragOverCategory === name}
-              onDragOver={canEdit ? handleDragOverCategory(name) : undefined}
-              onDragLeave={canEdit ? handleDragLeaveCategory(name) : undefined}
-              onDrop={canEdit ? handleDropOnCategory(name) : undefined}
-            >
-              {grouped[name].map((entry) => (
-                <ShoppingListItemRow
-                  key={entry.key}
-                  entry={entry}
-                  draggable={canEdit}
-                  dragging={draggingKey === entry.key}
-                  onDragStart={handleDragStart(entry)}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => handleItemClick(entry)}
-                  onInfoClick={() => setSelectedEntry(entry)}
-                />
+                <CategorySection
+                  key={name}
+                  name={name}
+                  color={color}
+                  icon={icon}
+                  collapsed={isCollapsed(name)}
+                  onToggle={() => toggle(name)}
+                  dragOver={dragOverCategory === name}
+                  onDragOver={canEdit ? handleDragOverCategory(name) : undefined}
+                  onDragLeave={canEdit ? handleDragLeaveCategory(name) : undefined}
+                  onDrop={canEdit ? handleDropOnCategory(name) : undefined}
+                >
+                  {grouped[name].map((entry) => (
+                    <ShoppingListItemRow
+                      key={entry.key}
+                      entry={entry}
+                      canEdit={canEdit}
+                      draggable={canEdit}
+                      dragging={draggingKey === entry.key}
+                      onDragStart={handleDragStart(entry)}
+                      onDragEnd={handleDragEnd}
+                      onCheckedChange={() => handleItemCheckedChange(entry)}
+                      onEditClick={() => setSelectedEntry(entry)}
+                    />
+                  ))}
+                </CategorySection>
               ))}
-            </CategorySection>
-              ))}
+
+              {purchasedCount > 0 && (
+                <CategorySection
+                  name={t('shoppingList:purchased.sectionLabel', { count: purchasedCount })}
+                  color="#8ee6a8"
+                  icon="✓"
+                  collapsed={!showPurchased}
+                  onToggle={toggleShowPurchased}
+                >
+                  {searchedPurchasedEntries.length > 0 ? (
+                    searchedPurchasedEntries.map((entry) => (
+                      <ShoppingListItemRow
+                        key={entry.key}
+                        entry={entry}
+                        canEdit={canEdit}
+                        onCheckedChange={() => handleItemCheckedChange(entry)}
+                        onEditClick={() => setSelectedEntry(entry)}
+                      />
+                    ))
+                  ) : (
+                    <li className="completed-filter-empty">
+                      {t('shoppingList:search.noResults', { query: search.trim() })}
+                    </li>
+                  )}
+                </CategorySection>
+              )}
             </div>
           )}
         </>
@@ -306,8 +344,8 @@ function ShoppingListPage() {
         <button
           className="fab-add-btn"
           onClick={() => {
-            setAddModalInitialName(undefined)
-            setShowAddGrocery(true)
+            quickAddInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            quickAddInputRef.current?.focus({ preventScroll: true })
           }}
           aria-label={t('shoppingList:addItemFab')}
         >

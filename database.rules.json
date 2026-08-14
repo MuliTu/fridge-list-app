@@ -1,0 +1,87 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      "$listId": {
+        "ownerUid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (data.val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": false,
+          ".validate": "newData.isString()"
+        },
+
+        "normalizedOwnerEmail": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false,
+          ".validate": "newData.isString()"
+        },
+
+        "members": {
+          "$uid": {
+            ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || auth.uid === $uid)",
+            ".write": false,
+            "status": {
+              ".validate": "newData.val() === 'approved'"
+            },
+            "role": {
+              ".validate": "newData.val() === 'editor' || newData.val() === 'viewer'"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+
+        "name": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+        },
+
+        "config": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+
+        "groceries": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": false
+        },
+        "categories": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": false
+        },
+        "stock": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": false
+        },
+        "receipts": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": false
+        },
+
+        "invites": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        },
+        "memberOf": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        }
+      }
+    },
+
+    "identityBindings": {
+      "$uid": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid === $uid",
+        ".write": false
+      }
+    },
+
+    "whats_new": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+      ".write": false
+    }
+  }
+}

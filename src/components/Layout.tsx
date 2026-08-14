@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { DirectionProvider } from '@radix-ui/react-direction'
 import { version as appVersion } from '../../package.json'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
@@ -32,16 +33,20 @@ const sidebarSectionLabelClass = 'mx-0.5 mb-0.5 mt-3 text-[11px] text-muted-fore
 const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-[rgba(244,241,232,0.12)]'
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const { i18n } = useTranslation()
+
   return (
-    <DialogServiceProvider>
-      <ListProvider>
-        <GroceriesFeedProvider>
-          <ListPickerActionsProvider>
-            <LayoutContent>{children}</LayoutContent>
-          </ListPickerActionsProvider>
-        </GroceriesFeedProvider>
-      </ListProvider>
-    </DialogServiceProvider>
+    <DirectionProvider dir={i18n.dir()}>
+      <DialogServiceProvider>
+        <ListProvider>
+          <GroceriesFeedProvider>
+            <ListPickerActionsProvider>
+              <LayoutContent>{children}</LayoutContent>
+            </ListPickerActionsProvider>
+          </GroceriesFeedProvider>
+        </ListProvider>
+      </DialogServiceProvider>
+    </DirectionProvider>
   )
 }
 
@@ -94,7 +99,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="frame">
+    <div className="frame" dir={i18n.dir()}>
       <header>
         <div className="user-chip">
           <button
@@ -118,7 +123,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
             // lock the rest of the page.
             <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
               <SheetTrigger asChild>
-                <button className="icon-btn" aria-label={t('menu.button')}>
+                <button className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
                   ☰
                 </button>
               </SheetTrigger>
@@ -274,19 +279,27 @@ function LayoutContent({ children }: { children: ReactNode }) {
           )}
         </div>
         {authError && <div className="header-error">{authError}</div>}
-        <h1>🛒 {t('appTitle')}</h1>
+        <h1 className="site-title">
+          <img
+            className="site-logo"
+            src="/branding/home-list-logo-compact.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <span>{t('appTitle')}</span>
+        </h1>
         {canView && (
-          <div className="tabs">
-            <Link to="/" className="tab-btn" activeProps={{ className: 'tab-btn active' }} activeOptions={{ exact: true }}>
+          <nav className="tabs" aria-label={t('tabs.label')}>
+            <Link to="/" className="tab-btn" activeProps={{ className: 'active' }} activeOptions={{ exact: true }}>
               🛒 {t('tabs.shoppingList')}
             </Link>
-            <Link to="/stock" className="tab-btn" activeProps={{ className: 'tab-btn active' }}>
+            <Link to="/stock" className="tab-btn" activeProps={{ className: 'active' }}>
               📦 {t('tabs.stock')}
             </Link>
-            <Link to="/receipts" className="tab-btn" activeProps={{ className: 'tab-btn active' }}>
+            <Link to="/receipts" className="tab-btn" activeProps={{ className: 'active' }}>
               🧾 {t('tabs.receipts')}
             </Link>
-          </div>
+          </nav>
         )}
       </header>
 

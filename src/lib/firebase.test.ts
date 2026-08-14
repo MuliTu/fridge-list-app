@@ -52,6 +52,16 @@ const callTo = (mockFetch: jest.Mock, urlSubstring: string) => {
   return call
 }
 
+const waitForCallTo = async (mockFetch: jest.Mock, urlSubstring: string) => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const call = mockFetch.mock.calls.find(([url]) => String(url).includes(urlSubstring))
+    if (call) return call
+    await Promise.resolve()
+  }
+
+  throw new Error(`no fetch call found for ${urlSubstring}`)
+}
+
 describe('auth header attachment on server-route calls', () => {
   beforeEach(() => {
     mockCurrentUser = null
@@ -149,6 +159,215 @@ describe('auth header attachment on server-route calls', () => {
       const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/submit-feedback')
       expect((options.headers as Record<string, string>).Authorization).toBeUndefined()
     })
+
+    const response = (
+      status: number,
+      body: unknown
+    ): { ok: boolean; status: number; json: () => Promise<unknown> } => ({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body
+    })
+
+    const feedbackCalls = (url: string) =>
+      (globalThis.fetch as jest.Mock).mock.calls.filter(
+        ([calledUrl]) => calledUrl === url
+      )
+
+    it('routes an entitled user to the agent with preserved request context', async () => {
+      mockCurrentUser = {
+        getIdToken: jest.fn().mockResolvedValue('real-id-token')
+      }
+      ;(globalThis.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === '/api/agent/entitlement') {
+            return response(200, { entitled: true })
+          }
+          if (url === '/api/agent/create-ticket') {
+            return response(201, { success: true, ticket: { id: 'ticket-1' } })
+          }
+          return response(200, {})
+        }
+      )
+
+      await expect(
+        submitFeedback({
+          request: 'add dark mode',
+          route: '/stock',
+          language: 'en'
+        })
+      ).resolves.toEqual({ error: false })
+
+      const [, agentOptions] = callTo(
+        globalThis.fetch as jest.Mock,
+        '/api/agent/create-ticket'
+      )
+      expect(agentOptions).toMatchObject({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer real-id-token'
+        }
+      })
+      expect(JSON.parse(agentOptions.body)).toEqual({
+        request: 'add dark mode',
+        context: {
+          route: '/stock',
+          language: 'en',
+          appVersion: '2.40.0'
+        }
+      })
+      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
+    })
+
+    it('keeps a non-entitled user on the existing n8n payload and route', async () => {
+      ;(globalThis.fetch as jest.Mock).mockImplementation(
+        async (url: string) =>
+          url === '/api/agent/entitlement'
+            ? response(200, { entitled: false })
+            : response(200, { error: false })
+      )
+
+      await expect(
+        submitFeedback({
+          request: 'add dark mode',
+          route: '/stock',
+          user: {
+            email: 'user@example.com',
+            displayName: 'User'
+          },
+          language: 'en'
+        })
+      ).resolves.toEqual({ error: false })
+
+      const [, n8nOptions] = callTo(
+        globalThis.fetch as jest.Mock,
+        '/api/submit-feedback'
+      )
+      expect(JSON.parse(n8nOptions.body)).toMatchObject({
+        request: 'add dark mode',
+        name: 'User',
+        email: 'user@example.com',
+        language: 'en',
+        source: 'fridge-list-app',
+        route: '/stock',
+        appVersion: '2.40.0'
+      })
+      expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
+    })
+
+    it('falls back to n8n only for an agent 403 before execution', async () => {
+      ;(globalThis.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === '/api/agent/entitlement') {
+            return response(200, { entitled: true })
+          }
+          if (url === '/api/agent/create-ticket') {
+            return response(403, {
+              success: false,
+              error: { code: 'ACCESS_DENIED' }
+            })
+          }
+          return response(200, { error: false })
+        }
+      )
+
+      await expect(
+        submitFeedback({ request: 'add dark mode' })
+      ).resolves.toEqual({ error: false })
+      expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(1)
+      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(1)
+    })
+
+    it.each([400, 500, 502])(
+      'does not fall back after an agent %i response',
+      async (status) => {
+        ;(globalThis.fetch as jest.Mock).mockImplementation(
+          async (url: string) => {
+            if (url === '/api/agent/entitlement') {
+              return response(200, { entitled: true })
+            }
+            if (url === '/api/agent/create-ticket') {
+              return response(status, {
+                success: false,
+                error: { code: 'SAFE_ERROR', message: 'request failed' }
+              })
+            }
+            return response(200, { error: false })
+          }
+        )
+
+        await expect(
+          submitFeedback({ request: 'add dark mode' })
+        ).resolves.toEqual({ error: true, message: 'request failed' })
+        expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
+      }
+    )
+
+    it('does not fall back when the agent result is network-uncertain', async () => {
+      ;(globalThis.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === '/api/agent/entitlement') {
+            return response(200, { entitled: true })
+          }
+          if (url === '/api/agent/create-ticket') {
+            throw new Error('connection dropped')
+          }
+          return response(200, { error: false })
+        }
+      )
+
+      await expect(
+        submitFeedback({ request: 'add dark mode' })
+      ).resolves.toEqual({ error: true, message: 'connection dropped' })
+      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
+    })
+
+    it('preserves n8n when the non-mutating entitlement read is unavailable', async () => {
+      ;(globalThis.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === '/api/agent/entitlement') {
+            throw new Error('entitlement unavailable')
+          }
+          return response(200, { error: false })
+        }
+      )
+
+      await expect(
+        submitFeedback({ request: 'add dark mode' })
+      ).resolves.toEqual({ error: false })
+      expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
+      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(1)
+    })
+  })
+})
+
+describe('bounded authenticated client events', () => {
+  beforeEach(() => {
+    mockCurrentUser = { getIdToken: jest.fn().mockResolvedValue('real-id-token') }
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({ ok: true, status: 204 })
+  })
+
+  it('sends only an allowlisted event identity, never legacy message content', async () => {
+    await createListApi('private-owner@example.com').setBought(
+      'private-grocery-key',
+      true,
+      { email: 'private-actor@example.com' } as any
+    )
+
+    const [, options] = await waitForCallTo(globalThis.fetch as jest.Mock, '/api/client-log')
+    expect(options.headers).toEqual({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer real-id-token'
+    })
+    expect(JSON.parse(options.body)).toEqual({
+      name: 'groceries.setBought',
+      level: 'success'
+    })
+    expect(options.body).not.toContain('private-owner')
+    expect(options.body).not.toContain('private-grocery-key')
+    expect(options.body).not.toContain('private-actor')
+    expect(options.body).not.toContain('real-id-token')
   })
 })
 

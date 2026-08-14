@@ -6,6 +6,8 @@
   "addToStockBtn": "📦 Add to stock",
   "deleteConfirm": "Delete the receipt from {{date}}?",
   "deleteConfirmUnknownDate": "unknown date",
+  "deleteFailed": "Delete failed: {{message}}",
+  "imageLoadFailed": "Could not load the receipt image: {{message}}",
   "loading": "⏳ Scanning receipt...",
   "processing": "⏳ Processing receipt...",
   "queueProgress": "⏳ Loading receipt {{current}} of {{total}}...",

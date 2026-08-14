@@ -33,6 +33,13 @@
     "noResults": "לא נמצאו פריטים התואמים ל\"{{query}}\"",
     "suggestAdd": "הוספת \"{{query}}\" כפריט חדש"
   },
+  "quickAdd": {
+    "label": "הוספת פריט מהירה",
+    "placeholder": "מה צריך לקנות?",
+    "button": "הוספה",
+    "adding": "מוסיף…",
+    "failed": "לא הצלחנו להוסיף את הפריט: {{message}}"
+  },
   "sort": {
     "label": "מיון הרשימה",
     "default": "מיון: ברירת מחדל",
@@ -52,11 +59,16 @@
   "purchased": {
     "show": "🛒 הצגת פריטים שנקנו ({{count}})",
     "hide": "🛒 הסתרת פריטים שנקנו",
-    "allPurchased": "הכול נקנה 🎉"
+    "allPurchased": "הכול נקנה 🎉",
+    "sectionLabel": "פריטים שנקנו ({{count}})"
   },
   "addItemFab": "הוספת פריט לרשימה",
   "item": {
     "info": "פרטי פריט",
+    "metadataTitle": "מידע על הפריט",
+    "edit": "פרטים ועריכה",
+    "markBought": "סימון {{item}} כנקנה",
+    "markUnbought": "החזרת {{item}} לרשימת הקניות",
     "bought": "✓ סומן ע\"י {{name}} · {{date}}",
     "added": "נוסף ע\"י {{name}} · {{date}}",
     "siri": "Siri"

@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   categorizeItem,
-  getImageDataUrl,
+  getCurrentUserIdToken,
   onValue,
   resizeImage,
   scanReceipt,
   scanReceiptFromUrl,
   type ListApi
 } from '../lib/firebase'
+import { createReceiptApiClient } from '../client/api/receipts'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { formatDateTime } from '../lib/formatDateTime'
 import { normalizeName } from '../lib/normalizeName'
@@ -28,7 +29,10 @@ const receiptTotal = (receipt: Receipt) =>
 // Shared by the post-save reconcile step and the on-demand "add to stock" button on
 // an already-saved receipt card — both need the exact same stock/grocery matching +
 // categorization, just triggered at a different time.
-const buildReconcileMatches = async (listApi: ListApi, items: ReceiptItem[]): Promise<ReconcileMatch[]> => {
+const buildReconcileMatches = async (
+  listApi: Pick<ListApi, 'getAllStockItems' | 'getAllGroceryItems'>,
+  items: ReceiptItem[]
+): Promise<ReconcileMatch[]> => {
   // One Firebase read each for the whole receipt, not one per item.
   const [stockItems, groceryItems] = await Promise.all([listApi.getAllStockItems(), listApi.getAllGroceryItems()])
   const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
@@ -72,8 +76,12 @@ export const Route = createFileRoute('/receipts')({
 function ReceiptsPage() {
   const { t } = useTranslation(['receipts', 'common'])
   const { user } = useAuth()
-  const { canEdit } = useActiveList()
+  const { activeList, canEdit } = useActiveList()
   const listApi = useListApi()
+  const receiptApi = useMemo(
+    () => createReceiptApiClient({ getIdToken: async () => (await getCurrentUserIdToken()) ?? null }),
+    []
+  )
   const { confirm, prompt, alert } = useDialogService()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -215,7 +223,8 @@ function ReceiptsPage() {
     total: number | null
     source_url: string | null
   }) => {
-    const { imageSkipped } = await listApi.saveReceipt(data, reviewData!.imageBlob, user)
+    if (!activeList) throw new Error('No active list')
+    const { imageSkipped } = await receiptApi.save(activeList.id, data, reviewData!.imageBlob)
     setReviewData(null)
     setScanError(imageSkipped ? t('receipts:scanErrors.imageTooLarge') : null)
     setProcessingReceipt(true)
@@ -294,17 +303,25 @@ function ReceiptsPage() {
   const handleDelete = async (receipt: Receipt) => {
     const date = formatDateTime(receipt.scanned_at) || t('receipts:deleteConfirmUnknownDate')
     if (!(await confirm(t('receipts:deleteConfirm', { date })))) return
-    listApi.deleteReceipt(receipt.key, receipt.image_ref)
+    if (!activeList) return
+    try {
+      await receiptApi.delete(activeList.id, receipt.key)
+    } catch (err: any) {
+      await alert(t('receipts:deleteFailed', { message: err.message }))
+    }
   }
 
   const handleViewImage = async (receipt: Receipt) => {
-    if (!receipt.image_ref) return
-    const dataUrl = await getImageDataUrl('receiptImages', receipt.image_ref)
-    if (!dataUrl) return
-    const blob = await (await fetch(dataUrl)).blob()
-    const objectUrl = URL.createObjectURL(blob)
-    window.open(objectUrl, '_blank')
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+    if (!receipt.image_ref || !activeList) return
+    try {
+      const dataUrl = await receiptApi.getImage(activeList.id, receipt.key)
+      const blob = await (await fetch(dataUrl)).blob()
+      const objectUrl = URL.createObjectURL(blob)
+      window.open(objectUrl, '_blank')
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+    } catch (err: any) {
+      await alert(t('receipts:imageLoadFailed', { message: err.message }))
+    }
   }
 
   return (

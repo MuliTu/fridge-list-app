@@ -2,6 +2,7 @@
   "appTitle": "רשימת הבית",
   "loading": "טוען...",
   "tabs": {
+    "label": "ניווט ראשי",
     "shoppingList": "רשימת קניות",
     "stock": "מלאי",
     "receipts": "קבלות"

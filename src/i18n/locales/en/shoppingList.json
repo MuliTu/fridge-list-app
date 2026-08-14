@@ -33,6 +33,13 @@
     "noResults": "No items found matching \"{{query}}\"",
     "suggestAdd": "Add \"{{query}}\" as a new item"
   },
+  "quickAdd": {
+    "label": "Quick add item",
+    "placeholder": "What do you need to buy?",
+    "button": "Add",
+    "adding": "Adding…",
+    "failed": "We couldn't add the item: {{message}}"
+  },
   "sort": {
     "label": "Sort list",
     "default": "Sort: Default",
@@ -52,11 +59,16 @@
   "purchased": {
     "show": "🛒 Show purchased items ({{count}})",
     "hide": "🛒 Hide purchased items",
-    "allPurchased": "All purchased 🎉"
+    "allPurchased": "All purchased 🎉",
+    "sectionLabel": "Purchased items ({{count}})"
   },
   "addItemFab": "Add item to list",
   "item": {
     "info": "Item details",
+    "metadataTitle": "Item information",
+    "edit": "Details and edit",
+    "markBought": "Mark {{item}} as purchased",
+    "markUnbought": "Return {{item}} to the shopping list",
     "bought": "✓ Checked off by {{name}} · {{date}}",
     "added": "Added by {{name}} · {{date}}",
     "siri": "Siri"

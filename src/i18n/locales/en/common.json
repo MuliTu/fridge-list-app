@@ -2,6 +2,7 @@
   "appTitle": "Household List",
   "loading": "Loading...",
   "tabs": {
+    "label": "Primary navigation",
     "shoppingList": "Shopping List",
     "stock": "Stock",
     "receipts": "Receipts"
