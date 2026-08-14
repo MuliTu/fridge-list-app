@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StockRouteImport } from './routes/stock'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedback'
@@ -34,6 +35,11 @@ import { Route as ApiListsListIdGroceriesItemIdPurchasedRouteImport } from './ro
 const StockRoute = StockRouteImport.update({
   id: '/stock',
   path: '/stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReceiptsRoute = ReceiptsRouteImport.update({
@@ -144,6 +150,7 @@ const ApiListsListIdGroceriesItemIdPurchasedRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/receipts': typeof ReceiptsRoute
+  '/settings': typeof SettingsRoute
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/receipts': typeof ReceiptsRoute
+  '/settings': typeof SettingsRoute
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/receipts': typeof ReceiptsRoute
+  '/settings': typeof SettingsRoute
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/receipts'
+    | '/settings'
     | '/stock'
     | '/api/categorize-item'
     | '/api/client-log'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/receipts'
+    | '/settings'
     | '/stock'
     | '/api/categorize-item'
     | '/api/client-log'
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/receipts'
+    | '/settings'
     | '/stock'
     | '/api/categorize-item'
     | '/api/client-log'
@@ -286,6 +298,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ReceiptsRoute: typeof ReceiptsRoute
+  SettingsRoute: typeof SettingsRoute
   StockRoute: typeof StockRoute
   ApiCategorizeItemRoute: typeof ApiCategorizeItemRoute
   ApiClientLogRoute: typeof ApiClientLogRoute
@@ -310,6 +323,13 @@ declare module '@tanstack/react-router' {
       path: '/stock'
       fullPath: '/stock'
       preLoaderRoute: typeof StockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/receipts': {
@@ -518,6 +538,7 @@ const ApiListsListIdReceiptsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ReceiptsRoute: ReceiptsRoute,
+  SettingsRoute: SettingsRoute,
   StockRoute: StockRoute,
   ApiCategorizeItemRoute: ApiCategorizeItemRoute,
   ApiClientLogRoute: ApiClientLogRoute,

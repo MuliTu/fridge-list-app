@@ -18,7 +18,11 @@ import path from 'node:path'
 import { nodeFileTrace } from '@vercel/nft'
 
 const OUT = '.vercel/output'
-const FUNC = `${OUT}/functions/index.func`
+// Keep the function path distinct from static/index.html. Naming both outputs
+// "index" makes Vercel resolve the SPA fallback to the Lambda on `/`, defeating
+// filesystem-first routing and turning an API-only startup failure into a full-site
+// outage.
+const FUNC = `${OUT}/functions/api.func`
 
 await rm(OUT, { recursive: true, force: true })
 await mkdir(`${OUT}/static`, { recursive: true })
@@ -158,7 +162,7 @@ await writeFile(
       routes: [
         { src: '/(.*)', headers: SECURITY_HEADERS, continue: true },
         { handle: 'filesystem' },
-        { src: '/api/(.*)', dest: '/index' },
+        { src: '/api/(.*)', dest: '/api' },
         { src: '/(.*)', dest: '/index.html' }
       ]
     },
@@ -167,4 +171,4 @@ await writeFile(
   )
 )
 
-console.log('vercel-build.mjs: wrote .vercel/output (static + index.func)')
+console.log('vercel-build.mjs: wrote .vercel/output (static + api.func)')

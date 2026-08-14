@@ -906,8 +906,18 @@ read's timing.
 **`config` is the general home for per-user settings.** In addition to
 `onboardingDismissed`, `keepBoughtItemsInCategories` records whether checked items stay
 in their original category (`true`) or move to the separate completed section (absent
-or `false`, preserving the historical default). The Settings sidebar controls this
-cross-device preference; a failed write rolls the UI back to its prior value.
+or `false`, preserving the historical default). The dedicated `/settings` tab controls
+this cross-device preference alongside language and stock-suggestion preferences; the
+sidebar stays focused on list and administrative actions. A failed write rolls the UI
+back to its prior value.
+
+**Vercel packaging compatibility:** `firebase-admin` currently brings in
+`jwks-rsa`, whose CommonJS entry point synchronously requires `jose`. Vercel's Node
+launcher cannot bridge that require to the ESM-only `jose` v6 build, so `package.json`
+pins only `jwks-rsa`'s nested `jose` dependency to the compatible v5 line. The app's
+own direct `jose` v6 dependency remains unchanged. The generated serverless function
+is named `api.func` rather than `index.func` so it cannot shadow the SPA's static
+`index.html`; only `/api/*` routes invoke it.
 
 ## What's New feed (`/whats_new`, `src/components/WhatsNewModal.tsx`)
 

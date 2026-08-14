@@ -20,12 +20,8 @@ import FeedbackStatusToast from './FeedbackStatusToast'
 import OnboardingModal from './OnboardingModal'
 import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
-import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { useOnboarding } from '../hooks/useOnboarding'
-import {
-  BoughtItemsPreferenceProvider,
-  useBoughtItemsPreference
-} from '../hooks/BoughtItemsPreferenceContext'
+import { BoughtItemsPreferenceProvider } from '../hooks/BoughtItemsPreferenceContext'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
 import { cn } from '../lib/utils'
 
@@ -86,13 +82,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
   // a transient status toast (pending → success/error) that outlives the modal.
   const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
     useFeedbackToast()
-  const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
-  const {
-    keepBoughtItemsInCategories,
-    isResolved: boughtItemsPreferenceResolved,
-    saveError: boughtItemsPreferenceSaveError,
-    toggleBoughtItemsPlacement
-  } = useBoughtItemsPreference()
   const { actions: listPickerActions } = useListPickerActions()
   const { isOpen: onboardingOpen, close: closeOnboarding, replay: replayOnboarding } = useOnboarding(user?.email)
 
@@ -272,32 +261,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     >
                       {t('menu.sendFeedback')}
                     </button>
-                    <button
-                      className={sidebarItemClass}
-                      onClick={() => {
-                        setSidebarOpen(false)
-                        toggleStockSuggestion()
-                      }}
-                    >
-                      {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
-                    </button>
-                    <button
-                      className={cn(sidebarItemClass, 'disabled:cursor-wait disabled:opacity-60')}
-                      disabled={!boughtItemsPreferenceResolved}
-                      aria-pressed={keepBoughtItemsInCategories}
-                      onClick={() => {
-                        toggleBoughtItemsPlacement().catch(() => {})
-                      }}
-                    >
-                      {keepBoughtItemsInCategories
-                        ? t('menu.boughtItemsInCategories')
-                        : t('menu.boughtItemsInCompletedSection')}
-                    </button>
-                    {boughtItemsPreferenceSaveError && (
-                      <div className="px-2 py-1 text-xs text-destructive" role="status">
-                        {t('menu.preferenceSaveFailed')}
-                      </div>
-                    )}
                   </>
                 )}
 
@@ -344,6 +307,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
             </Link>
             <Link to="/receipts" className="tab-btn" activeProps={{ className: 'active' }}>
               🧾 {t('tabs.receipts')}
+            </Link>
+            <Link to="/settings" className="tab-btn" activeProps={{ className: 'active' }}>
+              ⚙️ {t('tabs.settings')}
             </Link>
           </nav>
         )}

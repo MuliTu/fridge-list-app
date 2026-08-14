@@ -5,7 +5,8 @@
     "label": "ניווט ראשי",
     "shoppingList": "רשימת קניות",
     "stock": "מלאי",
-    "receipts": "קבלות"
+    "receipts": "קבלות",
+    "settings": "הגדרות"
   },
   "auth": {
     "signIn": "התחברות",
@@ -25,12 +26,28 @@
     "viewWhatsNew": "🆕 מה חדש",
     "viewPurchaseInsights": "📊 תובנות קנייה",
     "viewOnboarding": "🎓 הצגת ההדרכה",
-    "sendFeedback": "💬 שליחת משוב",
-    "stockSuggestionOn": "📦 הצעת מלאי: פעיל",
-    "stockSuggestionOff": "📦 הצעת מלאי: כבוי",
-    "boughtItemsInCategories": "✓ פריטים שנקנו: בתוך הקטגוריות",
-    "boughtItemsInCompletedSection": "✓ פריטים שנקנו: באזור נפרד",
-    "preferenceSaveFailed": "שמירת ההגדרה נכשלה. נסו שוב."
+    "sendFeedback": "💬 שליחת משוב"
+  },
+  "settings": {
+    "title": "הגדרות אישיות",
+    "description": "ההעדפות שלכם נשמרות ומותאמות לחוויית השימוש שלכם.",
+    "on": "פעיל",
+    "off": "כבוי",
+    "preferenceSaveFailed": "שמירת ההגדרה נכשלה. נסו שוב.",
+    "language": {
+      "title": "שפת הממשק",
+      "description": "בחירת השפה וכיוון התצוגה של האפליקציה."
+    },
+    "boughtItems": {
+      "title": "מיקום פריטים שנקנו",
+      "description": "בחרו אם להשאיר פריטים מסומנים בקטגוריה המקורית או להעביר אותם לאזור נפרד.",
+      "inCategories": "בתוך הקטגוריות",
+      "separateSection": "באזור נפרד"
+    },
+    "stockSuggestion": {
+      "title": "הצעה לעדכון המלאי",
+      "description": "הצגת הצעה להוסיף למלאי פריט שסומן כנקנה."
+    }
   },
   "actions": {
     "cancel": "ביטול",

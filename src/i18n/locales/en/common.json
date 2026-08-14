@@ -5,7 +5,8 @@
     "label": "Primary navigation",
     "shoppingList": "Shopping List",
     "stock": "Stock",
-    "receipts": "Receipts"
+    "receipts": "Receipts",
+    "settings": "Settings"
   },
   "auth": {
     "signIn": "Sign in",
@@ -25,12 +26,28 @@
     "viewWhatsNew": "🆕 What's New",
     "viewPurchaseInsights": "📊 Purchase Insights",
     "viewOnboarding": "🎓 Show tutorial",
-    "sendFeedback": "💬 Send feedback",
-    "stockSuggestionOn": "📦 Stock suggestion: On",
-    "stockSuggestionOff": "📦 Stock suggestion: Off",
-    "boughtItemsInCategories": "✓ Bought items: Keep in categories",
-    "boughtItemsInCompletedSection": "✓ Bought items: Separate section",
-    "preferenceSaveFailed": "Couldn't save this setting. Try again."
+    "sendFeedback": "💬 Send feedback"
+  },
+  "settings": {
+    "title": "Personal settings",
+    "description": "Your preferences are saved and applied to your experience.",
+    "on": "On",
+    "off": "Off",
+    "preferenceSaveFailed": "Couldn't save this setting. Try again.",
+    "language": {
+      "title": "Interface language",
+      "description": "Choose the application's language and reading direction."
+    },
+    "boughtItems": {
+      "title": "Bought-item placement",
+      "description": "Keep checked items in their original category or move them to a separate section.",
+      "inCategories": "In categories",
+      "separateSection": "Separate section"
+    },
+    "stockSuggestion": {
+      "title": "Stock update suggestion",
+      "description": "Offer to add an item to stock after it is marked as bought."
+    }
   },
   "actions": {
     "cancel": "Cancel",
