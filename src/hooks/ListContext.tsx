@@ -273,8 +273,11 @@ export function ListProvider({ children }: { children: ReactNode }) {
       const commands = createGroceryApiClient({ getIdToken: getCurrentUserIdToken })
       return {
         ...legacy,
-        setBought: (key: string, bought: boolean, _mutationUser?: AuthUser | null) =>
-          commands.setPurchased(resolvedActiveListId, key, bought),
+        setBought: (
+          entry: Parameters<ListApi['setBought']>[0],
+          bought: boolean,
+          _mutationUser?: AuthUser | null
+        ) => commands.setPurchased(resolvedActiveListId, entry.key, bought),
         updateGroceryItemCategory: (key: string, category: string, _mutationUser?: AuthUser | null) =>
           commands.update(resolvedActiveListId, key, { category }),
         saveItemDetails: (

@@ -12,6 +12,7 @@ export type FeedbackSubmission = {
 export type FeedbackResult = {
   error: false
   cardUrl?: string
+  ticket?: { id: string; url: string; title: string } | null
 }
 
 export interface FeedbackProvider {

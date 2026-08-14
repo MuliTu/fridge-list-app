@@ -108,7 +108,7 @@ function ShoppingListPage() {
 
   const handleToggleBought = (entry: GroceryItem) => {
     const newBought = !entry.bought
-    listApi.setBought(entry.key, newBought, user)
+    listApi.setBought(entry, newBought, user)
     // Offer to reflect the purchase in the home inventory. Unlike before, the prompt
     // now appears whether or not the item is already tracked in /stock: an existing
     // match adds to its quantity, a miss offers to create a fresh stock entry. Gated by
@@ -403,9 +403,12 @@ function ShoppingListPage() {
         <BulkUploadModal
           listName={activeList}
           categories={categories}
-          existingItemNames={visibleEntries.filter((e) => !e.bought).map((e) => e.item)}
+          existingEntries={visibleEntries
+            .filter((e) => !e.bought)
+            .map((e) => ({ key: e.key, name: e.item, category: e.category }))}
           onClose={() => setShowBulkUpload(false)}
           onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
+          onUpdateQuantity={(key, fields) => listApi.updateGroceryItemQuantity(key, fields, user)}
         />
       )}
     </>

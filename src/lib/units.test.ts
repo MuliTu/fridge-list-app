@@ -1,4 +1,4 @@
-import { resolveQuantityUnit, NO_UNIT, OTHER_UNIT, StockUnit } from './units'
+import { matchUnitAlias, resolveQuantityUnit, NO_UNIT, OTHER_UNIT, StockUnit } from './units'
 
 describe('resolveQuantityUnit', () => {
   it('returns null quantity and null unit when both fields are empty', () => {
@@ -71,5 +71,35 @@ describe('resolveQuantityUnit', () => {
     expect(resolveQuantityUnit({ quantityText: '', unit: OTHER_UNIT, customUnit: 'crates' }).error).toBe(
       'unitRequiresQuantity'
     )
+  })
+})
+
+describe('matchUnitAlias', () => {
+  it('matches an exact preset value verbatim', () => {
+    expect(matchUnitAlias('ק"ג')).toBe(StockUnit.Kilogram)
+  })
+
+  it('matches common English aliases (bulk-import free text)', () => {
+    expect(matchUnitAlias('kilo')).toBe(StockUnit.Kilogram)
+    expect(matchUnitAlias('KG')).toBe(StockUnit.Kilogram)
+    expect(matchUnitAlias('liters')).toBe(StockUnit.Liter)
+    expect(matchUnitAlias('Liter')).toBe(StockUnit.Liter)
+    expect(matchUnitAlias('pieces')).toBe(StockUnit.Piece)
+    expect(matchUnitAlias('amount')).toBe(StockUnit.Piece)
+  })
+
+  it('matches Hebrew shorthand aliases', () => {
+    expect(matchUnitAlias('קג')).toBe(StockUnit.Kilogram)
+    expect(matchUnitAlias('יח')).toBe(StockUnit.Piece)
+  })
+
+  it('returns null for unrecognized text', () => {
+    expect(matchUnitAlias('crates')).toBeNull()
+    expect(matchUnitAlias('ארגזים')).toBeNull()
+  })
+
+  it('returns null for empty/blank text', () => {
+    expect(matchUnitAlias('')).toBeNull()
+    expect(matchUnitAlias('   ')).toBeNull()
   })
 })

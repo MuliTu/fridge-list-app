@@ -14,6 +14,7 @@ import CategoriesModal from './CategoriesModal'
 import ListMembersModal from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
 import WhatsNewModal from './WhatsNewModal'
+import PurchaseInsightsModal from './PurchaseInsightsModal'
 import FeedbackModal from './FeedbackModal'
 import FeedbackStatusToast from './FeedbackStatusToast'
 import OnboardingModal from './OnboardingModal'
@@ -62,6 +63,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
+  const [showPurchaseInsights, setShowPurchaseInsights] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { categories } = useCategories()
@@ -200,6 +202,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   onClick={() => runAfterSidebarCloses(() => setShowWhatsNew(true))}
                 >
                   {t('menu.viewWhatsNew')}
+                </button>
+                <button
+                  className={sidebarItemClass}
+                  onClick={() => runAfterSidebarCloses(() => setShowPurchaseInsights(true))}
+                >
+                  {t('menu.viewPurchaseInsights')}
                 </button>
                 <button
                   className={sidebarItemClass}
@@ -347,6 +355,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showMembers && <ListMembersModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
+      {showPurchaseInsights && <PurchaseInsightsModal onClose={() => setShowPurchaseInsights(false)} />}
       {showFeedback && (
         <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={submitFeedbackRequest} />
       )}

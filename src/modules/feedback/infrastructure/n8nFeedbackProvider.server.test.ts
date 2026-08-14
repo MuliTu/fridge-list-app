@@ -21,7 +21,12 @@ describe('N8nFeedbackProvider', () => {
 
     await expect(new N8nFeedbackProvider(fetchMock).submit(submission)).resolves.toEqual({
       error: false,
-      cardUrl: 'https://trello.com/c/abc'
+      cardUrl: 'https://trello.com/c/abc',
+      ticket: {
+        id: '',
+        url: 'https://trello.com/c/abc',
+        title: 'Add dark mode'
+      }
     })
     expect(fetchMock).toHaveBeenCalledWith(SUBMIT_FEEDBACK_WEBHOOK_URL, {
       method: 'POST',

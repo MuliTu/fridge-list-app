@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 
+import { deriveTicketFromN8nResponse } from '../../../lib/deriveTicket'
 import { ApplicationError } from '../../shared'
 import type { FeedbackProvider, FeedbackResult, FeedbackSubmission } from '../application/feedbackProvider'
 
@@ -36,10 +37,12 @@ export class N8nFeedbackProvider implements FeedbackProvider {
       throw new ApplicationError('upstream_failed', `Feedback provider returned HTTP ${response.status}`)
     }
 
-    const cardUrl = (data as Record<string, unknown>).cardUrl
+    const result = data as Record<string, unknown>
+    const cardUrl = result.cardUrl
     return {
       error: false,
-      ...(typeof cardUrl === 'string' ? { cardUrl } : {})
+      ...(typeof cardUrl === 'string' ? { cardUrl } : {}),
+      ticket: deriveTicketFromN8nResponse(result, submission.request)
     }
   }
 }

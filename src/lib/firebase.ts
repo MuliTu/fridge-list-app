@@ -5,9 +5,10 @@ import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
 import { logger } from './logger'
 import { normalizeName } from './normalizeName'
+import type { HabitChange } from './purchaseHabitChanges'
 import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
-import type { AuthUser, GroceryItem, ReceiptItem, StockItem } from '../types'
+import type { AuthUser, FeedbackRecord, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
 import { version as APP_VERSION } from '../../package.json'
 import { CLIENT_EVENT_NAMES, type ClientEventLevel, type ClientEventName } from '../modules/observability'
 
@@ -183,6 +184,24 @@ export const getReleases = async (): Promise<ReleaseInfo[]> => {
   return data.releases || []
 }
 
+// Same-origin proxy as categorizeItem/getReleases above — /api/purchase-habit-summary
+// (see that route for the full request/response contract and the "n8n workflow not
+// yet built" caveat) holds the n8n webhook URL server-side. Takes the already-
+// aggregated HabitChange[] from computeHabitChanges (src/lib/purchaseHabitChanges.ts),
+// never raw purchase-history events. Returns [] (not an error) whenever there's
+// nothing to say, same graceful "no data" shape used elsewhere rather than a special
+// case the caller has to distinguish from a real failure.
+export const getPurchaseHabitSummary = async (changes: HabitChange[]): Promise<string[]> => {
+  const response = await fetch('/api/purchase-habit-summary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+    body: JSON.stringify({ changes })
+  })
+  if (!response.ok) throw new Error('טעינת סיכום שינויי ההרגלים נכשלה (' + response.status + ')')
+  const data = await response.json()
+  return data.summary || []
+}
+
 // ---------------------------------------------------------------------------
 // Lists (households): /users/{sanitizedOwnerEmail}
 // ---------------------------------------------------------------------------
@@ -235,6 +254,53 @@ export const setOnboardingDismissed = (email: string) => update(configRef(email)
 // not owned by any particular list. Needs its own RTDB rule (not applied yet, same
 // category as the other manual Console steps this project has — see CLAUDE.md).
 export const whatsNewRef = ref(db, 'whats_new')
+
+// Global, sibling to `users`/`whats_new` — feedback isn't owned by any particular
+// list. A durability/observability layer over submitFeedback's existing
+// submit → n8n → Gemini → Trello flow (see FeedbackRecord in types.ts and the In-app
+// feedback module in CLAUDE.md): every submission attempt gets a record here so it's
+// trackable even if the Trello card creation itself fails or the browser tab closes
+// before the network call resolves. Needs its own RTDB rule, same open philosophy as
+// `/whats_new`/`/categories` (not applied yet, same category as this project's other
+// manual Console steps).
+export const feedbacksRef = ref(db, 'feedbacks')
+
+// Small, purpose-built helpers (matching getOnboardingDismissed/setOnboardingDismissed's
+// style) rather than exposing raw push/update to callers — submitFeedback is the only
+// intended caller of both.
+const createFeedbackRecord = async (message: string, user?: AuthUser | null): Promise<string> => {
+  const newRef = push(feedbacksRef)
+  const key = newRef.key as string
+  const now = new Date().toISOString()
+  const record: Omit<FeedbackRecord, never> = {
+    createdAt: now,
+    updatedAt: now,
+    // Raw email, not sanitizeEmailKey's path-safe form — this is a data field, not a
+    // path segment. Falls back to 'anonymous' rather than null since FeedbackRecord's
+    // userId is typed as a plain string (this flow is already canEdit/sign-in-gated in
+    // the UI, so an anonymous submitter shouldn't normally happen).
+    userId: user?.email || 'anonymous',
+    username: user?.displayName || user?.email || 'Anonymous',
+    message,
+    status: 'new',
+    error: null,
+    retryCount: 0,
+    lastAttemptAt: null,
+    ticket: null,
+    // Ticket F3's idempotency guard only ever gets stamped by the retry job's own
+    // adapter (see src/lib/retryFeedback.ts) — the live submit flow below never
+    // touches it, so it starts (and stays) null until the record's first retry claim,
+    // if it ever needs one.
+    attemptId: null
+  }
+  await set(newRef, record)
+  return key
+}
+
+const updateFeedbackRecord = (
+  key: string,
+  updates: Partial<Pick<FeedbackRecord, 'status' | 'error' | 'retryCount' | 'lastAttemptAt' | 'ticket'>>
+) => update(ref(db, `feedbacks/${key}`), { ...updates, updatedAt: new Date().toISOString() })
 
 // Idempotent — only writes `name` if this user has never been provisioned as an
 // owner before (a fresh /users/{email} node may already exist with nothing but a
@@ -319,6 +385,7 @@ export function createListApi(ownerEmail: string) {
   const stockRef = ref(db, `${base}/stock`)
   const receiptsRef = ref(db, `${base}/receipts`)
   const categoriesRef = ref(db, `${base}/categories`)
+  const purchaseHistoryRef = ref(db, `${base}/purchaseHistory`)
 
   const touchModified = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
     update(ref(db, `${base}/groceries/${key}`), {
@@ -327,9 +394,60 @@ export function createListApi(ownerEmail: string) {
       modified_by: user?.email || null
     })
 
-  const setBought = (key: string, bought: boolean, user?: AuthUser | null) => {
-    logClientAction(`[groceries] setBought: list=${ownerEmail} key=${key} bought=${bought} by=${user?.email || 'anonymous'}`)
-    return touchModified(key, { bought }, user)
+  // Append-only purchase-event log (see PurchaseEvent in ../types) — pushes one record
+  // per manual/voice "bought" checkbox transition to true. Called only from setBought
+  // below, and only on a genuine false -> true transition (never on uncheck, and
+  // deliberately NOT called from the receipt-reconcile flow — addPurchasedGroceryItem/
+  // applyReceiptReconciliation below intentionally skip this, per the product decision
+  // that this log's source of truth is the checkbox interaction only; receipts already
+  // have their own separate price-history feature, see getReceiptPriceHistory below).
+  // Never mutates/deletes existing events. Fire-and-forget and self-contained error
+  // handling: a failure here must never block or throw out of the actual `bought`
+  // write, same graceful-degradation philosophy as logClientAction's /api/client-log
+  // forwarding above.
+  const recordPurchaseEvent = (
+    entry: { item: string; category: string; quantity?: number | null; unit?: string | null },
+    user?: AuthUser | null
+  ) => {
+    try {
+      const event: PurchaseEvent = {
+        itemName: entry.item,
+        category: entry.category,
+        quantity: entry.quantity ?? null,
+        unit: entry.unit ?? null,
+        purchasedAt: new Date().toISOString(),
+        purchasedBy: user?.email ?? null
+      }
+      return Promise.resolve(push(purchaseHistoryRef, event)).catch((err) => {
+        logger.warn(
+          `[purchaseHistory] recordPurchaseEvent failed: list=${ownerEmail} item=${entry.item} message=${err?.message || err}`
+        )
+      })
+    } catch (err: any) {
+      logger.warn(
+        `[purchaseHistory] recordPurchaseEvent failed: list=${ownerEmail} item=${entry.item} message=${err?.message || err}`
+      )
+      return Promise.resolve()
+    }
+  }
+
+  const setBought = (
+    entry: Pick<GroceryItem, 'key' | 'item' | 'category' | 'bought' | 'quantity' | 'unit'>,
+    bought: boolean,
+    user?: AuthUser | null
+  ) => {
+    logClientAction(
+      `[groceries] setBought: list=${ownerEmail} key=${entry.key} bought=${bought} by=${user?.email || 'anonymous'}`
+    )
+    // Only a genuine false -> true transition counts as "purchased" for the history
+    // log — unchecking (true -> false) never appends, and this guard also protects
+    // against a redundant true -> true call (shouldn't happen from the current UI,
+    // which only ever calls this with the flipped value, but keeps the log honest
+    // either way).
+    if (bought && !entry.bought) {
+      recordPurchaseEvent(entry, user)
+    }
+    return touchModified(entry.key, { bought }, user)
   }
 
   // Reassign a grocery item to a different category (used by drag-and-drop between
@@ -371,6 +489,23 @@ export function createListApi(ownerEmail: string) {
       `[groceries] saveItemDetails: list=${ownerEmail} key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
     )
     return touchModified(key, fields, user)
+  }
+
+  // Narrower sibling of saveItemDetails, for BulkUploadModal's "bulk update" path only:
+  // sets just quantity/unit on an existing item. Deliberately does NOT reuse
+  // saveItemDetails, which always overwrites `note` back to `null` when not given
+  // (safe there, since the edit modal always sends its full current form state) — a
+  // bulk quantity update has no form state for note/image and must never silently wipe
+  // them out just because the bulk-review row didn't carry them.
+  const updateGroceryItemQuantity = (
+    key: string,
+    fields: { quantity: number | null; unit: string | null },
+    user?: AuthUser | null
+  ) => {
+    logClientAction(
+      `[groceries] updateGroceryItemQuantity: list=${ownerEmail} key=${key} quantity=${fields.quantity} unit=${fields.unit} by=${user?.email || 'anonymous'}`
+    )
+    return touchModified(key, { quantity: fields.quantity, unit: fields.unit }, user)
   }
 
   const deleteItem = async (key: string, imageRef?: string | null) => {
@@ -454,6 +589,11 @@ export function createListApi(ownerEmail: string) {
     })
   }
 
+  // Deliberately does NOT call recordPurchaseEvent — this writes a grocery item that
+  // arrived already-bought via the receipt-reconcile flow, not a checkbox transition.
+  // See the purchase-event-log data-source decision on recordPurchaseEvent above:
+  // purchaseHistory tracks the bought checkbox only; receipts have their own separate
+  // price-history feature (getReceiptPriceHistory below).
   const addPurchasedGroceryItem = (item: { name: string; category: string }, user?: AuthUser | null) => {
     logClientAction(`[groceries] addPurchasedGroceryItem: list=${ownerEmail} name=${item.name} by=${user?.email || 'anonymous'}`)
     const now = new Date().toISOString()
@@ -473,6 +613,10 @@ export function createListApi(ownerEmail: string) {
   // Firebase calls (one multi-path update() per collection touched) instead of one
   // write per line item — a receipt with N items no longer means N separate
   // adjustStockQuantity/setBought/addPurchasedGroceryItem round-trips.
+  // Also deliberately does NOT call recordPurchaseEvent for the same reason as
+  // addPurchasedGroceryItem above — the `groceryBoughtKeys`/`newGroceryItems` writes
+  // below mark items bought directly (bypassing setBought entirely), and this flow is
+  // receipt-sourced, not a checkbox transition.
   const applyReceiptReconciliation = (
     ops: {
       stockAdjustments: { key: string; quantity: number }[]
@@ -686,9 +830,12 @@ export function createListApi(ownerEmail: string) {
     stockRef,
     receiptsRef,
     categoriesRef,
+    purchaseHistoryRef,
     setBought,
+    recordPurchaseEvent,
     updateGroceryItemCategory,
     saveItemDetails,
+    updateGroceryItemQuantity,
     deleteItem,
     addStockItem,
     adjustStockQuantity,
@@ -798,6 +945,52 @@ export const submitFeedback = async ({
   }
   logClientAction(`[feedback] submitFeedback: from=${payload.name} lang=${payload.language} route=${payload.route}`)
 
+  // Durability/observability layer (see FeedbackRecord in types.ts): persists this
+  // submission and its outcome to /feedbacks alongside the existing n8n/Trello flow.
+  // Every one of these Firebase calls is wrapped so a write failure here can never
+  // block or change the actual submission below — same graceful-degradation
+  // philosophy as logClientAction (log and continue, don't throw).
+  let feedbackKey: string | null = null
+  try {
+    feedbackKey = await createFeedbackRecord(request, user)
+  } catch (err: any) {
+    logClientAction(`[feedback] createFeedbackRecord failed (continuing anyway): ${err.message}`)
+  }
+
+  if (feedbackKey) {
+    try {
+      await updateFeedbackRecord(feedbackKey, { status: 'processing', lastAttemptAt: new Date().toISOString() })
+    } catch (err: any) {
+      logClientAction(`[feedback] updateFeedbackRecord(processing) failed (continuing anyway): ${err.message}`)
+    }
+  }
+
+  const markFeedbackError = async (message: string) => {
+    if (!feedbackKey) return
+    try {
+      await updateFeedbackRecord(feedbackKey, {
+        status: 'error',
+        error: { message },
+        retryCount: 1
+      })
+    } catch (err: any) {
+      logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${err.message}`)
+    }
+  }
+
+  const markFeedbackSuccess = async (ticket: FeedbackRecord['ticket']) => {
+    if (!feedbackKey) return
+    try {
+      await updateFeedbackRecord(feedbackKey, {
+        status: 'ticket_created',
+        error: null,
+        ticket: ticket || null
+      })
+    } catch (err: any) {
+      logClientAction(`[feedback] updateFeedbackRecord(ticket_created) failed (continuing anyway): ${err.message}`)
+    }
+  }
+
   const submitToN8n = async (
     authHeaders: Record<string, string>
   ): Promise<{ error: boolean; message?: string }> => {
@@ -809,12 +1002,16 @@ export const submitFeedback = async ({
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok || data.error) {
-        logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${data.message || 'unknown'}`)
+        const message = data.message || 'feedback upstream failed'
+        logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${message}`)
+        await markFeedbackError(message)
         return { error: true, message: data.message }
       }
+      await markFeedbackSuccess(data.ticket || null)
       return { error: false }
     } catch (err: any) {
       logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
+      await markFeedbackError(err.message)
       return { error: true, message: err.message }
     }
   }
@@ -851,7 +1048,6 @@ export const submitFeedback = async ({
       })
     })
     const data = await response.json().catch(() => ({}))
-
     if (response.status === 403) {
       // Authorization is checked before request parsing, prompt/model work, and
       // provider mutation, so this is the only safe agent-to-n8n fallback.
@@ -859,14 +1055,17 @@ export const submitFeedback = async ({
     }
     if (!response.ok || data.success !== true) {
       logClientAction(`[feedback] agent submission failed: status=${response.status} code=${data.error?.code || 'unknown'}`)
+      await markFeedbackError(data.error?.message || 'feedback upstream failed')
       return { error: true, message: data.error?.message }
     }
 
+    await markFeedbackSuccess(data.ticket || null)
     return { error: false }
   } catch (err: any) {
     // Once the agent request starts, a network error is an uncertain result and
     // must never trigger n8n, which could create a duplicate ticket.
     logClientAction(`[feedback] agent submission network error: ${err.message}`)
+    await markFeedbackError(err.message)
     return { error: true, message: err.message }
   }
 }

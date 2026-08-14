@@ -1,0 +1,13 @@
+{
+  "title": "Purchase Insights",
+  "explanation": "Based on items you've checked off the shopping list.",
+  "weeklyTitle": "This week",
+  "monthlyTitle": "This month",
+  "frequentTitle": "Frequently purchased (last 90 days)",
+  "itemCount": "{{itemName}} — {{count}}",
+  "empty": "Nothing purchased in this period yet.",
+  "habitsTitle": "Buying habit changes",
+  "habitsLoading": "Checking for buying habit changes...",
+  "habitsError": "Couldn't load the habit summary. The insights above are still available.",
+  "habitsEmpty": "No meaningful buying habit changes detected recently."
+}

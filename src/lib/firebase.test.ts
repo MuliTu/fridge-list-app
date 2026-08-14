@@ -41,8 +41,9 @@ jest.mock('firebase/firestore', () => ({
 }))
 jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }))
 
-import { push, update } from 'firebase/database'
+import { push, set, update } from 'firebase/database'
 import { categorizeItem, createListApi, getReleases, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
+import { logger } from './logger'
 
 // Pulls out the single fetch call made to `urlSubstring` (ignoring the fire-and-forget
 // /api/client-log calls logClientAction makes alongside some of these).
@@ -214,7 +215,7 @@ describe('auth header attachment on server-route calls', () => {
         context: {
           route: '/stock',
           language: 'en',
-          appVersion: '2.40.0'
+          appVersion: '2.50.0'
         }
       })
       expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
@@ -251,7 +252,7 @@ describe('auth header attachment on server-route calls', () => {
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
-        appVersion: '2.40.0'
+        appVersion: '2.50.0'
       })
       expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
     })
@@ -350,7 +351,14 @@ describe('bounded authenticated client events', () => {
 
   it('sends only an allowlisted event identity, never legacy message content', async () => {
     await createListApi('private-owner@example.com').setBought(
-      'private-grocery-key',
+      {
+        key: 'private-grocery-key',
+        item: 'private item',
+        category: 'private category',
+        bought: false,
+        quantity: null,
+        unit: null
+      },
       true,
       { email: 'private-actor@example.com' } as any
     )
@@ -368,6 +376,104 @@ describe('bounded authenticated client events', () => {
     expect(options.body).not.toContain('private-grocery-key')
     expect(options.body).not.toContain('private-actor')
     expect(options.body).not.toContain('real-id-token')
+  })
+})
+
+// F1 — persists every submitFeedback() attempt to /feedbacks (see FeedbackRecord in
+// src/types.ts) as a durability/observability layer on top of the existing
+// submit → n8n → Gemini → Trello flow, without changing that flow's own behavior or
+// submitFeedback()'s existing { error, message } return shape. push/set/update are
+// mocked at the module boundary per .claude/skills/senior-qa-jest — this never
+// touches the real n8n-vocal-2-db project.
+describe('submitFeedback: Firebase feedback tracking (F1)', () => {
+  beforeEach(() => {
+    mockCurrentUser = null
+    ;(push as jest.Mock).mockClear()
+    ;(set as jest.Mock).mockReset().mockResolvedValue(undefined)
+    ;(update as jest.Mock).mockReset().mockResolvedValue(undefined)
+  })
+
+  // Restore set()/update() to their harmless resolved-default state — otherwise a
+  // mockRejectedValue set inside one of these tests would leak into later, unrelated
+  // describe blocks in this same file (both mocks are shared at the module level).
+  afterEach(() => {
+    ;(set as jest.Mock).mockReset().mockResolvedValue(undefined)
+    ;(update as jest.Mock).mockReset().mockResolvedValue(undefined)
+  })
+
+  it('creates a "new" record, marks it processing, then ends at ticket_created with ticket/error:null populated', async () => {
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
+      })
+    })
+
+    const result = await submitFeedback({
+      request: 'add dark mode',
+      user: { email: 'user@example.com', displayName: 'User' }
+    })
+    expect(result).toEqual({ error: false })
+
+    // First write: the initial "new" record, via set() on the pushed ref.
+    const [, initialRecord] = (set as jest.Mock).mock.calls[0]
+    expect(initialRecord).toMatchObject({
+      userId: 'user@example.com',
+      username: 'User',
+      message: 'add dark mode',
+      status: 'new',
+      error: null,
+      retryCount: 0,
+      lastAttemptAt: null,
+      ticket: null
+    })
+
+    const updateCalls = (update as jest.Mock).mock.calls
+    // Second write: flips to processing and stamps lastAttemptAt before the fetch.
+    expect(updateCalls[0][1]).toMatchObject({ status: 'processing' })
+    expect(updateCalls[0][1].lastAttemptAt).toEqual(expect.any(String))
+
+    // Final write: ticket_created, error cleared, ticket populated from the response.
+    const finalUpdate = updateCalls[updateCalls.length - 1][1]
+    expect(finalUpdate).toMatchObject({
+      status: 'ticket_created',
+      error: null,
+      ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
+    })
+  })
+
+  it('ends at "error" with a populated error and incremented retryCount on a failed submission', async () => {
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: true, message: 'feedback upstream failed' })
+    })
+
+    const result = await submitFeedback({ request: 'add dark mode' })
+    expect(result).toEqual({ error: true, message: 'feedback upstream failed' })
+
+    const updateCalls = (update as jest.Mock).mock.calls
+    const finalUpdate = updateCalls[updateCalls.length - 1][1]
+    expect(finalUpdate).toMatchObject({
+      status: 'error',
+      error: { message: 'feedback upstream failed' },
+      retryCount: 1
+    })
+  })
+
+  it('does not throw or change submitFeedback()\'s return value when the Firebase write itself fails', async () => {
+    ;(set as jest.Mock).mockRejectedValue(new Error('permission denied'))
+    ;(update as jest.Mock).mockRejectedValue(new Error('permission denied'))
+    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
+      })
+    })
+
+    await expect(submitFeedback({ request: 'add dark mode' })).resolves.toEqual({ error: false })
   })
 })
 
@@ -409,5 +515,98 @@ describe('grocery item quantity/unit persistence', () => {
       expect(fields.quantity).toBeNull()
       expect(fields.unit).toBeNull()
     })
+  })
+})
+
+/**
+ * Append-only purchase-event log (see PurchaseEvent in ../types) — setBought's new
+ * side effect. Source is the bought checkbox only (false -> true transitions), never
+ * receipts (see the addPurchasedGroceryItem/applyReceiptReconciliation comments in
+ * firebase.ts for that scoping decision) and never the uncheck direction. A failed
+ * event-log write must never block or throw out of the actual `bought` write.
+ */
+describe('setBought / purchase history log', () => {
+  const listApi = createListApi('owner@example.com')
+  const user = { email: 'user@example.com' }
+  const baseEntry = {
+    key: 'item-1',
+    item: 'חלב',
+    category: 'מוצרי חלב',
+    bought: false,
+    quantity: 2,
+    unit: 'ליטר'
+  }
+
+  const purchaseHistoryCall = () =>
+    (push as jest.Mock).mock.calls.find(([refArg]) => String(refArg.path).includes('purchaseHistory'))
+
+  beforeEach(() => {
+    ;(push as jest.Mock).mockReset()
+    ;(push as jest.Mock).mockImplementation(() => ({ key: 'mock-key' }))
+    ;(update as jest.Mock).mockClear()
+    ;(logger.warn as jest.Mock).mockClear()
+  })
+
+  it('appends a purchase event with the right shape on a false -> true transition', async () => {
+    await listApi.setBought(baseEntry, true, user)
+
+    const call = purchaseHistoryCall()
+    expect(call).toBeDefined()
+    const [, event] = call!
+    expect(event).toEqual({
+      itemName: 'חלב',
+      category: 'מוצרי חלב',
+      quantity: 2,
+      unit: 'ליטר',
+      purchasedAt: expect.any(String),
+      purchasedBy: 'user@example.com'
+    })
+    // the bought write itself still happens, unaffected by the new side effect
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
+  })
+
+  it('falls back to null quantity/unit/purchasedBy when absent, never undefined', async () => {
+    await listApi.setBought({ ...baseEntry, quantity: undefined as any, unit: undefined as any }, true, undefined)
+    const [, event] = purchaseHistoryCall()!
+    expect(event.quantity).toBeNull()
+    expect(event.unit).toBeNull()
+    expect(event.purchasedBy).toBeNull()
+  })
+
+  it('does NOT append a purchase event on a true -> false transition (unchecking)', async () => {
+    await listApi.setBought({ ...baseEntry, bought: true }, false, user)
+    expect(purchaseHistoryCall()).toBeUndefined()
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: false }))
+  })
+
+  it('does not throw or block the bought write when the event-log write rejects', async () => {
+    ;(push as jest.Mock).mockImplementation((refArg: any) =>
+      String(refArg.path).includes('purchaseHistory') ? Promise.reject(new Error('network error')) : { key: 'mock-key' }
+    )
+
+    let thrown: unknown = null
+    try {
+      await listApi.setBought(baseEntry, true, user)
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeNull()
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
+  })
+
+  it('does not throw when push() itself throws synchronously for the event log', async () => {
+    ;(push as jest.Mock).mockImplementation((refArg: any) => {
+      if (String(refArg.path).includes('purchaseHistory')) throw new Error('sync failure')
+      return { key: 'mock-key' }
+    })
+
+    let thrown: unknown = null
+    try {
+      await listApi.setBought(baseEntry, true, user)
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeNull()
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
   })
 })
