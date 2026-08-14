@@ -44,6 +44,12 @@
       "inCategories": "In categories",
       "separateSection": "Separate section"
     },
+    "boughtItemsVisibility": {
+      "title": "Show purchased items",
+      "description": "Show or hide items marked as purchased in the shopping list.",
+      "shown": "Shown",
+      "hidden": "Hidden"
+    },
     "stockSuggestion": {
       "title": "Stock update suggestion",
       "description": "Offer to add an item to stock after it is marked as bought."

@@ -26,6 +26,7 @@ jest.mock('../hooks/useStockSuggestion', () => ({
 }))
 
 const toggleBoughtItemsPlacement = jest.fn().mockResolvedValue(undefined)
+const toggleBoughtItemsVisibility = jest.fn().mockResolvedValue(undefined)
 const toggleStockSuggestion = jest.fn()
 
 describe('UserSettingsPanel', () => {
@@ -33,9 +34,11 @@ describe('UserSettingsPanel', () => {
     jest.clearAllMocks()
     ;(useBoughtItemsPreference as jest.Mock).mockReturnValue({
       keepBoughtItemsInCategories: false,
+      showBoughtItems: false,
       isResolved: true,
       saveError: false,
-      toggleBoughtItemsPlacement
+      toggleBoughtItemsPlacement,
+      toggleBoughtItemsVisibility
     })
     ;(useStockSuggestion as jest.Mock).mockReturnValue({
       enabled: true,
@@ -51,36 +54,45 @@ describe('UserSettingsPanel', () => {
       'aria-pressed',
       'false'
     )
+    expect(screen.getByRole('button', { name: /settings.boughtItemsVisibility.title/ })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
     expect(screen.getByRole('button', { name: /settings.stockSuggestion.title/ })).toHaveAttribute(
       'aria-pressed',
       'true'
     )
   })
 
-  it('changes language and both shopping preferences', async () => {
+  it('changes language and all shopping preferences', async () => {
     const user = userEvent.setup()
     render(<UserSettingsPanel />)
 
     await user.click(screen.getByRole('button', { name: /settings.language.title/ }))
     await user.click(screen.getByRole('button', { name: /settings.boughtItems.title/ }))
+    await user.click(screen.getByRole('button', { name: /settings.boughtItemsVisibility.title/ }))
     await user.click(screen.getByRole('button', { name: /settings.stockSuggestion.title/ }))
 
     expect(changeLanguage).toHaveBeenCalledWith('en')
     expect(toggleBoughtItemsPlacement).toHaveBeenCalledTimes(1)
+    expect(toggleBoughtItemsVisibility).toHaveBeenCalledTimes(1)
     expect(toggleStockSuggestion).toHaveBeenCalledTimes(1)
   })
 
   it('disables the persisted preference while it loads and announces save failures', () => {
     ;(useBoughtItemsPreference as jest.Mock).mockReturnValue({
       keepBoughtItemsInCategories: false,
+      showBoughtItems: false,
       isResolved: false,
       saveError: true,
-      toggleBoughtItemsPlacement
+      toggleBoughtItemsPlacement,
+      toggleBoughtItemsVisibility
     })
 
     render(<UserSettingsPanel />)
 
     expect(screen.getByRole('button', { name: /settings.boughtItems.title/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /settings.boughtItemsVisibility.title/ })).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent('settings.preferenceSaveFailed')
   })
 })

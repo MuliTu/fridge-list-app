@@ -6,7 +6,7 @@ const STORAGE_KEY = 'stockSuggestionEnabled'
 // shopping-list item as bought. Default is ON (an absent key reads as enabled) so the
 // feature works out of the box; users who find the prompt noisy can turn it off from the
 // settings menu. A client-only UI preference persisted in localStorage — never written
-// to Firebase, same philosophy as useShowPurchased/useCollapsedSections.
+// to Firebase, matching the per-device behavior of useCollapsedSections.
 const readStored = (): boolean => {
   try {
     return localStorage.getItem(STORAGE_KEY) !== 'false'

@@ -1,5 +1,10 @@
 import type { GroceryItem } from '../types'
 
+export const filterBoughtItemsByVisibility = (
+  entries: GroceryItem[],
+  showBoughtItems: boolean
+): GroceryItem[] => (showBoughtItems ? entries : entries.filter((entry) => !entry.bought))
+
 export function partitionGroceryItemsByPlacement(
   entries: GroceryItem[],
   keepBoughtItemsInCategories: boolean

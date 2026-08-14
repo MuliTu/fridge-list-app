@@ -5,12 +5,16 @@ import {
 } from './BoughtItemsPreferenceContext'
 import {
   getKeepBoughtItemsInCategories,
-  setKeepBoughtItemsInCategories
+  getShowBoughtItems,
+  setKeepBoughtItemsInCategories,
+  setShowBoughtItems
 } from '../lib/firebase'
 
 jest.mock('../lib/firebase', () => ({
   getKeepBoughtItemsInCategories: jest.fn(),
-  setKeepBoughtItemsInCategories: jest.fn()
+  getShowBoughtItems: jest.fn(),
+  setKeepBoughtItemsInCategories: jest.fn(),
+  setShowBoughtItems: jest.fn()
 }))
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -22,7 +26,9 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 describe('BoughtItemsPreferenceProvider', () => {
   beforeEach(() => {
     ;(getKeepBoughtItemsInCategories as jest.Mock).mockReset().mockResolvedValue(false)
+    ;(getShowBoughtItems as jest.Mock).mockReset().mockResolvedValue(false)
     ;(setKeepBoughtItemsInCategories as jest.Mock).mockReset().mockResolvedValue(undefined)
+    ;(setShowBoughtItems as jest.Mock).mockReset().mockResolvedValue(undefined)
   })
 
   it('loads the persisted cross-device preference', async () => {
@@ -33,6 +39,16 @@ describe('BoughtItemsPreferenceProvider', () => {
 
     expect(result.current.keepBoughtItemsInCategories).toBe(true)
     expect(getKeepBoughtItemsInCategories).toHaveBeenCalledWith('owner@example.com')
+  })
+
+  it('loads the persisted cross-device visibility preference', async () => {
+    ;(getShowBoughtItems as jest.Mock).mockResolvedValue(true)
+    const { result } = renderHook(useBoughtItemsPreference, { wrapper })
+
+    await waitFor(() => expect(result.current.isResolved).toBe(true))
+
+    expect(result.current.showBoughtItems).toBe(true)
+    expect(getShowBoughtItems).toHaveBeenCalledWith('owner@example.com')
   })
 
   it('persists the selected placement and updates immediately', async () => {
@@ -57,6 +73,25 @@ describe('BoughtItemsPreferenceProvider', () => {
     })
 
     expect(result.current.keepBoughtItemsInCategories).toBe(false)
+    expect(result.current.saveError).toBe(true)
+  })
+
+  it('persists visibility changes and rolls back a failed write', async () => {
+    const { result } = renderHook(useBoughtItemsPreference, { wrapper })
+    await waitFor(() => expect(result.current.isResolved).toBe(true))
+
+    await act(() => result.current.toggleBoughtItemsVisibility())
+    expect(result.current.showBoughtItems).toBe(true)
+    expect(setShowBoughtItems).toHaveBeenCalledWith('owner@example.com', true)
+
+    ;(setShowBoughtItems as jest.Mock).mockRejectedValueOnce(new Error('permission denied'))
+    await act(async () => {
+      await expect(result.current.toggleBoughtItemsVisibility()).rejects.toThrow(
+        'Failed to save bought-items visibility preference'
+      )
+    })
+
+    expect(result.current.showBoughtItems).toBe(true)
     expect(result.current.saveError).toBe(true)
   })
 })

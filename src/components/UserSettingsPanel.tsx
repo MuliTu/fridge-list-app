@@ -48,9 +48,11 @@ export default function UserSettingsPanel() {
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
   const {
     keepBoughtItemsInCategories,
+    showBoughtItems,
     isResolved: boughtItemsPreferenceResolved,
     saveError: boughtItemsPreferenceSaveError,
-    toggleBoughtItemsPlacement
+    toggleBoughtItemsPlacement,
+    toggleBoughtItemsVisibility
   } = useBoughtItemsPreference()
   const otherLanguage = SUPPORTED_LANGUAGES.find((language) => language !== i18n.language) || 'en'
 
@@ -82,6 +84,20 @@ export default function UserSettingsPanel() {
           disabled={!boughtItemsPreferenceResolved}
           onToggle={() => {
             toggleBoughtItemsPlacement().catch(() => {})
+          }}
+        />
+        <SettingRow
+          title={t('settings.boughtItemsVisibility.title')}
+          description={t('settings.boughtItemsVisibility.description')}
+          stateLabel={t(
+            showBoughtItems
+              ? 'settings.boughtItemsVisibility.shown'
+              : 'settings.boughtItemsVisibility.hidden'
+          )}
+          pressed={showBoughtItems}
+          disabled={!boughtItemsPreferenceResolved}
+          onToggle={() => {
+            toggleBoughtItemsVisibility().catch(() => {})
           }}
         />
         <SettingRow

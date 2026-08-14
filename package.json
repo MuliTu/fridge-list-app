@@ -1,7 +1,7 @@
 {
   "name": "fridge-list",
   "private": true,
-  "version": "2.52.1",
+  "version": "2.53.0",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

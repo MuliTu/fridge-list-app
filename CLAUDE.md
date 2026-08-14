@@ -906,10 +906,12 @@ read's timing.
 **`config` is the general home for per-user settings.** In addition to
 `onboardingDismissed`, `keepBoughtItemsInCategories` records whether checked items stay
 in their original category (`true`) or move to the separate completed section (absent
-or `false`, preserving the historical default). The dedicated `/settings` tab controls
-this cross-device preference alongside language and stock-suggestion preferences; the
-sidebar stays focused on list and administrative actions. A failed write rolls the UI
-back to its prior value.
+or `false`, preserving the historical default). `showBoughtItems` controls whether
+their cards are visible at all (absent or `false` keeps them hidden). The dedicated
+`/settings` tab controls both cross-device preferences alongside language and
+stock-suggestion preferences; the sidebar stays focused on list and administrative
+actions. Expanding or collapsing the separate completed section updates the same
+visibility preference. A failed write rolls the UI back to its prior value.
 
 **Vercel packaging compatibility:** `firebase-admin` currently brings in
 `jwks-rsa`, whose CommonJS entry point synchronously requires `jose`. Vercel's Node

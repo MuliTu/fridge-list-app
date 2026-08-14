@@ -1496,7 +1496,10 @@ h1.site-title {
 
 .quick-add:focus-within {
   border-color: var(--brand-accent);
-  box-shadow: 0 0 0 3px rgba(185, 242, 124, 0.1), 0 12px 30px rgba(0, 0, 0, 0.22);
+}
+
+.quick-add:has(.quick-add-input:focus-visible) {
+  box-shadow: 0 0 0 2px rgba(185, 242, 124, 0.32), 0 12px 30px rgba(0, 0, 0, 0.22);
 }
 
 .quick-add-input {
@@ -1508,6 +1511,10 @@ h1.site-title {
   background: transparent;
   color: var(--chalk);
   font-size: 16px;
+}
+
+.quick-add-input:focus-visible {
+  outline: 0;
 }
 
 .quick-add-input::placeholder {
@@ -1849,6 +1856,18 @@ h1.site-title {
   .item-card {
     gap: 10px;
     padding-inline: 10px;
+  }
+}
+
+/* iOS WebKit automatically zooms the page when a focused form control renders
+   below 16px. Keep pinch-to-zoom available and prevent only that focus zoom. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
 }
 

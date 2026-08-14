@@ -46,10 +46,12 @@ import {
   categorizeItem,
   createListApi,
   getKeepBoughtItemsInCategories,
+  getShowBoughtItems,
   getReleases,
   scanReceipt,
   scanReceiptFromUrl,
   setKeepBoughtItemsInCategories,
+  setShowBoughtItems,
   submitFeedback
 } from './firebase'
 import { logger } from './logger'
@@ -95,6 +97,20 @@ describe('bought-items placement preference', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'users/owner@example_com/config' }),
       { keepBoughtItemsInCategories: false }
+    )
+  })
+
+  it('defaults visibility to hidden and reads and writes an explicit choice', async () => {
+    ;(get as jest.Mock).mockResolvedValueOnce({ val: () => ({}) })
+    await expect(getShowBoughtItems('owner@example.com')).resolves.toBe(false)
+
+    ;(get as jest.Mock).mockResolvedValueOnce({ val: () => ({ showBoughtItems: true }) })
+    await expect(getShowBoughtItems('owner@example.com')).resolves.toBe(true)
+    await setShowBoughtItems('owner@example.com', false)
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'users/owner@example_com/config' }),
+      { showBoughtItems: false }
     )
   })
 })
@@ -251,7 +267,7 @@ describe('auth header attachment on server-route calls', () => {
         context: {
           route: '/stock',
           language: 'en',
-          appVersion: '2.52.1'
+          appVersion: '2.53.0'
         }
       })
       expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
@@ -288,7 +304,7 @@ describe('auth header attachment on server-route calls', () => {
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
-        appVersion: '2.52.1'
+        appVersion: '2.53.0'
       })
       expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
     })

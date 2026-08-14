@@ -16,8 +16,8 @@ const readStored = (): Record<string, SortOption> => {
 // shared device with more than one signed-in user keeps each person's own choice
 // distinct. Client-only localStorage, never written to Firebase — sorting is a personal
 // view preference, not shared list data, matching Scenario 6 (User B's view must not
-// change when User A re-sorts) and the same "per device" philosophy already used by
-// useShowPurchased/useCollapsedSections.
+// change when User A re-sorts) and the same "per device" philosophy used by
+// useCollapsedSections.
 export function useListSort(listKey: string, userEmail: string | null | undefined) {
   const [map, setMap] = useState<Record<string, SortOption>>(readStored)
 

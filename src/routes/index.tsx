@@ -7,7 +7,6 @@ import { categorizeItem } from '../lib/firebase'
 import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
-import { useShowPurchased } from '../hooks/useShowPurchased'
 import { useListSort } from '../hooks/useListSort'
 import { isStockSuggestionEnabled } from '../hooks/useStockSuggestion'
 import { useAuth } from '../hooks/AuthContext'
@@ -30,7 +29,10 @@ import CategorySection from '../components/CategorySection'
 import QuickAddBar from '../components/QuickAddBar'
 import ListSkeleton from '../components/ListSkeleton'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
-import { partitionGroceryItemsByPlacement } from '../lib/boughtItemsPlacement'
+import {
+  filterBoughtItemsByVisibility,
+  partitionGroceryItemsByPlacement
+} from '../lib/boughtItemsPlacement'
 import type { GroceryItem, StockItem } from '../types'
 
 const PERMANENT_LIST = null
@@ -69,10 +71,13 @@ function ShoppingListPage() {
   // so it resets when navigating away and back — the ticket explicitly wants this.
   const [search, setSearch] = useState('')
   const { isCollapsed, toggle } = useCollapsedSections()
-  const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
   const { sortOption, setSortOption } = useListSort(activeList || '__permanent__', user?.email)
   const { categories, categoryMap } = useCategories()
-  const { keepBoughtItemsInCategories } = useBoughtItemsPreference()
+  const {
+    keepBoughtItemsInCategories,
+    showBoughtItems,
+    toggleBoughtItemsVisibility
+  } = useBoughtItemsPreference()
 
   const customListNames = new Set(allEntries.map((e) => e.list_name).filter(Boolean) as string[])
   if (activeList) customListNames.add(activeList)
@@ -90,7 +95,8 @@ function ShoppingListPage() {
   // on top of the selected bought-item placement. Empty query = no-op.
   const query = search.trim().toLowerCase()
   const matchesSearch = (entry: GroceryItem) => !query || (entry.item || '').toLowerCase().includes(query)
-  const searchedEntries = categoryEntries.filter(matchesSearch)
+  const searchedEntries = filterBoughtItemsByVisibility(categoryEntries, showBoughtItems)
+    .filter(matchesSearch)
   const searchedPurchasedEntries = sortGroceryItems(
     completedEntries.filter(matchesSearch),
     sortOption,
@@ -320,8 +326,10 @@ function ShoppingListPage() {
                   name={t('shoppingList:purchased.sectionLabel', { count: purchasedCount })}
                   color="#8ee6a8"
                   icon="✓"
-                  collapsed={!showPurchased}
-                  onToggle={toggleShowPurchased}
+                  collapsed={!showBoughtItems}
+                  onToggle={() => {
+                    toggleBoughtItemsVisibility().catch(() => {})
+                  }}
                 >
                   {searchedPurchasedEntries.length > 0 ? (
                     searchedPurchasedEntries.map((entry) => (

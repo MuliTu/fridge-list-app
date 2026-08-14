@@ -44,6 +44,12 @@
       "inCategories": "בתוך הקטגוריות",
       "separateSection": "באזור נפרד"
     },
+    "boughtItemsVisibility": {
+      "title": "הצגת פריטים שנקנו",
+      "description": "הצגה או הסתרה של פריטים שסומנו כנקנו ברשימת הקניות.",
+      "shown": "מוצגים",
+      "hidden": "מוסתרים"
+    },
     "stockSuggestion": {
       "title": "הצעה לעדכון המלאי",
       "description": "הצגת הצעה להוסיף למלאי פריט שסומן כנקנה."
