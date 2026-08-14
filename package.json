@@ -1,7 +1,7 @@
 {
   "name": "fridge-list",
   "private": true,
-  "version": "2.52.0",
+  "version": "2.52.1",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "architecture:check": "node scripts/check-architecture.mjs",
-    "test:architecture": "node --test scripts/check-architecture.test.mjs"
+    "test:architecture": "node --test scripts/check-architecture.test.mjs",
+    "test:build-output": "node --test scripts/reconcile-spa-assets.test.mjs"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",

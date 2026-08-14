@@ -917,7 +917,11 @@ launcher cannot bridge that require to the ESM-only `jose` v6 build, so `package
 pins only `jwks-rsa`'s nested `jose` dependency to the compatible v5 line. The app's
 own direct `jose` v6 dependency remains unchanged. The generated serverless function
 is named `api.func` rather than `index.func` so it cannot shadow the SPA's static
-`index.html`; only `/api/*` routes invoke it.
+`index.html`; only `/api/*` routes invoke it. Vercel's restored build cache has also
+produced a real stale stylesheet hash in the prerendered shell while emitting a new
+`App-*.css` file. `reconcile-spa-assets.mjs` repairs that single unambiguous stylesheet
+reference and rejects the build if any asset reference remains missing, preventing the
+SPA fallback from serving HTML to a stylesheet request.
 
 ## What's New feed (`/whats_new`, `src/components/WhatsNewModal.tsx`)
 

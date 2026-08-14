@@ -16,6 +16,7 @@ import { cp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { nodeFileTrace } from '@vercel/nft'
+import { reconcileSpaAssetReferences } from './reconcile-spa-assets.mjs'
 
 const OUT = '.vercel/output'
 // Keep the function path distinct from static/index.html. Naming both outputs
@@ -41,6 +42,18 @@ await cp('dist/client', `${OUT}/static`, { recursive: true })
 // below in config.json's routes, not by copying it under every possible path.
 if (existsSync(`${OUT}/static/_shell.html`)) {
   await cp(`${OUT}/static/_shell.html`, `${OUT}/static/index.html`)
+  const repairedShellReferences = await reconcileSpaAssetReferences(
+    `${OUT}/static/_shell.html`,
+    `${OUT}/static/assets`
+  )
+  const repairedIndexReferences = await reconcileSpaAssetReferences(
+    `${OUT}/static/index.html`,
+    `${OUT}/static/assets`
+  )
+  const repairedReferences = [...repairedShellReferences, ...repairedIndexReferences]
+  if (repairedReferences.length > 0) {
+    console.log(`vercel-build.mjs: repaired ${repairedReferences.length} stale SPA asset reference(s)`)
+  }
 }
 // The whole dist/server tree, not just server.js — server.js dynamically
 // import()s a handful of its own chunk files by relative path
