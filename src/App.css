@@ -1573,11 +1573,19 @@ h1.site-title {
 }
 
 .list-search:focus-within {
-  border-color: var(--brand-accent);
+  border-color: rgba(185, 242, 124, 0.62);
+}
+
+.list-search:has(.list-search-input:focus-visible) {
+  box-shadow: 0 0 0 2px rgba(185, 242, 124, 0.16);
 }
 
 .list-search-input {
   color: var(--chalk);
+}
+
+.list-search-input:focus-visible {
+  outline: 0;
 }
 
 .shopping-list-scroll,

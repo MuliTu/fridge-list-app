@@ -267,7 +267,7 @@ describe('auth header attachment on server-route calls', () => {
         context: {
           route: '/stock',
           language: 'en',
-          appVersion: '2.53.0'
+          appVersion: '2.53.1'
         }
       })
       expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
@@ -304,7 +304,7 @@ describe('auth header attachment on server-route calls', () => {
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
-        appVersion: '2.53.0'
+        appVersion: '2.53.1'
       })
       expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
     })
