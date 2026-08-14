@@ -1,3 +1,5 @@
+jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
+
 import { escapeHtml, isValidEmail, sanitizeInvitedBy } from './send-invite-email'
 
 describe('escapeHtml', () => {

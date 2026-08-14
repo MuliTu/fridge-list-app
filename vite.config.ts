@@ -4,7 +4,14 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 
 export default defineConfig(({ command }) => ({
-  plugins: [tanstackStart({ spa: { enabled: true } }), tailwindcss(), react()],
+  plugins: [
+    tanstackStart({
+      spa: { enabled: true },
+      router: { routeFileIgnorePattern: '\\.test\\.(ts|tsx)$' }
+    }),
+    tailwindcss(),
+    react()
+  ],
   // Bundles all npm dependencies (react, @tanstack/*, h3-v2, seroval, ...) directly
   // into dist/server/server.js instead of leaving them as bare imports resolved from
   // node_modules at runtime. Needed for the Vercel deploy (scripts/vercel-build.mjs)
@@ -16,10 +23,9 @@ export default defineConfig(({ command }) => ({
   // when told not to externalize them ("ReferenceError: module is not defined"),
   // confirmed by hitting this directly while testing an unrelated change.
   //
-  // `firebase-admin` (added for ticket F2's retry-feedback route, using only its
-  // `app`/`database` subpaths — not `firestore`, so no grpc involved) is
-  // force-excluded from that bundling via `external` even though noExternal is
-  // otherwise `true`: bundling its transitive dependency tree (google-auth-library,
+  // `firebase-admin` is force-excluded from that bundling via `external` even
+  // though noExternal is otherwise `true`: bundling its transitive dependency tree
+  // (google-auth-library,
   // gcp-metadata, the @firebase/* packages it wraps for RTDB access, all written
   // assuming real Node `require` semantics) into one Rollup chunk breaks at runtime
   // with `TypeError: Cannot read properties of undefined (reading 'SDK_VERSION')` —

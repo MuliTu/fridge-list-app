@@ -9,14 +9,14 @@
  * "credential not provisioned" fail-soft paths, and that a successful run reaches
  * n8n and returns its summary. The interesting retry/claim/status-transition logic
  * itself is covered in src/lib/retryFeedback.test.ts against a plain in-memory fake,
- * so firebaseAdmin.ts is mocked wholesale here rather than faking firebase-admin's
+ * so firebaseAdmin.server.ts is mocked wholesale here rather than faking firebase-admin's
  * real transaction API.
  */
 const isFirebaseAdminConfiguredMock = jest.fn()
 const getAdminDatabaseMock = jest.fn()
 
-jest.mock('../../lib/firebaseAdmin', () => {
-  const actual = jest.requireActual('../../lib/firebaseAdmin')
+jest.mock('../../lib/firebaseAdmin.server', () => {
+  const actual = jest.requireActual('../../lib/firebaseAdmin.server')
   return {
     ...actual,
     isFirebaseAdminConfigured: (...args: unknown[]) => isFirebaseAdminConfiguredMock(...args),

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import nodemailer from 'nodemailer'
 import { logger } from '../../lib/logger'
+import { createSmtpInvitationEmailSender } from '../../modules/invitations/server'
 
 // Same stable custom domain e2e-deploy-check.yml already hardcodes for the same
 // reason: the git-branch-aliased/per-deployment Vercel URLs are unstable and, for
@@ -66,23 +66,16 @@ export const Route = createFileRoute('/api/send-invite-email')({
         // (owner-chosen free text) and lands in the same HTML/text email body.
         const safeListName = sanitizeInvitedBy(listName) || 'רשימת הקניות המשותפת'
 
-        const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
-        if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-          // Missing SMTP config is expected until the user provisions it (a real
-          // secret this codebase can't generate on its own) — fail soft so a missing
-          // env var never blocks the actual invite, which already succeeded in
-          // Firebase before this route is ever called.
-          logger.warn('[send-invite-email] SMTP env vars not configured, skipping send')
-          return Response.json({ error: true, message: 'smtp_not_configured' }, { status: 503 })
-        }
-
         try {
-          const transport = nodemailer.createTransport({
-            host: SMTP_HOST,
-            port: Number(SMTP_PORT),
-            secure: Number(SMTP_PORT) === 465,
-            auth: { user: SMTP_USER, pass: SMTP_PASS }
-          })
+          const emailSender = createSmtpInvitationEmailSender(process.env)
+          if (!emailSender) {
+            // Missing SMTP config is expected until the user provisions it (a real
+            // secret this codebase can't generate on its own) — fail soft so a missing
+            // env var never blocks the actual invite, which already succeeded in
+            // Firebase before this route is ever called.
+            logger.warn('[send-invite-email] SMTP env vars not configured, skipping send')
+            return Response.json({ error: true, message: 'smtp_not_configured' }, { status: 503 })
+          }
 
           // Plain-text body uses the sanitized (but unescaped) value; the HTML body
           // escapes every user-controlled value — `invitedBy` and `to` — before it's
@@ -93,8 +86,7 @@ export const Route = createFileRoute('/api/send-invite-email')({
           const htmlInviterLine = safeInvitedBy ? `${escapeHtml(safeInvitedBy)} הוסיף/ה אותך` : 'הוזמנת'
           const htmlTo = escapeHtml(to)
           const htmlListName = escapeHtml(safeListName)
-          await transport.sendMail({
-            from: SMTP_FROM || SMTP_USER,
+          await emailSender.send({
             to,
             subject: `הוזמנת לרשימה "${safeListName}"`,
             text: `${textInviterLine} כעורך/ת ברשימה "${safeListName}".\n\nהתחברו עם חשבון ה-Google של הכתובת הזו (${to}) בכתובת:\n${APP_URL}\n\nלאחר ההתחברות תוכלו לערוך את הרשימה, לא רק לצפות בה.`,

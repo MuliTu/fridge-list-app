@@ -19,6 +19,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Test architecture boundary failures
+        run: npm run test:architecture
+
+      - name: Check module dependency boundaries
+        run: npm run architecture:check
+
       - name: Type-check
         run: npx tsc --noEmit
 

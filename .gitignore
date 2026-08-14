@@ -10,3 +10,14 @@ TODO.md
 coverage
 test-results
 playwright-report
+# LangGraph API
+.langgraph_api
+.env*
+
+# Local analysis and generated media
+/graphify-out/
+/media/
+/temp.json
+
+# Machine-specific assistant tooling
+.claude/mcp.json

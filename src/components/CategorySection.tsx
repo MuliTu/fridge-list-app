@@ -1,4 +1,4 @@
-import type { CSSProperties, DragEvent, ReactNode } from 'react'
+import { useId, type CSSProperties, type DragEvent, type ReactNode } from 'react'
 
 interface CategorySectionProps {
   name: string
@@ -25,6 +25,8 @@ export default function CategorySection({
   onDragLeave,
   onDrop
 }: CategorySectionProps) {
+  const contentId = useId()
+
   return (
     <div
       className={`flat-section${dragOver ? ' drag-over' : ''}`}
@@ -33,12 +35,21 @@ export default function CategorySection({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <h2 className="flat-section-header" onClick={onToggle}>
-        <span className="cat-icon">{icon}</span>
-        {name}
-        <span className={`chevron${collapsed ? ' collapsed' : ''}`}>▾</span>
+      <h2 className="flat-section-heading">
+        <button
+          type="button"
+          className="flat-section-header"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          aria-controls={contentId}
+        >
+          <span className="category-accent" aria-hidden="true" />
+          <span className="cat-icon" aria-hidden="true">{icon}</span>
+          <span>{name}</span>
+          <span className={`chevron${collapsed ? ' collapsed' : ''}`} aria-hidden="true">⌄</span>
+        </button>
       </h2>
-      {!collapsed && <ul className="items">{children}</ul>}
+      {!collapsed && <ul id={contentId} className="items">{children}</ul>}
     </div>
   )
 }

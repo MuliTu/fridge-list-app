@@ -1,0 +1,8 @@
+{
+  "node_version": "22",
+  "dependencies": ["."],
+  "graphs": {
+    "create_ticket": "./src/modules/ticketing/infrastructure/langchain/createTicketStudioGraph.server.ts:graph"
+  },
+  "env": ".env.local"
+}

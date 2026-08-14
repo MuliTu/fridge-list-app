@@ -903,8 +903,11 @@ dismissal, so a returning user never sees a flash of the tutorial before their r
 preference loads; `replay()` can still force it open at any time regardless of that
 read's timing.
 
-**`config` is meant to become the general home for per-user settings going forward**
-— `onboardingDismissed` is the first key under it, not the only one planned.
+**`config` is the general home for per-user settings.** In addition to
+`onboardingDismissed`, `keepBoughtItemsInCategories` records whether checked items stay
+in their original category (`true`) or move to the separate completed section (absent
+or `false`, preserving the historical default). The Settings sidebar controls this
+cross-device preference; a failed write rolls the UI back to its prior value.
 
 ## What's New feed (`/whats_new`, `src/components/WhatsNewModal.tsx`)
 

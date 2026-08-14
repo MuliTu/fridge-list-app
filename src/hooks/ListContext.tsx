@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import {
   approvePendingInvites,
   createListApi,
+  getCurrentUserIdToken,
   ensureOwnList,
   memberOfRef,
   onValue,
@@ -9,11 +10,30 @@ import {
   userNameRef,
   type ListApi
 } from '../lib/firebase'
+import { createGroceryApiClient } from '../client/api/groceries'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useAuth } from './AuthContext'
-import type { UserList } from '../types'
+import type { AuthUser, UserList } from '../types'
 
 const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
+// MM19's list-membership adapter is the final runtime dependency for server
+// grocery commands. This build-time switch supports a safe staged rollout and
+// immediate rollback while the realtime Firebase read projection remains intact.
+const GROCERY_COMMAND_API_ENABLED =
+  import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
+
+type ActiveListApi = Omit<ListApi, 'addGroceryItem'> & {
+  addGroceryItem(
+    item: {
+      name: string
+      category: string
+      quantity?: number | null
+      unit?: string | null
+    },
+    listName: string | null,
+    user?: AuthUser | null
+  ): PromiseLike<unknown>
+}
 
 interface ListContextValue {
   myLists: UserList[]
@@ -35,7 +55,7 @@ interface ListContextValue {
   // the flat canEdit/canView this replaced in AuthContext.
   canEdit: boolean
   canView: boolean
-  listApi: ListApi | null
+  listApi: ActiveListApi | null
 }
 
 const ListContext = createContext<ListContextValue | null>(null)
@@ -245,7 +265,51 @@ export function ListProvider({ children }: { children: ReactNode }) {
   // createListApi() builds fresh ref()/closure objects each call, which would
   // otherwise be a new identity every time.
   const listApi = useMemo(
-    () => (resolvedActiveListId ? createListApi(resolvedActiveListId) : null),
+    () => {
+      if (!resolvedActiveListId) return null
+      const legacy = createListApi(resolvedActiveListId)
+      if (!GROCERY_COMMAND_API_ENABLED) return legacy
+
+      const commands = createGroceryApiClient({ getIdToken: getCurrentUserIdToken })
+      return {
+        ...legacy,
+        setBought: (
+          entry: Parameters<ListApi['setBought']>[0],
+          bought: boolean,
+          _mutationUser?: AuthUser | null
+        ) => commands.setPurchased(resolvedActiveListId, entry.key, bought),
+        updateGroceryItemCategory: (key: string, category: string, _mutationUser?: AuthUser | null) =>
+          commands.update(resolvedActiveListId, key, { category }),
+        saveItemDetails: (
+          key: string,
+          details: {
+            name?: string
+            note?: string | null
+            imageFile?: File | null
+            quantity?: number | null
+            unit?: string | null
+          },
+          mutationUser?: AuthUser | null
+        ) =>
+          details.imageFile
+            ? legacy.saveItemDetails(key, details, mutationUser)
+            : commands.update(resolvedActiveListId, key, details),
+        deleteItem: (key: string, imageRef?: string | null) =>
+          imageRef
+            ? legacy.deleteItem(key, imageRef)
+            : commands.delete(resolvedActiveListId, key),
+        addGroceryItem: (
+          item: {
+            name: string
+            category: string
+            quantity?: number | null
+            unit?: string | null
+          },
+          listName: string | null,
+          _mutationUser?: AuthUser | null
+        ) => commands.add(resolvedActiveListId, { ...item, listName })
+      }
+    },
     [resolvedActiveListId]
   )
 
@@ -281,7 +345,7 @@ export function useActiveList() {
 // resolved (always true almost immediately, since it's auto-provisioned), so a
 // null here means a real bug, not an expected transient state worth handling
 // gracefully.
-export function useListApi(): ListApi {
+export function useListApi(): ActiveListApi {
   const { listApi } = useActiveList()
   if (!listApi) throw new Error('useListApi called with no active list')
   return listApi

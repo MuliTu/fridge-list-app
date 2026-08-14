@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createFileRoute } from '@tanstack/react-router'
 import { deriveTicketFromN8nResponse } from '../../lib/deriveTicket'
-import { FirebaseAdminNotConfiguredError, getAdminDatabase, isFirebaseAdminConfigured } from '../../lib/firebaseAdmin'
+import { FirebaseAdminNotConfiguredError, getAdminDatabase, isFirebaseAdminConfigured } from '../../lib/firebaseAdmin.server'
 import { logger } from '../../lib/logger'
 import {
   MAX_RETRY_COUNT,
@@ -230,7 +230,7 @@ export const Route = createFileRoute('/api/retry-feedback')({
         if (!isFirebaseAdminConfigured()) {
           // Fails soft, same "not yet provisioned" pattern as GITHUB_RELEASES_TOKEN
           // (releases.tsx, CLAUDE.md Known gaps #9) — this credential is a manual step
-          // outside this codebase (see src/lib/firebaseAdmin.ts).
+          // outside this codebase (see src/lib/firebaseAdmin.server.ts).
           logger.error('[retry-feedback] FIREBASE_SERVICE_ACCOUNT_KEY is not configured — cannot run retry job')
           return Response.json({ error: true, message: 'not_configured' }, { status: 503 })
         }

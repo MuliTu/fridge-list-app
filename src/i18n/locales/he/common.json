@@ -2,6 +2,7 @@
   "appTitle": "רשימת הבית",
   "loading": "טוען...",
   "tabs": {
+    "label": "ניווט ראשי",
     "shoppingList": "רשימת קניות",
     "stock": "מלאי",
     "receipts": "קבלות"
@@ -26,7 +27,10 @@
     "viewOnboarding": "🎓 הצגת ההדרכה",
     "sendFeedback": "💬 שליחת משוב",
     "stockSuggestionOn": "📦 הצעת מלאי: פעיל",
-    "stockSuggestionOff": "📦 הצעת מלאי: כבוי"
+    "stockSuggestionOff": "📦 הצעת מלאי: כבוי",
+    "boughtItemsInCategories": "✓ פריטים שנקנו: בתוך הקטגוריות",
+    "boughtItemsInCompletedSection": "✓ פריטים שנקנו: באזור נפרד",
+    "preferenceSaveFailed": "שמירת ההגדרה נכשלה. נסו שוב."
   },
   "actions": {
     "cancel": "ביטול",

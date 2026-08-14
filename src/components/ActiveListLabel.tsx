@@ -17,8 +17,8 @@ export default function ActiveListLabel({ activeList }: ActiveListLabelProps) {
   const listName = activeList || t('shoppingList:listPicker.permanentList')
 
   return (
-    <div className="mt-2 mb-1 text-center">
-      <h2 className="m-0 text-lg font-bold tracking-tight text-foreground sm:text-xl">
+    <div className="active-list-label">
+      <h2>
         {t('shoppingList:listPicker.activeListLabel', { listName })}
       </h2>
     </div>

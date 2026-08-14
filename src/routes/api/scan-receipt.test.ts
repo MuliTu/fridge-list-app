@@ -1,55 +1,26 @@
-/**
- * @jest-environment node
- *
- * Node environment (not the default jsdom) so the real Fetch API's Request/Response
- * globals are available — this route handler uses both directly.
- *
- * verifyAuthToken is mocked (never hits the real Google JWKS) — its own real
- * verification logic is covered separately in src/lib/verifyAuthToken.test.ts. These
- * tests only cover this route's wiring: does it 401 when unauthorized, and does it
- * still forward to n8n once authorized.
- */
-const verifyAuthTokenMock = jest.fn()
-jest.mock('../../lib/verifyAuthToken', () => ({ verifyAuthToken: (...args: unknown[]) => verifyAuthTokenMock(...args) }))
+/** @jest-environment node */
+jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
+jest.mock('../../modules/composition.server', () => ({ getAuthenticatedUserHandler: jest.fn(), getScanReceiptFileService: jest.fn() }))
+import { createScanReceiptFileHandler } from './scan-receipt'
 
-import { Route } from './scan-receipt'
+it('delegates authentication before parsing and preserves scanner response status/body', async () => {
+  const events: string[] = []
+  const service = { execute: jest.fn().mockResolvedValue({ body: { store_name: 'Store' }, status: 202 }) }
+  const authenticatedUserHandler = { handle: jest.fn(async (request, parse, execute) => {
+    events.push('auth'); const input = await parse(request); events.push('parse'); return execute({ principal: { kind: 'user' }, requestId: 'r', now: new Date() }, input)
+  }) }
+  const handler = createScanReceiptFileHandler({ authenticatedUserHandler, service } as any)
+  const response = await handler({ request: new Request('http://x', { method: 'POST', body: JSON.stringify({ image_base64: 'aW1hZ2U=', mime_type: 'image/jpeg' }) }) })
+  expect(events).toEqual(['auth', 'parse'])
+  expect(response.status).toBe(202)
+  await expect(response.json()).resolves.toEqual({ store_name: 'Store' })
+})
 
-const postHandler = (Route.options.server as any).handlers.POST
-
-const callPost = (body: unknown) =>
-  postHandler({
-    request: new Request('http://localhost/api/scan-receipt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-  })
-
-describe('POST /api/scan-receipt auth gating', () => {
-  beforeEach(() => {
-    verifyAuthTokenMock.mockReset()
-    ;(globalThis as any).fetch = jest.fn()
-  })
-
-  it('returns 401 and never calls n8n when unauthenticated', async () => {
-    verifyAuthTokenMock.mockResolvedValue({ ok: false, reason: 'missing bearer token' })
-    const response = await callPost({ image_base64: 'abc', mime_type: 'image/jpeg' })
-    expect(response.status).toBe(401)
-    const data = await response.json()
-    expect(data).toEqual({ error: true, message: 'unauthorized' })
-    expect(globalThis.fetch).not.toHaveBeenCalled()
-  })
-
-  it('forwards to n8n once authenticated', async () => {
-    verifyAuthTokenMock.mockResolvedValue({ ok: true, uid: 'user-1' })
-    ;(globalThis.fetch as jest.Mock).mockResolvedValue({
-      status: 200,
-      json: async () => ({ store_name: 'Test Store', items: [], total: null })
-    })
-    const response = await callPost({ image_base64: 'abc', mime_type: 'image/jpeg' })
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
-    expect(response.status).toBe(200)
-    const data = await response.json()
-    expect(data.store_name).toBe('Test Store')
-  })
+it('does not parse an invalid body or call the service when authentication rejects first', async () => {
+  const service = { execute: jest.fn() }
+  const authenticatedUserHandler = { handle: jest.fn(async () => Response.json({ error: true }, { status: 401 })) }
+  const handler = createScanReceiptFileHandler({ authenticatedUserHandler, service } as any)
+  const response = await handler({ request: new Request('http://x', { method: 'POST', body: '{invalid' }) })
+  expect(response.status).toBe(401)
+  expect(service.execute).not.toHaveBeenCalled()
 })

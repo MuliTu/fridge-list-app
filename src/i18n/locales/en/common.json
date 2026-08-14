@@ -2,6 +2,7 @@
   "appTitle": "Household List",
   "loading": "Loading...",
   "tabs": {
+    "label": "Primary navigation",
     "shoppingList": "Shopping List",
     "stock": "Stock",
     "receipts": "Receipts"
@@ -26,7 +27,10 @@
     "viewOnboarding": "🎓 Show tutorial",
     "sendFeedback": "💬 Send feedback",
     "stockSuggestionOn": "📦 Stock suggestion: On",
-    "stockSuggestionOff": "📦 Stock suggestion: Off"
+    "stockSuggestionOff": "📦 Stock suggestion: Off",
+    "boughtItemsInCategories": "✓ Bought items: Keep in categories",
+    "boughtItemsInCompletedSection": "✓ Bought items: Separate section",
+    "preferenceSaveFailed": "Couldn't save this setting. Try again."
   },
   "actions": {
     "cancel": "Cancel",

@@ -10,19 +10,41 @@ import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
 import type { AuthUser, FeedbackRecord, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
 import { version as APP_VERSION } from '../../package.json'
+import { CLIENT_EVENT_NAMES, type ClientEventLevel, type ClientEventName } from '../modules/observability'
 
 // Logs client-side actions (grocery/stock/receipt/category/list writes) to the
 // browser console AND forwards them to the dev server's terminal via /api/client-log
 // — these are Firebase SDK calls made in the browser, so without that hop they'd
 // never reach the terminal the way the scan-receipt/categorize-item route logs do.
 // Fire-and-forget: a logging failure must never block the actual action.
-const logClientAction = (message: string) => {
-  logger.success(message)
-  fetch('/api/client-log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, level: 'success' })
-  }).catch(() => {})
+const clientEventNames = new Set<string>(CLIENT_EVENT_NAMES)
+
+const eventFromLegacyMessage = (
+  message: string
+): { name: ClientEventName; level: ClientEventLevel } | null => {
+  const match = /^\[([a-z]+)]\s+([A-Za-z][A-Za-z0-9]*)/.exec(message)
+  const name = match ? `${match[1]}.${match[2]}` : ''
+  if (!clientEventNames.has(name)) return null
+  return {
+    name: name as ClientEventName,
+    level: /\b(?:failed|error)\b/i.test(message) ? 'error' : 'success'
+  }
+}
+
+const logClientAction = (legacyMessage: string) => {
+  const event = eventFromLegacyMessage(legacyMessage)
+  if (!event) return
+
+  logger[event.level](`[client-event] ${event.name}`)
+  void getAuthHeaders()
+    .then((authorizationHeaders) =>
+      fetch('/api/client-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authorizationHeaders },
+        body: JSON.stringify(event)
+      })
+    )
+    .catch(() => {})
 }
 
 const firebaseConfig = {
@@ -48,13 +70,17 @@ const googleProvider = new GoogleAuthProvider()
 // naturally 401s it, matching this app's graceful-degradation house style (a failed
 // scan/categorization/feedback-submit already degrades to a manual fallback or a
 // recoverable error rather than a client-side crash).
-const getAuthHeaders = async (): Promise<Record<string, string>> => {
+export const getCurrentUserIdToken = async (): Promise<string | undefined> => {
   try {
-    const token = await auth.currentUser?.getIdToken()
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    return await auth.currentUser?.getIdToken()
   } catch {
-    return {}
+    return undefined
   }
+}
+
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const token = await getCurrentUserIdToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 // Firebase Storage requires the paid Blaze plan (confirmed unavailable for this
@@ -223,6 +249,14 @@ export const getOnboardingDismissed = async (email: string): Promise<boolean> =>
 }
 
 export const setOnboardingDismissed = (email: string) => update(configRef(email), { onboardingDismissed: true })
+
+export const getKeepBoughtItemsInCategories = async (email: string): Promise<boolean> => {
+  const snapshot = await get(configRef(email))
+  return snapshot.val()?.keepBoughtItemsInCategories === true
+}
+
+export const setKeepBoughtItemsInCategories = (email: string, enabled: boolean) =>
+  update(configRef(email), { keepBoughtItemsInCategories: enabled })
 
 // Global, sibling to `users` — app-wide "what's new" info (see WhatsNew in types.ts),
 // not owned by any particular list. Needs its own RTDB rule (not applied yet, same
@@ -889,12 +923,11 @@ export const sendInviteEmail = async (
   }
 }
 
-// Sends a user's free-text feedback/feature request to n8n (via the same-origin
-// /api/submit-feedback proxy, which hides the webhook URL) where Gemini structures it
-// into a ticket and a Trello card is created. Auto-populates the metadata the ticket
-// needs — the caller only supplies the request text and the current route. Returns
-// { error } rather than throwing so the modal can show a recoverable message; the
-// request itself is never silently dropped on the client side.
+// Sends a user's free-text feedback through the authoritative server-selected flow.
+// Granted non-production users use the create-ticket agent; everyone else keeps the
+// existing n8n payload and route. An agent 403 is safe to fall back because that
+// route authorizes before parsing or execution. No other agent failure is retried:
+// network/5xx uncertainty could mean a ticket was already created.
 export interface FeedbackSubmission {
   request: string
   route?: string
@@ -940,53 +973,107 @@ export const submitFeedback = async ({
     }
   }
 
+  const markFeedbackError = async (message: string) => {
+    if (!feedbackKey) return
+    try {
+      await updateFeedbackRecord(feedbackKey, {
+        status: 'error',
+        error: { message },
+        retryCount: 1
+      })
+    } catch (err: any) {
+      logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${err.message}`)
+    }
+  }
+
+  const markFeedbackSuccess = async (ticket: FeedbackRecord['ticket']) => {
+    if (!feedbackKey) return
+    try {
+      await updateFeedbackRecord(feedbackKey, {
+        status: 'ticket_created',
+        error: null,
+        ticket: ticket || null
+      })
+    } catch (err: any) {
+      logClientAction(`[feedback] updateFeedbackRecord(ticket_created) failed (continuing anyway): ${err.message}`)
+    }
+  }
+
+  const submitToN8n = async (
+    authHeaders: Record<string, string>
+  ): Promise<{ error: boolean; message?: string }> => {
+    try {
+      const response = await fetch('/api/submit-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(payload)
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || data.error) {
+        const message = data.message || 'feedback upstream failed'
+        logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${message}`)
+        await markFeedbackError(message)
+        return { error: true, message: data.message }
+      }
+      await markFeedbackSuccess(data.ticket || null)
+      return { error: false }
+    } catch (err: any) {
+      logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
+      await markFeedbackError(err.message)
+      return { error: true, message: err.message }
+    }
+  }
+
   try {
-    const response = await fetch('/api/submit-feedback', {
+    const authHeaders = await getAuthHeaders()
+    let entitled = false
+
+    try {
+      const entitlementResponse = await fetch('/api/agent/entitlement', {
+        headers: authHeaders
+      })
+      const entitlement = await entitlementResponse.json().catch(() => ({}))
+      entitled =
+        entitlementResponse.ok && entitlement.entitled === true
+    } catch {
+      // The entitlement read has no mutation ambiguity. Preserve the established
+      // n8n flow when the experimental endpoint cannot be reached.
+      return submitToN8n(authHeaders)
+    }
+
+    if (!entitled) return submitToN8n(authHeaders)
+
+    const response = await fetch('/api/agent/create-ticket', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify({
+        request: payload.request,
+        context: {
+          route: route || undefined,
+          language: payload.language,
+          appVersion: APP_VERSION
+        }
+      })
     })
     const data = await response.json().catch(() => ({}))
-    if (!response.ok || data.error) {
-      logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${data.message || 'unknown'}`)
-      if (feedbackKey) {
-        try {
-          await updateFeedbackRecord(feedbackKey, {
-            status: 'error',
-            error: { message: data.message || 'feedback upstream failed' },
-            retryCount: 1
-          })
-        } catch (err: any) {
-          logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${err.message}`)
-        }
-      }
-      return { error: true, message: data.message }
+    if (response.status === 403) {
+      // Authorization is checked before request parsing, prompt/model work, and
+      // provider mutation, so this is the only safe agent-to-n8n fallback.
+      return submitToN8n(authHeaders)
     }
-    if (feedbackKey) {
-      try {
-        await updateFeedbackRecord(feedbackKey, {
-          status: 'ticket_created',
-          error: null,
-          ticket: data.ticket || null
-        })
-      } catch (err: any) {
-        logClientAction(`[feedback] updateFeedbackRecord(ticket_created) failed (continuing anyway): ${err.message}`)
-      }
+    if (!response.ok || data.success !== true) {
+      logClientAction(`[feedback] agent submission failed: status=${response.status} code=${data.error?.code || 'unknown'}`)
+      await markFeedbackError(data.error?.message || 'feedback upstream failed')
+      return { error: true, message: data.error?.message }
     }
+
+    await markFeedbackSuccess(data.ticket || null)
     return { error: false }
   } catch (err: any) {
-    logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
-    if (feedbackKey) {
-      try {
-        await updateFeedbackRecord(feedbackKey, {
-          status: 'error',
-          error: { message: err.message },
-          retryCount: 1
-        })
-      } catch (updateErr: any) {
-        logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${updateErr.message}`)
-      }
-    }
+    // Once the agent request starts, a network error is an uncertain result and
+    // must never trigger n8n, which could create a duplicate ticket.
+    logClientAction(`[feedback] agent submission network error: ${err.message}`)
+    await markFeedbackError(err.message)
     return { error: true, message: err.message }
   }
 }
