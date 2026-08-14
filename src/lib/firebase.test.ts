@@ -41,8 +41,17 @@ jest.mock('firebase/firestore', () => ({
 }))
 jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }))
 
-import { push, set, update } from 'firebase/database'
-import { categorizeItem, createListApi, getReleases, scanReceipt, scanReceiptFromUrl, submitFeedback } from './firebase'
+import { get, push, set, update } from 'firebase/database'
+import {
+  categorizeItem,
+  createListApi,
+  getKeepBoughtItemsInCategories,
+  getReleases,
+  scanReceipt,
+  scanReceiptFromUrl,
+  setKeepBoughtItemsInCategories,
+  submitFeedback
+} from './firebase'
 import { logger } from './logger'
 
 // Pulls out the single fetch call made to `urlSubstring` (ignoring the fire-and-forget
@@ -62,6 +71,33 @@ const waitForCallTo = async (mockFetch: jest.Mock, urlSubstring: string) => {
 
   throw new Error(`no fetch call found for ${urlSubstring}`)
 }
+
+describe('bought-items placement preference', () => {
+  beforeEach(() => {
+    ;(get as jest.Mock).mockReset()
+    ;(update as jest.Mock).mockReset()
+  })
+
+  it('defaults to the separate completed section when the config key is absent', async () => {
+    ;(get as jest.Mock).mockResolvedValue({ val: () => ({}) })
+
+    await expect(getKeepBoughtItemsInCategories('owner@example.com')).resolves.toBe(false)
+  })
+
+  it('reads and writes the per-user config key', async () => {
+    ;(get as jest.Mock).mockResolvedValue({
+      val: () => ({ keepBoughtItemsInCategories: true })
+    })
+
+    await expect(getKeepBoughtItemsInCategories('owner@example.com')).resolves.toBe(true)
+    await setKeepBoughtItemsInCategories('owner@example.com', false)
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'users/owner@example_com/config' }),
+      { keepBoughtItemsInCategories: false }
+    )
+  })
+})
 
 describe('auth header attachment on server-route calls', () => {
   beforeEach(() => {
@@ -215,7 +251,7 @@ describe('auth header attachment on server-route calls', () => {
         context: {
           route: '/stock',
           language: 'en',
-          appVersion: '2.50.0'
+          appVersion: '2.51.0'
         }
       })
       expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
@@ -252,7 +288,7 @@ describe('auth header attachment on server-route calls', () => {
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
-        appVersion: '2.50.0'
+        appVersion: '2.51.0'
       })
       expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
     })

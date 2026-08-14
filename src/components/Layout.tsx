@@ -22,6 +22,10 @@ import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
 import { useOnboarding } from '../hooks/useOnboarding'
+import {
+  BoughtItemsPreferenceProvider,
+  useBoughtItemsPreference
+} from '../hooks/BoughtItemsPreferenceContext'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
 import { cn } from '../lib/utils'
 
@@ -40,14 +44,25 @@ export default function Layout({ children }: { children: ReactNode }) {
     <DirectionProvider dir={i18n.dir()}>
       <DialogServiceProvider>
         <ListProvider>
-          <GroceriesFeedProvider>
-            <ListPickerActionsProvider>
-              <LayoutContent>{children}</LayoutContent>
-            </ListPickerActionsProvider>
-          </GroceriesFeedProvider>
+          <BoughtItemsPreferenceBoundary>
+            <GroceriesFeedProvider>
+              <ListPickerActionsProvider>
+                <LayoutContent>{children}</LayoutContent>
+              </ListPickerActionsProvider>
+            </GroceriesFeedProvider>
+          </BoughtItemsPreferenceBoundary>
         </ListProvider>
       </DialogServiceProvider>
     </DirectionProvider>
+  )
+}
+
+function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  return (
+    <BoughtItemsPreferenceProvider email={user?.email}>
+      {children}
+    </BoughtItemsPreferenceProvider>
   )
 }
 
@@ -72,6 +87,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
     useFeedbackToast()
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
+  const {
+    keepBoughtItemsInCategories,
+    isResolved: boughtItemsPreferenceResolved,
+    saveError: boughtItemsPreferenceSaveError,
+    toggleBoughtItemsPlacement
+  } = useBoughtItemsPreference()
   const { actions: listPickerActions } = useListPickerActions()
   const { isOpen: onboardingOpen, close: closeOnboarding, replay: replayOnboarding } = useOnboarding(user?.email)
 
@@ -260,6 +281,23 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     >
                       {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
                     </button>
+                    <button
+                      className={cn(sidebarItemClass, 'disabled:cursor-wait disabled:opacity-60')}
+                      disabled={!boughtItemsPreferenceResolved}
+                      aria-pressed={keepBoughtItemsInCategories}
+                      onClick={() => {
+                        toggleBoughtItemsPlacement().catch(() => {})
+                      }}
+                    >
+                      {keepBoughtItemsInCategories
+                        ? t('menu.boughtItemsInCategories')
+                        : t('menu.boughtItemsInCompletedSection')}
+                    </button>
+                    {boughtItemsPreferenceSaveError && (
+                      <div className="px-2 py-1 text-xs text-destructive" role="status">
+                        {t('menu.preferenceSaveFailed')}
+                      </div>
+                    )}
                   </>
                 )}
 

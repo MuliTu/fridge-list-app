@@ -250,6 +250,14 @@ export const getOnboardingDismissed = async (email: string): Promise<boolean> =>
 
 export const setOnboardingDismissed = (email: string) => update(configRef(email), { onboardingDismissed: true })
 
+export const getKeepBoughtItemsInCategories = async (email: string): Promise<boolean> => {
+  const snapshot = await get(configRef(email))
+  return snapshot.val()?.keepBoughtItemsInCategories === true
+}
+
+export const setKeepBoughtItemsInCategories = (email: string, enabled: boolean) =>
+  update(configRef(email), { keepBoughtItemsInCategories: enabled })
+
 // Global, sibling to `users` — app-wide "what's new" info (see WhatsNew in types.ts),
 // not owned by any particular list. Needs its own RTDB rule (not applied yet, same
 // category as the other manual Console steps this project has — see CLAUDE.md).
