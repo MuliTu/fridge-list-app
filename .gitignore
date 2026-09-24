@@ -21,3 +21,4 @@ playwright-report
 
 # Machine-specific assistant tooling
 .claude/mcp.json
+.codex/
