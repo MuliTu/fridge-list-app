@@ -7,12 +7,14 @@ const defaultRoot = path.resolve(scriptDirectory, '..')
 
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/
 const TEST_FILE_PATTERN = /(?:^|\/)(?:(?:__tests__|test)\/|[^/]+\.(?:test|spec)\.[cm]?[jt]sx?$)/
+const GENERATED_SOURCE_PATTERN = /^src\/generated\//
 
 // Domain and application code should describe business behaviour without binding
 // itself to delivery frameworks or infrastructure/provider SDKs.
 const FORBIDDEN_CORE_PACKAGES = [
   '@google-cloud/',
   '@langchain/',
+  '@prisma/client',
   '@tanstack/',
   'express',
   'firebase',
@@ -30,6 +32,7 @@ const FORBIDDEN_CORE_PACKAGES = [
 const PROVIDER_PACKAGES = [
   '@google-cloud/',
   '@langchain/',
+  '@prisma/client',
   'firebase',
   'firebase-admin',
   'langchain',
@@ -44,6 +47,7 @@ const PROVIDER_PACKAGES = [
 const SERVER_ONLY_PACKAGES = [
   '@google-cloud/',
   '@langchain/',
+  '@prisma/client',
   'firebase-admin',
   'langchain',
   'node:',
@@ -142,16 +146,36 @@ const containingModule = (file, root, entryRoots) => {
 
 const isPublicModuleEntry = (segments) =>
   segments.length === 0 ||
-  (segments.length === 1 && ['index', 'server'].includes(segments[0]))
+  (segments.length === 1 && ['index', 'server'].includes(segments[0])) ||
+  segments[0] === 'server'
 
 const isServerCapableSource = (relative) =>
   relative.includes('.server.') ||
   relative.startsWith('src/routes/api/') ||
   /^src\/modules\/.+\/infrastructure\//.test(relative) ||
+  /^src\/modules\/.+\/server\//.test(relative) ||
   /^src\/modules\/.+\/(?:server|composition\.server)\.[cm]?[jt]sx?$/.test(relative)
 
 const importsServerModule = (specifier, target) =>
-  specifier.includes('.server') || target?.segments.at(-1) === 'server'
+  specifier.includes('.server') ||
+  target?.segments.at(-1) === 'server' ||
+  target?.segments[0] === 'server'
+
+const importsGeneratedPrisma = (file, specifier, root) => {
+  if (
+    specifier === 'src/generated/prisma' ||
+    specifier.startsWith('src/generated/prisma/') ||
+    specifier === '@/generated/prisma' ||
+    specifier.startsWith('@/generated/prisma/')
+  ) {
+    return true
+  }
+
+  if (!specifier.startsWith('.')) return false
+
+  const resolved = toPosix(path.relative(root, path.resolve(path.dirname(file), specifier)))
+  return resolved === 'src/generated/prisma' || resolved.startsWith('src/generated/prisma/')
+}
 
 const violation = (relative, line, rule, specifier, detail) =>
   `${relative}:${line} [${rule}] ${detail} (import: ${specifier})`
@@ -171,6 +195,7 @@ export const checkArchitecture = async (root = defaultRoot) => {
   for (const file of files) {
     const relative = toPosix(path.relative(root, file))
     if (TEST_FILE_PATTERN.test(relative)) continue
+    if (GENERATED_SOURCE_PATTERN.test(relative)) continue
     filesChecked += 1
 
     const source = await readFile(file, 'utf8')
@@ -196,6 +221,7 @@ export const checkArchitecture = async (root = defaultRoot) => {
 
     for (const { specifier, line } of imports) {
       const target = moduleTarget(file, specifier, root, entryRoots)
+      const generatedPrismaImport = importsGeneratedPrisma(file, specifier, root)
 
       if (isCore && packageMatches(specifier, FORBIDDEN_CORE_PACKAGES)) {
         violations.push(
@@ -249,7 +275,22 @@ export const checkArchitecture = async (root = defaultRoot) => {
         )
       }
 
-      if (isRoute && packageMatches(specifier, PROVIDER_PACKAGES)) {
+      if (isClient && generatedPrismaImport) {
+        violations.push(
+          violation(
+            relative,
+            line,
+            'client-server-package',
+            specifier,
+            'client-capable code must not import the generated Prisma client'
+          )
+        )
+      }
+
+      if (
+        isRoute &&
+        (packageMatches(specifier, PROVIDER_PACKAGES) || generatedPrismaImport)
+      ) {
         violations.push(
           violation(
             relative,

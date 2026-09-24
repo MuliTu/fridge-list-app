@@ -37,6 +37,20 @@ test('accepts documented dependency directions through public entry points', asy
   )
 })
 
+test('accepts cross-module imports through server public sub-entries', async () => {
+  await withProject(
+    {
+      'src/modules/orders/server.ts': "import { db } from '../shared/server/prisma'\n",
+      'src/modules/shared/server/prisma.ts':
+        "import '@tanstack/react-start/server-only'\nimport { db } from '../infrastructure/db.server'\nexport { db }\n",
+      'src/modules/shared/infrastructure/db.server.ts': 'export const db = {}\n'
+    },
+    async (root) => {
+      assert.deepEqual((await checkArchitecture(root)).violations, [])
+    }
+  )
+})
+
 test('reports provider/framework imports from application code with a file and line', async () => {
   await withProject(
     {
@@ -81,6 +95,21 @@ test('rejects client imports of server entry points', async () => {
   )
 })
 
+test('rejects client imports of server public sub-entries', async () => {
+  await withProject(
+    {
+      'src/components/OrderButton.tsx':
+        "import { db } from '../modules/shared/server/prisma'\n",
+      'src/modules/shared/server/prisma.ts': "import '@tanstack/react-start/server-only'\nexport const db = {}\n"
+    },
+    async (root) => {
+      const { violations } = await checkArchitecture(root)
+      assert.equal(violations.length, 1)
+      assert.match(violations[0], /\[client-server-boundary\]/)
+    }
+  )
+})
+
 test('rejects direct server-only package imports from client-capable code', async () => {
   await withProject(
     {
@@ -106,6 +135,59 @@ test('rejects Node built-ins from client-capable code', async () => {
       const { violations } = await checkArchitecture(root)
       assert.equal(violations.length, 1)
       assert.match(violations[0], /\[client-server-package\]/)
+    }
+  )
+})
+
+test('rejects generated Prisma imports from client-capable code', async () => {
+  await withProject(
+    {
+      'src/components/OrderButton.tsx':
+        "import { PrismaClient } from '../generated/prisma/client'\n"
+    },
+    async (root) => {
+      const { violations } = await checkArchitecture(root)
+      assert.equal(violations.length, 1)
+      assert.match(violations[0], /^src\/components\/OrderButton\.tsx:1/)
+      assert.match(violations[0], /\[client-server-package\]/)
+    }
+  )
+})
+
+test('ignores generated source output', async () => {
+  await withProject(
+    {
+      'src/generated/prisma/client.ts': "import process from 'node:process'\n"
+    },
+    async (root) => {
+      assert.deepEqual((await checkArchitecture(root)).violations, [])
+    }
+  )
+})
+
+test('rejects Prisma imports from routes', async () => {
+  await withProject(
+    {
+      'src/routes/api/orders.tsx':
+        "import { PrismaClient } from '../../generated/prisma/client'\n"
+    },
+    async (root) => {
+      const { violations } = await checkArchitecture(root)
+      assert.equal(violations.length, 1)
+      assert.match(violations[0], /^src\/routes\/api\/orders\.tsx:1/)
+      assert.match(violations[0], /\[route-provider-sdk\]/)
+    }
+  )
+})
+
+test('allows generated Prisma imports from server infrastructure', async () => {
+  await withProject(
+    {
+      'src/modules/shared/infrastructure/prismaClient.server.ts':
+        "import { PrismaClient } from '../../../generated/prisma/client'\n"
+    },
+    async (root) => {
+      assert.deepEqual((await checkArchitecture(root)).violations, [])
     }
   )
 })

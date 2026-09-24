@@ -4,6 +4,7 @@ import type {
   AddGroceryInput,
   GroceryCommandService
 } from '../application/groceryCommands.service'
+import type { GetGroceriesService } from '../application/getGroceries.service'
 import type { AuthenticatedUserHandler } from '../../identity/server'
 import { parseJsonRequest } from '../../identity/server'
 
@@ -12,7 +13,23 @@ export type GroceryHttpDependencies = {
   service: GroceryCommandService
 }
 
+export type GroceryReadHttpDependencies = {
+  authenticatedUserHandler: AuthenticatedUserHandler
+  service: GetGroceriesService
+}
+
 const noContent = (): Response => new Response(null, { status: 204 })
+
+export const createGroceryCollectionGetHandler = (
+  dependencies: GroceryReadHttpDependencies
+) =>
+  ({ request, listId }: { request: Request; listId: string }): Promise<Response> =>
+    dependencies.authenticatedUserHandler.handle(
+      request,
+      () => undefined,
+      async (context) =>
+        Response.json(await dependencies.service.execute(context, listId))
+    )
 
 export const createGroceryCollectionPostHandler = (
   dependencies: GroceryHttpDependencies

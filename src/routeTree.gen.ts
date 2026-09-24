@@ -20,6 +20,7 @@ import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedbac
 import { Route as ApiReleasesRouteImport } from './routes/api/releases'
 import { Route as ApiPurchaseHabitSummaryRouteImport } from './routes/api/purchase-habit-summary'
 import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
+import { Route as ApiDataCapabilitiesRouteImport } from './routes/api/data-capabilities'
 import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
 import { Route as ApiCategorizeItemRouteImport } from './routes/api/categorize-item'
 import { Route as ApiAgentEntitlementRouteImport } from './routes/api/agent/entitlement'
@@ -86,6 +87,11 @@ const ApiN8nWriteGroceriesRoute = ApiN8nWriteGroceriesRouteImport.update({
   path: '/api/n8n-write-groceries',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDataCapabilitiesRoute = ApiDataCapabilitiesRouteImport.update({
+  id: '/api/data-capabilities',
+  path: '/api/data-capabilities',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiClientLogRoute = ApiClientLogRouteImport.update({
   id: '/api/client-log',
   path: '/api/client-log',
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
+  '/api/data-capabilities': typeof ApiDataCapabilitiesRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
   '/api/purchase-habit-summary': typeof ApiPurchaseHabitSummaryRoute
   '/api/releases': typeof ApiReleasesRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
+  '/api/data-capabilities': typeof ApiDataCapabilitiesRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
   '/api/purchase-habit-summary': typeof ApiPurchaseHabitSummaryRoute
   '/api/releases': typeof ApiReleasesRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/stock': typeof StockRoute
   '/api/categorize-item': typeof ApiCategorizeItemRoute
   '/api/client-log': typeof ApiClientLogRoute
+  '/api/data-capabilities': typeof ApiDataCapabilitiesRoute
   '/api/n8n-write-groceries': typeof ApiN8nWriteGroceriesRoute
   '/api/purchase-habit-summary': typeof ApiPurchaseHabitSummaryRoute
   '/api/releases': typeof ApiReleasesRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/stock'
     | '/api/categorize-item'
     | '/api/client-log'
+    | '/api/data-capabilities'
     | '/api/n8n-write-groceries'
     | '/api/purchase-habit-summary'
     | '/api/releases'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/stock'
     | '/api/categorize-item'
     | '/api/client-log'
+    | '/api/data-capabilities'
     | '/api/n8n-write-groceries'
     | '/api/purchase-habit-summary'
     | '/api/releases'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/stock'
     | '/api/categorize-item'
     | '/api/client-log'
+    | '/api/data-capabilities'
     | '/api/n8n-write-groceries'
     | '/api/purchase-habit-summary'
     | '/api/releases'
@@ -289,6 +301,7 @@ export interface RootRouteChildren {
   StockRoute: typeof StockRoute
   ApiCategorizeItemRoute: typeof ApiCategorizeItemRoute
   ApiClientLogRoute: typeof ApiClientLogRoute
+  ApiDataCapabilitiesRoute: typeof ApiDataCapabilitiesRoute
   ApiN8nWriteGroceriesRoute: typeof ApiN8nWriteGroceriesRoute
   ApiPurchaseHabitSummaryRoute: typeof ApiPurchaseHabitSummaryRoute
   ApiReleasesRoute: typeof ApiReleasesRoute
@@ -380,6 +393,13 @@ declare module '@tanstack/react-router' {
       path: '/api/n8n-write-groceries'
       fullPath: '/api/n8n-write-groceries'
       preLoaderRoute: typeof ApiN8nWriteGroceriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/data-capabilities': {
+      id: '/api/data-capabilities'
+      path: '/api/data-capabilities'
+      fullPath: '/api/data-capabilities'
+      preLoaderRoute: typeof ApiDataCapabilitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/client-log': {
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   StockRoute: StockRoute,
   ApiCategorizeItemRoute: ApiCategorizeItemRoute,
   ApiClientLogRoute: ApiClientLogRoute,
+  ApiDataCapabilitiesRoute: ApiDataCapabilitiesRoute,
   ApiN8nWriteGroceriesRoute: ApiN8nWriteGroceriesRoute,
   ApiPurchaseHabitSummaryRoute: ApiPurchaseHabitSummaryRoute,
   ApiReleasesRoute: ApiReleasesRoute,

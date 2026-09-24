@@ -4,7 +4,9 @@ jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
 
 import { AuthenticatedUserHandler } from '../../identity/server'
 import type { GroceryCommandService } from '../application/groceryCommands.service'
+import type { GetGroceriesService } from '../application/getGroceries.service'
 import {
+  createGroceryCollectionGetHandler,
   createGroceryCollectionPostHandler,
   createGroceryItemDeleteHandler,
   createGroceryItemPatchHandler,
@@ -42,6 +44,32 @@ const request = (method: string, body?: unknown) =>
   })
 
 describe('grocery HTTP adapters', () => {
+  it('maps get requests to the read service', async () => {
+    const authenticatedUserHandler = new AuthenticatedUserHandler({
+      authenticationService: { execute: jest.fn().mockResolvedValue(principal) },
+      generateRequestId: () => 'request-1',
+      now: () => new Date('2026-08-02T12:00:00.000Z')
+    })
+    const service = {
+      execute: jest.fn().mockResolvedValue([{ key: 'item-1', item: 'Milk' }])
+    } as unknown as jest.Mocked<GetGroceriesService>
+
+    const response = await createGroceryCollectionGetHandler({
+      authenticatedUserHandler,
+      service
+    })({
+      request: request('GET'),
+      listId: 'list-1'
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual([{ key: 'item-1', item: 'Milk' }])
+    expect(service.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ principal, requestId: 'request-1' }),
+      'list-1'
+    )
+  })
+
   it('maps add input and authenticated context to the command service', async () => {
     const dependencies = setup()
     const response = await createGroceryCollectionPostHandler(dependencies)({

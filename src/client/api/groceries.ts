@@ -1,3 +1,5 @@
+import type { GroceryItem } from '../../types'
+
 export type GroceryApiClientOptions = {
   getIdToken(): Promise<string | undefined>
   fetch?: typeof fetch
@@ -73,6 +75,8 @@ export const createGroceryApiClient = ({
     `${collection(listId)}/${pathSegment(itemId)}`
 
   return {
+    list: (listId: string) =>
+      request<GroceryItem[]>(collection(listId), { method: 'GET' }),
     add: (listId: string, input: AddGroceryRequest) =>
       request<{ key: string }>(collection(listId), {
         method: 'POST',

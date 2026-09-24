@@ -11,10 +11,14 @@ import { SubmitFeedbackService } from './feedback'
 import { N8nFeedbackProvider } from './feedback/server'
 import {
   GroceryCommandService,
+  GetGroceriesService,
   PersistN8nGroceryService,
   type ListAuthorizationRepository
 } from './groceries'
-import { createFirebaseAdminGroceryWriteRepository } from './groceries/server'
+import {
+  createFirebaseAdminGroceryWriteRepository,
+  PrismaGroceryReadRepository
+} from './groceries/server'
 import { AuthenticateUserService } from './identity'
 import {
   AuthenticatedUserHandler,
@@ -25,6 +29,7 @@ import {
   N8nMachineAuthenticator,
   type N8nRequestContext
 } from './integrations/n8n/server'
+import { PrismaListAuthorizationRepository } from './lists/server'
 import { RecordClientEventService } from './observability'
 import { StructuredClientEventLogger } from './observability/server'
 import { GetReleasesService } from './releases'
@@ -32,20 +37,26 @@ import { GitHubReleaseRepository } from './releases/server'
 import { ReceiptCommandService, ScanReceiptFileService, ScanReceiptUrlService } from './receipts'
 import { FirebaseAdminReceiptImageRepository, FirebaseAdminReceiptRepository, N8nReceiptScanner, SafeReceiptUrlFetcher } from './receipts/server'
 import { ApplicationError } from './shared'
+import { getPrismaClient } from './shared/server/prisma'
 import {
   createTicketingServer,
   type TicketingServer
 } from './ticketing/server'
 
 export type ServerEnvironment = Readonly<{
+  DATABASE_URL?: string
   FIREBASE_DATABASE_URL?: string
   FIREBASE_PROJECT_ID?: string
   FIREBASE_SERVICE_ACCOUNT_JSON?: string
   GITHUB_RELEASES_TOKEN?: string
+  CATEGORIZE_ITEM_WEBHOOK_URL?: string
+  SUBMIT_FEEDBACK_WEBHOOK_URL?: string
   RECEIPT_SCAN_URL?: string
   RECEIPT_URL_SCAN_ENDPOINT?: string
   N8N_ALLOWED_LIST_ID?: string
   N8N_WRITE_SECRET?: string
+  RDS_ENABLED?: string
+  RDS_GROCERY_READS_ENABLED?: string
 }>
 
 export type ServerCompositionOptions = {
@@ -57,6 +68,13 @@ export type ServerCompositionOptions = {
 export type N8nGroceryWriteDependencies = {
   authenticateRequest(headers: Pick<Headers, 'get'>): N8nRequestContext
   service: PersistN8nGroceryService
+}
+
+export type DataCapabilities = {
+  groceries: {
+    reads: 'firebase' | 'rds'
+    writes: 'firebase'
+  }
 }
 
 const configured = (
@@ -136,6 +154,16 @@ const firebaseServiceAccountJson = (environment: ServerEnvironment): string => {
   return value
 }
 
+const enabled = (
+  environment: ServerEnvironment,
+  key: keyof ServerEnvironment
+): boolean => environment[key]?.trim().toLowerCase() === 'true'
+
+const rdsCapabilityEnabled = (
+  environment: ServerEnvironment,
+  key: keyof ServerEnvironment
+): boolean => enabled(environment, 'RDS_ENABLED') && enabled(environment, key)
+
 /**
  * The sole server dependency-construction boundary.
  *
@@ -152,6 +180,7 @@ export class ServerComposition {
   private n8nGroceryService: PersistN8nGroceryService | undefined
   private n8nGroceryDependencies: N8nGroceryWriteDependencies | undefined
   private groceryCommandService: GroceryCommandService | undefined
+  private groceryReadService: GetGroceriesService | undefined
   private releasesService: GetReleasesService | undefined
   private recordClientEventService: RecordClientEventService | undefined
   private ticketingServer: TicketingServer | undefined
@@ -251,6 +280,37 @@ export class ServerComposition {
     return this.groceryCommandService
   }
 
+  getGroceryReadService(): GetGroceriesService {
+    if (!rdsCapabilityEnabled(this.options.environment, 'RDS_GROCERY_READS_ENABLED')) {
+      throw new ApplicationError(
+        'not_configured',
+        'RDS grocery reads are disabled'
+      )
+    }
+    if (!this.groceryReadService) {
+      const prisma = getPrismaClient(this.options.environment)
+      this.groceryReadService = new GetGroceriesService(
+        new PrismaGroceryReadRepository(prisma),
+        new PrismaListAuthorizationRepository(prisma)
+      )
+    }
+    return this.groceryReadService
+  }
+
+  getDataCapabilities(): DataCapabilities {
+    return {
+      groceries: {
+        reads: rdsCapabilityEnabled(
+          this.options.environment,
+          'RDS_GROCERY_READS_ENABLED'
+        )
+          ? 'rds'
+          : 'firebase',
+        writes: 'firebase'
+      }
+    }
+  }
+
   getReleasesService(): GetReleasesService {
     this.releasesService ??= new GetReleasesService(
       new GitHubReleaseRepository(this.options.environment.GITHUB_RELEASES_TOKEN)
@@ -280,22 +340,26 @@ export class ServerComposition {
 
   getCategorizeItemService(): CategorizeItemService {
     this.categorizeItemService ??= new CategorizeItemService(
-      new N8nCategorizationProvider()
+      new N8nCategorizationProvider(
+        configured(this.options.environment, 'CATEGORIZE_ITEM_WEBHOOK_URL')
+      )
     )
     return this.categorizeItemService
   }
 
   getSubmitFeedbackService(): SubmitFeedbackService {
     this.submitFeedbackService ??= new SubmitFeedbackService(
-      new N8nFeedbackProvider()
+      new N8nFeedbackProvider(
+        configured(this.options.environment, 'SUBMIT_FEEDBACK_WEBHOOK_URL')
+      )
     )
     return this.submitFeedbackService
   }
 
   private getReceiptScanner(): N8nReceiptScanner {
     this.receiptScanner ??= new N8nReceiptScanner(
-      this.options.environment.RECEIPT_SCAN_URL ?? 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-scan',
-      this.options.environment.RECEIPT_URL_SCAN_ENDPOINT ?? 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-url-scan'
+      configured(this.options.environment, 'RECEIPT_SCAN_URL'),
+      configured(this.options.environment, 'RECEIPT_URL_SCAN_ENDPOINT')
     )
     return this.receiptScanner
   }
@@ -355,6 +419,12 @@ export const getN8nGroceryWriteDependencies = (): N8nGroceryWriteDependencies =>
 
 export const getGroceryCommandService = (): GroceryCommandService =>
   getServerComposition().getGroceryCommandService()
+
+export const getGroceryReadService = (): GetGroceriesService =>
+  getServerComposition().getGroceryReadService()
+
+export const getDataCapabilities = (): DataCapabilities =>
+  getServerComposition().getDataCapabilities()
 
 export const getReleasesService = (): GetReleasesService =>
   getServerComposition().getReleasesService()

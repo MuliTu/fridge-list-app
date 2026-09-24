@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { onValue } from '../lib/firebase'
+import { createDataCapabilitiesClient } from '../client/api/dataCapabilities'
+import { createGroceryApiClient } from '../client/api/groceries'
+import { getCurrentUserIdToken, onValue } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useActiveList } from './ListContext'
 import type { GroceryItem } from '../types'
@@ -27,54 +29,120 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const firstLoad = useRef(true)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isPrerendering = useIsPrerendering()
-  const { listApi } = useActiveList()
+  const { activeList, listApi } = useActiveList()
+  const activeListId = activeList?.id
 
   useEffect(() => {
-    if (isPrerendering || !listApi) return
+    if (isPrerendering || !listApi || !activeListId) return
     knownKeys.current = new Set()
     firstLoad.current = true
     setEntries([])
     setIsLoading(true)
+    setStatus('מתחבר...')
 
-    const unsubscribe = onValue(
-      listApi.groceriesRef,
-      (snapshot) => {
-        const data = snapshot.val() || {}
-        const newlyAdded: string[] = []
+    let cancelled = false
+    let cleanupFeed: (() => void) | null = null
 
-        const nextEntries: GroceryItem[] = Object.entries(data as Record<string, any>).map(([key, entry]) => {
-          const isFresh = !firstLoad.current && !knownKeys.current.has(key)
-          if (isFresh) newlyAdded.push(entry.item)
-          return { key, ...entry, isFresh }
-        })
+    const publishEntries = (nextEntries: GroceryItem[]) => {
+      const newlyAdded: string[] = []
+      const nextKnownKeys = new Set<string>()
 
-        knownKeys.current = new Set(Object.keys(data))
+      const entriesWithFreshness = nextEntries.map((entry) => {
+        nextKnownKeys.add(entry.key)
+        const isFresh = !firstLoad.current && !knownKeys.current.has(entry.key)
+        if (isFresh) newlyAdded.push(entry.item)
+        return { ...entry, isFresh }
+      })
 
-        if (newlyAdded.length > 0 && !firstLoad.current) {
-          const message =
-            newlyAdded.length === 1
-              ? `נוסף: ${newlyAdded[0]}`
-              : `נוספו ${newlyAdded.length} פריטים: ${newlyAdded.join(', ')}`
-          setToast(message)
-          if (toastTimer.current) clearTimeout(toastTimer.current)
-          toastTimer.current = setTimeout(() => setToast(null), 4500)
-        }
+      knownKeys.current = nextKnownKeys
 
-        firstLoad.current = false
-        setIsLoading(false)
-        setEntries(nextEntries)
-        setStatus('עודכן לאחרונה: ' + new Date().toLocaleTimeString('he-IL'))
-      },
-      (error) => {
-        setStatus('שגיאת חיבור: ' + error.message)
+      if (newlyAdded.length > 0 && !firstLoad.current) {
+        const message =
+          newlyAdded.length === 1
+            ? `נוסף: ${newlyAdded[0]}`
+            : `נוספו ${newlyAdded.length} פריטים: ${newlyAdded.join(', ')}`
+        setToast(message)
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast(null), 4500)
       }
-    )
+
+      firstLoad.current = false
+      setIsLoading(false)
+      setEntries(entriesWithFreshness)
+      setStatus('עודכן לאחרונה: ' + new Date().toLocaleTimeString('he-IL'))
+    }
+
+    const startFirebaseFeed = () => {
+      cleanupFeed = onValue(
+        listApi.groceriesRef,
+        (snapshot) => {
+          if (cancelled) return
+          const data = snapshot.val() || {}
+          publishEntries(
+            Object.entries(data as Record<string, Omit<GroceryItem, 'key'>>).map(
+              ([key, entry]) => ({ key, ...entry })
+            )
+          )
+        },
+        (error) => {
+          if (!cancelled) setStatus('שגיאת חיבור: ' + error.message)
+        }
+      )
+    }
+
+    const startRdsFeed = () => {
+      const groceries = createGroceryApiClient({ getIdToken: getCurrentUserIdToken })
+      let refreshInFlight = false
+
+      const refresh = async () => {
+        if (refreshInFlight) return
+        refreshInFlight = true
+        try {
+          const records = await groceries.list(activeListId)
+          if (!cancelled) publishEntries(records)
+        } catch (error) {
+          if (!cancelled) {
+            const message = error instanceof Error ? error.message : 'unknown error'
+            setStatus('שגיאת חיבור: ' + message)
+            setIsLoading(false)
+          }
+        } finally {
+          refreshInFlight = false
+        }
+      }
+
+      void refresh()
+      const onFocus = () => {
+        void refresh()
+      }
+      window.addEventListener('focus', onFocus)
+      cleanupFeed = () => window.removeEventListener('focus', onFocus)
+    }
+
+    const capabilities = createDataCapabilitiesClient({
+      getIdToken: getCurrentUserIdToken
+    })
+
+    void capabilities
+      .get()
+      .then((dataCapabilities) => {
+        if (cancelled) return
+        if (dataCapabilities.groceries.reads === 'rds') {
+          startRdsFeed()
+          return
+        }
+        startFirebaseFeed()
+      })
+      .catch(() => {
+        if (!cancelled) startFirebaseFeed()
+      })
 
     return () => {
-      unsubscribe()
+      cancelled = true
+      cleanupFeed?.()
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [isPrerendering, listApi])
+  }, [isPrerendering, listApi, activeListId])
 
   return <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>{children}</GroceriesFeedContext.Provider>
 }

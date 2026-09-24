@@ -3,6 +3,30 @@
 import { createGroceryApiClient, GroceryApiError } from './groceries'
 
 describe('grocery API client', () => {
+  it('reads groceries with the authenticated collection endpoint', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([{ key: 'item-1', item: 'Milk', category: 'Dairy', bought: false }]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    const client = createGroceryApiClient({
+      getIdToken: async () => 'id-token',
+      fetch: fetchMock
+    })
+
+    await expect(client.list('owner/list')).resolves.toEqual([
+      { key: 'item-1', item: 'Milk', category: 'Dairy', bought: false }
+    ])
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/lists/owner%2Flist/groceries',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer id-token' })
+      })
+    )
+  })
+
   it('sends typed authenticated commands with encoded scope IDs', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ key: 'item-1' }), {

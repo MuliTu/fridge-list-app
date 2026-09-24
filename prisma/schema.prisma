@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MemberStatus {
+  Approved @map("approved")
+
+  @@map("member_status")
+}
+
+enum InviteStatus {
+  Pending  @map("pending")
+  Approved @map("approved")
+
+  @@map("invite_status")
+}
+
+enum MemberRole {
+  Editor @map("editor")
+  Viewer @map("viewer")
+
+  @@map("member_role")
+}
+
+enum FeedbackStatus {
+  New            @map("new")
+  Processing     @map("processing")
+  TicketCreated  @map("ticket_created")
+  Error          @map("error")
+  NeedsAttention @map("needs_attention")
+
+  @@map("feedback_status")
+}
+
+model HouseholdList {
+  id                   String   @id
+  ownerUid             String
+  normalizedOwnerEmail String   @unique
+  name                 String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  config          UserConfig?
+  members         HouseholdMember[]
+  invites         HouseholdInvite[]
+  groceries       GroceryItem[]
+  categories      Category[]
+  stockItems      StockItem[]
+  receipts        Receipt[]
+  purchaseHistory PurchaseEvent[]
+
+  @@index([ownerUid])
+  @@map("household_lists")
+}
+
+model UserConfig {
+  listId                      String   @id
+  keepBoughtItemsInCategories Boolean  @default(false)
+  onboardingDismissed         Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@map("user_configs")
+}
+
+model HouseholdMember {
+  listId    String
+  uid       String
+  status    MemberStatus @default(Approved)
+  role      MemberRole   @default(Editor)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@id([listId, uid])
+  @@index([uid])
+  @@map("household_members")
+}
+
+model HouseholdInvite {
+  listId       String
+  invitedEmail String
+  status       InviteStatus @default(Pending)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@id([listId, invitedEmail])
+  @@index([invitedEmail])
+  @@map("household_invites")
+}
+
+model IdentityBinding {
+  uid             String   @id
+  normalizedEmail String   @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("identity_bindings")
+}
+
+model GroceryItem {
+  id         String    @id
+  listId     String
+  item       String
+  category   String
+  bought     Boolean   @default(false)
+  addedAt    DateTime  @default(now())
+  rawText    String?
+  note       String?
+  imageUrl   String?
+  imageRef   String?
+  modifiedAt DateTime?
+  modifiedBy String?
+  listName   String?
+  createdBy  String?
+  quantity   Float?
+  unit       String?
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId, bought])
+  @@index([listId, category])
+  @@index([listId, listName])
+  @@map("grocery_items")
+}
+
+model Category {
+  id        String   @id
+  listId    String
+  name      String
+  color     String
+  icon      String
+  protected Boolean  @default(false)
+  order     Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, name])
+  @@index([listId, order])
+  @@map("categories")
+}
+
+model StockItem {
+  id           String   @id
+  listId       String
+  name         String
+  category     String
+  quantity     Float
+  unit         String
+  lowThreshold Float
+  updatedAt    DateTime @updatedAt
+  updatedBy    String?
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, name])
+  @@index([listId, category])
+  @@map("stock_items")
+}
+
+model PurchaseEvent {
+  id          String   @id
+  listId      String
+  itemName    String
+  category    String
+  quantity    Float?
+  unit        String?
+  purchasedAt DateTime
+  purchasedBy String?
+
+  list HouseholdList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId, purchasedAt])
+  @@index([listId, itemName])
+  @@map("purchase_events")
+}
+
+model Receipt {
+  id        String   @id
+  listId    String
+  imageUrl  String?
+  imageRef  String?
+  sourceUrl String?
+  storeName String?
+  total     Decimal?
+  scannedAt DateTime @default(now())
+  scannedBy String?
+
+  list  HouseholdList     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  items ReceiptLineItem[]
+
+  @@index([listId, scannedAt])
+  @@map("receipts")
+}
+
+model ReceiptLineItem {
+  id        String  @id
+  receiptId String
+  name      String
+  price     Decimal
+  quantity  Float
+  position  Int
+
+  receipt Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@unique([receiptId, position])
+  @@map("receipt_line_items")
+}
+
+model WhatsNew {
+  id        String   @id @default("current")
+  version   String
+  updates   Json
+  updatedAt DateTime @updatedAt
+
+  @@map("whats_new")
+}
+
+model FeedbackRecord {
+  id            String         @id
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  userId        String
+  username      String
+  message       String
+  status        FeedbackStatus @default(New)
+  errorMessage  String?
+  errorDetail   String?
+  retryCount    Int            @default(0)
+  lastAttemptAt DateTime?
+  attemptId     String?
+  ticketId      String?
+  ticketUrl     String?
+  ticketTitle   String?
+
+  @@index([status, retryCount])
+  @@index([attemptId])
+  @@map("feedback_records")
+}

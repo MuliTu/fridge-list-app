@@ -10,9 +10,11 @@ TODO.md
 coverage
 test-results
 playwright-report
+src/generated/prisma
 # LangGraph API
 .langgraph_api
 .env*
+!.env.example
 
 # Local analysis and generated media
 /graphify-out/
@@ -20,4 +22,8 @@ playwright-report
 /temp.json
 
 # Machine-specific assistant tooling
-.claude/mcp.json
+.claude/
+.plans/
+.specs/
+CLAUDE.md
+CONVERSATION.md

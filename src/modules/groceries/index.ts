@@ -1,10 +1,15 @@
 export type {
+  GroceryReadRecord,
+  GroceryReadRepository
+} from './application/groceryReadRepository'
+export type {
   GroceryRepository,
   GroceryWriteRepository,
   GroceryPatch,
   NewGroceryRecord,
   ReactivateGroceryRecord
 } from './application/groceryWriteRepository'
+export { GetGroceriesService } from './application/getGroceries.service'
 export { GroceryCommandService } from './application/groceryCommands.service'
 export type {
   AddGroceryInput,
