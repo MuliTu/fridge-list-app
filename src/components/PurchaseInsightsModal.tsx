@@ -5,7 +5,7 @@ import type { PurchaseInsightItem } from '../lib/purchaseInsights'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 
-interface PurchaseInsightsModalProps {
+type PurchaseInsightsModalProps = {
   onClose: () => void
 }
 
@@ -22,7 +22,7 @@ interface PurchaseInsightsModalProps {
 // fetching the summary (network error, or simply because the n8n workflow doesn't
 // exist yet) never affects the three sections above, which keep working exactly as
 // before — same graceful-degradation house style as ChangelogModal/WhatsNewModal.
-export default function PurchaseInsightsModal({ onClose }: PurchaseInsightsModalProps) {
+export const PurchaseInsightsModal = ({ onClose }: PurchaseInsightsModalProps) => {
   const { t } = useTranslation('purchaseInsights')
   const { weekly, monthly, frequent, habitChanges = [] } = usePurchaseInsights()
   const { summary, loading: summaryLoading, error: summaryError } = usePurchaseHabitSummary(habitChanges)

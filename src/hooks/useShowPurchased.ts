@@ -16,7 +16,7 @@ const readStored = (): Record<string, boolean> => {
 // buy. Persisted per list name in localStorage — a client-only UI preference, never
 // written to Firebase, so toggling it on the tablet doesn't affect anyone's phone
 // (same philosophy as useCollapsedSections).
-export function useShowPurchased(listKey: string) {
+export const useShowPurchased = (listKey: string) => {
   const [map, setMap] = useState<Record<string, boolean>>(readStored)
 
   useEffect(() => {

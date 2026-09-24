@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next'
 
-interface ListSkeletonProps {
+type ListSkeletonProps = {
   variant: 'flat' | 'grid'
   sections?: number
   rows?: number
 }
 
-export default function ListSkeleton({ variant, sections = 3, rows = 3 }: ListSkeletonProps) {
+export const ListSkeleton = ({ variant, sections = 3, rows = 3 }: ListSkeletonProps) => {
   const { t } = useTranslation()
 
   return (

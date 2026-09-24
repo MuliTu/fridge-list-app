@@ -20,7 +20,7 @@ import type { PurchaseEvent } from '../types'
 // this same hook rather than a second subscription, since it's the same underlying
 // /purchaseHistory data and there's no reason to double-subscribe. Consumers that
 // don't care about habit changes (none currently) can simply ignore the extra field.
-export function usePurchaseInsights() {
+export const usePurchaseInsights = () => {
   const [insights, setInsights] = useState<PurchaseInsights>(EMPTY_PURCHASE_INSIGHTS)
   const [habitChanges, setHabitChanges] = useState<HabitChange[]>([])
   const isPrerendering = useIsPrerendering()

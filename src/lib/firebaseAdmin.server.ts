@@ -2,31 +2,26 @@ import { cert, getApps, initializeApp, type App } from 'firebase-admin/app'
 import { getDatabase, type Database } from 'firebase-admin/database'
 import { logger } from './logger'
 
-// Server-only — never import this from client code (a service-account private key must
-// never reach the browser bundle). Used by src/routes/api/retry-feedback.tsx (ticket F2,
-// the daily feedback-retry safety net) so it can run a real Firebase Admin SDK
-// transaction against /feedbacks — the browser client SDK (src/lib/firebase.ts) has no
-// equivalent for "atomically claim this record only if no one else already did," which
-// is the actual reason this job needs Admin SDK access instead of reusing the existing
-// client-side Firebase setup.
-//
-// FIREBASE_SERVICE_ACCOUNT_KEY (the full service-account JSON, as one env var string) is
-// NOT YET PROVISIONED as of this writing — same category as this project's other
-// outstanding credential gaps (GITHUB_RELEASES_TOKEN, see CLAUDE.md's Known gaps #9).
-// Until it's set, isFirebaseAdminConfigured() returns false and callers (retry-
-// feedback.tsx) must check that first and respond cleanly (503) rather than ever letting
-// getAdminDatabase() throw into an unhandled exception.
-const DATABASE_URL = 'https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app'
+// Server-only; never import this from client code because a service-account private key
+// must never reach the browser bundle. The retry job uses Admin SDK transactions to
+// atomically claim feedback records.
 const ADMIN_APP_NAME = 'fridge-list-admin'
 
 export class FirebaseAdminNotConfiguredError extends Error {
   constructor() {
-    super('FIREBASE_SERVICE_ACCOUNT_KEY is not configured')
+    super('Firebase Admin is not configured')
     this.name = 'FirebaseAdminNotConfiguredError'
   }
 }
 
-export const isFirebaseAdminConfigured = (): boolean => !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+const serviceAccountJson = (): string | undefined =>
+  process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+
+const databaseUrl = (): string | undefined =>
+  process.env.FIREBASE_DATABASE_URL || process.env.VITE_FIREBASE_DATABASE_URL
+
+export const isFirebaseAdminConfigured = (): boolean =>
+  !!serviceAccountJson() && !!databaseUrl()
 
 // Lazily initialized and cached across warm serverless invocations, same pattern as
 // n8n-write-groceries.tsx's cachedAuth — avoids re-parsing the service account JSON and
@@ -35,17 +30,18 @@ export const isFirebaseAdminConfigured = (): boolean => !!process.env.FIREBASE_S
 // might exist in the same process.
 let cachedApp: App | null = null
 
-function getAdminApp(): App {
+const getAdminApp = (): App => {
   if (cachedApp) return cachedApp
 
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-  if (!raw) throw new FirebaseAdminNotConfiguredError()
+  const raw = serviceAccountJson()
+  const url = databaseUrl()
+  if (!raw || !url) throw new FirebaseAdminNotConfiguredError()
 
   let serviceAccount: Record<string, unknown>
   try {
     serviceAccount = JSON.parse(raw)
   } catch {
-    logger.error('[firebaseAdmin] FIREBASE_SERVICE_ACCOUNT_KEY is set but is not valid JSON')
+    logger.error('[firebaseAdmin] Firebase service account env var is set but is not valid JSON')
     throw new FirebaseAdminNotConfiguredError()
   }
 
@@ -55,7 +51,7 @@ function getAdminApp(): App {
     initializeApp(
       {
         credential: cert(serviceAccount as any),
-        databaseURL: DATABASE_URL
+        databaseURL: url
       },
       ADMIN_APP_NAME
     )

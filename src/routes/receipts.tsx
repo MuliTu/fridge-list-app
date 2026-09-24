@@ -18,9 +18,9 @@ import { isSafeHttpUrl } from '../lib/safeUrl'
 import { useAuth } from '../hooks/AuthContext'
 import { useActiveList, useListApi } from '../hooks/ListContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
-import ReceiptReviewModal, { type ReceiptReviewData } from '../components/ReceiptReviewModal'
-import ReceiptReconcileModal, { type ReconcileMatch } from '../components/ReceiptReconcileModal'
-import ListSkeleton from '../components/ListSkeleton'
+import { ReceiptReviewModal, type ReceiptReviewData } from '../components/ReceiptReviewModal'
+import { ReceiptReconcileModal, type ReconcileMatch } from '../components/ReceiptReconcileModal'
+import { ListSkeleton } from '../components/ListSkeleton'
 import type { Receipt, ReceiptItem } from '../types'
 
 const receiptTotal = (receipt: Receipt) =>
@@ -70,10 +70,10 @@ const buildReconcileMatches = async (
 }
 
 export const Route = createFileRoute('/receipts')({
-  component: ReceiptsPage
+  component: () => <ReceiptsPage />
 })
 
-function ReceiptsPage() {
+const ReceiptsPage = () => {
   const { t } = useTranslation(['receipts', 'common'])
   const { user } = useAuth()
   const { activeList, canEdit } = useActiveList()

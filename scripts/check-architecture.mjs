@@ -7,6 +7,7 @@ const defaultRoot = path.resolve(scriptDirectory, '..')
 
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/
 const TEST_FILE_PATTERN = /(?:^|\/)(?:(?:__tests__|test)\/|[^/]+\.(?:test|spec)\.[cm]?[jt]sx?$)/
+const GENERATED_SOURCE_PATTERN = /^src\/generated\//
 
 // Domain and application code should describe business behaviour without binding
 // itself to delivery frameworks or infrastructure/provider SDKs.
@@ -171,6 +172,7 @@ export const checkArchitecture = async (root = defaultRoot) => {
   for (const file of files) {
     const relative = toPosix(path.relative(root, file))
     if (TEST_FILE_PATTERN.test(relative)) continue
+    if (GENERATED_SOURCE_PATTERN.test(relative)) continue
     filesChecked += 1
 
     const source = await readFile(file, 'utf8')

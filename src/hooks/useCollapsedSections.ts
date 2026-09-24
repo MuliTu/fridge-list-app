@@ -11,7 +11,7 @@ const readStored = (): Set<string> => {
   }
 }
 
-export function useCollapsedSections() {
+export const useCollapsedSections = () => {
   const [collapsed, setCollapsed] = useState<Set<string>>(readStored)
 
   useEffect(() => {

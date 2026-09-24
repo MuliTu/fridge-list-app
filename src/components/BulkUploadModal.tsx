@@ -16,13 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 // Select forbids an empty-string item value, same reasoning as units.ts's NO_UNIT.
 const ADD_AS_NEW = '__add_as_new__'
 
-interface ExistingEntry {
+type ExistingEntry = {
   key: string
   name: string
   category: string
 }
 
-interface BulkUploadModalProps {
+type BulkUploadModalProps = {
   listName: string | null
   categories: Category[]
   // Unbought entries currently on the active list — used both to flag/suggest matches
@@ -42,7 +42,7 @@ interface BulkUploadModalProps {
   ) => Promise<unknown> | PromiseLike<unknown>
 }
 
-interface ParsedRow {
+type ParsedRow = {
   name: string
   category: string
   quantityText: string
@@ -59,7 +59,7 @@ interface ParsedRow {
   matchKey: string | null
 }
 
-interface ParsedLine {
+type ParsedLine = {
   name: string
   explicitCategory: string | null
   quantityText: string
@@ -104,14 +104,14 @@ const resolveParsedUnit = (unitText: string | null): { unit: string; customUnit:
   return matched ? { unit: matched, customUnit: '' } : { unit: OTHER_UNIT, customUnit: unitText }
 }
 
-export default function BulkUploadModal({
+export const BulkUploadModal = ({
   listName,
   categories,
   existingEntries,
   onClose,
   onAdd,
   onUpdateQuantity
-}: BulkUploadModalProps) {
+}: BulkUploadModalProps) => {
   const { t } = useTranslation(['shoppingList', 'common', 'stock'])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<'input' | 'review'>('input')

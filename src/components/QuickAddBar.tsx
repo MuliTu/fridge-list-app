@@ -2,11 +2,11 @@ import { forwardRef, useState, type FormEvent } from 'react'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-interface QuickAddBarProps {
+type QuickAddBarProps = {
   onAdd: (name: string) => Promise<unknown> | PromiseLike<unknown>
 }
 
-const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ onAdd }, ref) => {
+export const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ onAdd }, ref) => {
   const { t } = useTranslation()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
@@ -60,4 +60,3 @@ const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ onAdd }, r
 })
 QuickAddBar.displayName = 'QuickAddBar'
 
-export default QuickAddBar

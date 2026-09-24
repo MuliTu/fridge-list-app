@@ -8,7 +8,7 @@ import {
 } from './createTicketGraph'
 import type { TicketProvider } from '../../application/ticketProvider'
 
-export interface CreateTicketAgentDependencies {
+export type CreateTicketAgentDependencies = {
   model: ToolCallingModel
   prompt: ChatPromptTemplate
   provider: TicketProvider

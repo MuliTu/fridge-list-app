@@ -9,14 +9,9 @@ import type { FeedbackRecord } from '../types'
 // is the only way to guarantee that stays true as either route evolves, rather than two
 // copies silently drifting apart.
 //
-// n8n's raw payload isn't confirmed live this session (the n8n MCP connector was
-// unreachable when this was first written for submit-feedback.tsx) — this is a
-// best-effort, documented assumption: `cardUrl` is already known-present (submit-
-// feedback.tsx's own log line reads it directly), and `cardId`/`cardName` are assumed to
-// sit alongside it on the same "Build Card" response per CLAUDE.md's Trello module docs.
-// Falls back to the Trello node's own raw field names (`id`/`url`/`name`) in case n8n
-// forwards those instead, and finally to `fallbackTitle` (the original request text) so
-// a successful call is never left half-populated.
+// Supports both the normalized n8n fields (`cardUrl`, `cardId`, `cardName`) and the
+// ticket provider's raw field names (`id`, `url`, `name`) so a successful call is never
+// left half-populated.
 export const deriveTicketFromN8nResponse = (data: any, fallbackTitle: string): FeedbackRecord['ticket'] =>
   data?.cardUrl || data?.url
     ? {

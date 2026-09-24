@@ -21,7 +21,7 @@ export const isEligibleForRetry = (record: Pick<FeedbackRecord, 'status' | 'retr
 // project's existing precedent of pulling the interesting logic out into something
 // directly testable (e.g. verifyAuthToken.ts exporting verifyIdTokenClaims separately,
 // normalizeName.ts extracted out of firebase.ts/receipts.tsx).
-export interface FeedbackRetryAdapter {
+export type FeedbackRetryAdapter = {
   // Reads every record currently under /feedbacks. Deliberately one flat read, with
   // filtering done in-process below — this app's feedback volume is household-scale,
   // not enterprise-scale, matching this project's general "don't over-engineer for
@@ -79,7 +79,7 @@ export type N8nFeedbackCaller = (
 // best-effort snapshot for the notifier to describe (message/user/error history) — it
 // reflects the state right before/at the terminal write, not necessarily a fresh read
 // after it.
-export interface NeedsAttentionItem {
+export type NeedsAttentionItem = {
   key: string
   record: FeedbackRecord
   reason: string
@@ -93,7 +93,7 @@ export type MaintainerNotifier = (
   items: NeedsAttentionItem[]
 ) => Promise<{ ok: boolean; message?: string }>
 
-export interface RetryFeedbacksResult {
+export type RetryFeedbacksResult = {
   processed: number
   succeeded: number
   failed: number
@@ -142,11 +142,11 @@ export interface RetryFeedbacksResult {
 // `notifyMaintainers` for why: no new Trello credential is needed anywhere in this
 // codebase, and the workflow's existing raw-request fallback still produces a visible
 // card even if Gemini doesn't structure the summary text cleanly).
-export async function retryEligibleFeedbacks(
+export const retryEligibleFeedbacks = async (
   adapter: FeedbackRetryAdapter,
   callN8n: N8nFeedbackCaller,
   notifyMaintainers: MaintainerNotifier
-): Promise<RetryFeedbacksResult> {
+): Promise<RetryFeedbacksResult> => {
   const all = await adapter.getAllFeedbacks()
   const needsAttentionItems: NeedsAttentionItem[] = []
 

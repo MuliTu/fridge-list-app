@@ -14,22 +14,22 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 
-interface ConfirmState {
+type ConfirmState = {
   message: string
   resolve: (value: boolean) => void
 }
 
-interface PromptState {
+type PromptState = {
   message: string
   resolve: (value: string | null) => void
 }
 
-interface AlertState {
+type AlertState = {
   message: string
   resolve: () => void
 }
 
-interface DialogServiceValue {
+type DialogServiceValue = {
   confirm: (message: string) => Promise<boolean>
   prompt: (message: string, defaultValue?: string) => Promise<string | null>
   alert: (message: string) => Promise<void>
@@ -37,7 +37,7 @@ interface DialogServiceValue {
 
 const DialogServiceContext = createContext<DialogServiceValue | null>(null)
 
-export function useDialogService() {
+export const useDialogService = () => {
   const ctx = useContext(DialogServiceContext)
   if (!ctx) throw new Error('useDialogService must be used within DialogServiceProvider')
   return ctx
@@ -47,7 +47,7 @@ export function useDialogService() {
 // OS-native popups that break out of the app's chalkboard styling entirely. Mounted
 // once here so every call site just awaits a promise instead of each needing its own
 // modal + state.
-export function DialogServiceProvider({ children }: { children: ReactNode }) {
+export const DialogServiceProvider = ({ children }: { children: ReactNode }) => {
   const { t } = useTranslation('common')
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
   const [promptState, setPromptState] = useState<PromptState | null>(null)

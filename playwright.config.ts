@@ -1,12 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// e2e coverage here is deliberately scoped to view-only flows — this app's edit
-// actions (bought toggle, add/delete, admin panels) require real Google sign-in
-// (see CLAUDE.md's Auth section: signInWithPopup, no test-friendly redirect flow),
-// so they aren't exercised by these tests. The dev auth bypass (VITE_DEV_AUTH_BYPASS
-// in .env.local) exists for interactive manual QA, not for this automated suite —
-// baking a fake-auth flag into a test config that runs against the deployed prod
-// URL in CI would be a real security smell, not a shortcut worth taking.
+// e2e coverage is scoped to view-only flows because edit actions require real Google
+// sign-in. The dev auth bypass exists for interactive manual QA, not deployed CI.
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,

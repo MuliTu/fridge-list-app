@@ -10,7 +10,7 @@ export type ReceiptRecord = {
   scanned_by: string | null
 }
 
-export interface ReceiptRepository {
+export type ReceiptRepository = {
   nextId(listId: string): string
   save(listId: string, receiptId: string, receipt: ReceiptRecord): Promise<void>
   find(listId: string, receiptId: string): Promise<ReceiptRecord | null>
@@ -18,7 +18,7 @@ export interface ReceiptRepository {
 }
 
 export type ReceiptImageRecord = { data: string; contentType: string; uploaded_at: string }
-export interface ImageRepository {
+export type ImageRepository = {
   save(imageId: string, image: ReceiptImageRecord): Promise<void>
   find(imageId: string): Promise<ReceiptImageRecord | null>
   delete(imageId: string): Promise<void>

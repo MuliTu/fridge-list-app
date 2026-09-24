@@ -1,7 +1,7 @@
 import { ApplicationError, type RequestContext } from '../../shared'
 import type { ReceiptScanner, ReceiptScanResult } from './receiptScanner'
 
-export interface ReceiptUrlFetcher {
+export type ReceiptUrlFetcher = {
   fetchText(url: string): Promise<string>
 }
 

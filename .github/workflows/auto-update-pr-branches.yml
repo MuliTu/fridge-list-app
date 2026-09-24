@@ -2,12 +2,8 @@ name: Auto-update PR branches
 
 # Whenever main changes, merge it into every open PR branch automatically — the
 # manual equivalent of clicking GitHub's "Update branch" button on each open PR.
-# Exists because this repo has no branch protection available (private repo, free
-# GitHub plan — "Require branches to be up to date before merging" needs GitHub Pro),
-# so nothing else keeps PR branches current on its own. Uses the REST API's
-# update-branch endpoint, which performs a real merge commit (never force-pushes),
-# and simply fails for a given PR if that merge would conflict — left for manual
-# resolution rather than guessed at here.
+# Uses the REST API's update-branch endpoint, which performs a real merge commit
+# and simply fails for a given PR if that merge would conflict.
 on:
   push:
     branches: [main]

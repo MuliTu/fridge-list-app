@@ -5,25 +5,25 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 
-export interface ReconcileMatch {
+export type ReconcileMatch = {
   item: ReceiptItem
   stockMatch: StockItem | null
   groceryMatch: GroceryItem | null
   suggestedCategory: string
 }
 
-interface Selection {
+type Selection = {
   stock: boolean
   grocery: boolean
 }
 
-interface ReceiptReconcileModalProps {
+type ReceiptReconcileModalProps = {
   matches: ReconcileMatch[]
   onClose: () => void
   onConfirm: (selections: Selection[]) => Promise<unknown>
 }
 
-export default function ReceiptReconcileModal({ matches, onClose, onConfirm }: ReceiptReconcileModalProps) {
+export const ReceiptReconcileModal = ({ matches, onClose, onConfirm }: ReceiptReconcileModalProps) => {
   const { t } = useTranslation(['receipts', 'common'])
   // Existing stock match: default checked (low-risk, just bumping a quantity).
   // No match: default UNCHECKED — creating a brand-new stock item is a bigger

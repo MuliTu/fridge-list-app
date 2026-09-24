@@ -154,3 +154,15 @@ test('rejects environment reads from application services', async () => {
     }
   )
 })
+
+test('ignores generated source output', async () => {
+  await withProject(
+    {
+      'src/generated/prisma/client.ts': "import process from 'node:process'\n",
+      'src/components/OrderButton.tsx': 'export const OrderButton = () => null\n'
+    },
+    async (root) => {
+      assert.deepEqual((await checkArchitecture(root)).violations, [])
+    }
+  )
+})

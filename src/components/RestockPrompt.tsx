@@ -7,7 +7,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 
-interface RestockPromptProps {
+type RestockPromptProps = {
   itemName: string
   // The matching stock item when one already exists (confirm adds to its quantity), or
   // null when the item isn't tracked in stock yet (confirm creates a fresh entry).
@@ -16,7 +16,7 @@ interface RestockPromptProps {
   onDismiss: () => void
 }
 
-export default function RestockPrompt({ itemName, existing, onConfirm, onDismiss }: RestockPromptProps) {
+export const RestockPrompt = ({ itemName, existing, onConfirm, onDismiss }: RestockPromptProps) => {
   const { t } = useTranslation()
   const [amount, setAmount] = useState<string | number>(1)
   const unit = existing?.unit || StockUnit.Piece

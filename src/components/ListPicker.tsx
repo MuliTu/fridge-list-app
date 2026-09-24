@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-interface ListPickerProps {
+type ListPickerProps = {
   activeList: string | null
   customLists: string[]
   onSelectList: (list: string | null) => void
@@ -12,7 +12,7 @@ const PERMANENT_LIST = null
 // sharing what's missing moved into the sidebar (see ListPickerActionsContext),
 // since those are management actions, not the quick "which list am I looking at"
 // switch someone reaches for constantly while actually shopping.
-export default function ListPicker({ activeList, customLists, onSelectList }: ListPickerProps) {
+export const ListPicker = ({ activeList, customLists, onSelectList }: ListPickerProps) => {
   const { t } = useTranslation()
   return (
     <div className="list-picker">

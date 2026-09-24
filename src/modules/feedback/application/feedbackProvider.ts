@@ -15,6 +15,6 @@ export type FeedbackResult = {
   ticket?: { id: string; url: string; title: string } | null
 }
 
-export interface FeedbackProvider {
+export type FeedbackProvider = {
   submit(submission: FeedbackSubmission): Promise<FeedbackResult>
 }

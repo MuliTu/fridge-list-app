@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { cn } from '../lib/utils'
 
-interface OnboardingModalProps {
+type OnboardingModalProps = {
   onClose: (dontShowAgain: boolean) => void
 }
 
@@ -19,7 +19,7 @@ const mockCardClass = 'flex items-center justify-between gap-2 rounded-xl bg-bac
 // Firebase-shaped data (GroceryItem, StockItem...). This is a first-run walkthrough
 // with no backing data, so a lightweight Tailwind mockup keeps it fully decoupled
 // from the live app state.
-function StepVisual({ step, t }: { step: (typeof STEP_KEYS)[number]; t: (key: string) => string }) {
+const StepVisual = ({ step, t }: { step: (typeof STEP_KEYS)[number]; t: (key: string) => string }) => {
   switch (step) {
     case 'welcome':
       return (
@@ -127,7 +127,7 @@ function StepVisual({ step, t }: { step: (typeof STEP_KEYS)[number]; t: (key: st
   }
 }
 
-export default function OnboardingModal({ onClose }: OnboardingModalProps) {
+export const OnboardingModal = ({ onClose }: OnboardingModalProps) => {
   const { t } = useTranslation('onboarding')
   const [step, setStep] = useState(0)
   const [dontShowAgain, setDontShowAgain] = useState(false)

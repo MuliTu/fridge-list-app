@@ -3,7 +3,7 @@ import { onValue, whatsNewRef } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
 import type { WhatsNew } from '../types'
 
-export function useWhatsNew() {
+export const useWhatsNew = () => {
   const [whatsNew, setWhatsNew] = useState<WhatsNew | null>(null)
   const isPrerendering = useIsPrerendering()
 

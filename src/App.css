@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 
-/* Bridges shadcn/ui's expected token names to this app's existing chalkboard palette —
-   deliberately not shadcn's default look, per explicit product decision (see CLAUDE.md). */
+/* Bridges shadcn/ui's expected token names to this app's chalkboard palette. */
 @theme inline {
   --color-background: var(--board);
   --color-foreground: var(--chalk);

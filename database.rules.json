@@ -82,6 +82,19 @@
     "whats_new": {
       ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
       ".write": false
+    },
+
+    "feedbacks": {
+      ".read": false,
+      ".write": false,
+      "$feedbackId": {
+        ".read": false,
+        ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && ((!data.exists() && newData.child('userId').val() === auth.token.email) || (data.exists() && data.child('userId').val() === auth.token.email && newData.child('userId').val() === data.child('userId').val()))",
+        ".validate": "newData.hasChildren(['createdAt', 'updatedAt', 'userId', 'username', 'message', 'status', 'retryCount']) && newData.child('createdAt').isString() && newData.child('updatedAt').isString() && newData.child('userId').isString() && newData.child('username').isString() && newData.child('message').isString() && newData.child('message').val().length > 0 && newData.child('message').val().length <= 4000 && newData.child('status').isString() && (newData.child('status').val() === 'new' || newData.child('status').val() === 'processing' || newData.child('status').val() === 'ticket_created' || newData.child('status').val() === 'error' || newData.child('status').val() === 'needs_attention') && newData.child('retryCount').isNumber() && newData.child('retryCount').val() >= 0",
+        "$other": {
+          ".validate": "$other === 'createdAt' || $other === 'updatedAt' || $other === 'userId' || $other === 'username' || $other === 'message' || $other === 'status' || $other === 'error' || $other === 'retryCount' || $other === 'lastAttemptAt' || $other === 'ticket' || $other === 'attemptId'"
+        }
+      }
     }
   }
 }

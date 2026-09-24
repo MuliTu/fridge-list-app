@@ -18,11 +18,11 @@ const readStored = (): boolean => {
 // Read the current value directly, outside React state — used at the moment an item is
 // marked bought (in an event handler in a different component than the settings toggle),
 // so the gate always reflects the latest choice without needing cross-component state sync.
-export function isStockSuggestionEnabled(): boolean {
+export const isStockSuggestionEnabled = (): boolean => {
   return readStored()
 }
 
-export function useStockSuggestion() {
+export const useStockSuggestion = () => {
   const [enabled, setEnabled] = useState<boolean>(readStored)
 
   useEffect(() => {

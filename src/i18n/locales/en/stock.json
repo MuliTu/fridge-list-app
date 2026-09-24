@@ -30,6 +30,6 @@
     "deleteFailed": "Delete failed"
   },
   "errors": {
-    "permissionDenied": "No write permission on the database — add the /stock rule in the Firebase console (see CLAUDE.md)."
+    "permissionDenied": "No write permission on the database. Check the Firebase /stock rule."
   }
 }

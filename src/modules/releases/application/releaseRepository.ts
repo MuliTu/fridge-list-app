@@ -5,6 +5,6 @@ export type Release = {
   body: string
 }
 
-export interface ReleaseRepository {
+export type ReleaseRepository = {
   getReleases(): Promise<readonly Release[]>
 }

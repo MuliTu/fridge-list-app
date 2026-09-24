@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
-interface ListMembersModalProps {
+type ListMembersModalProps = {
   onClose: () => void
 }
 
@@ -16,7 +16,7 @@ interface ListMembersModalProps {
 // Only the owner can invite/remove people (there's exactly one owner per list, the
 // person it was auto-provisioned for) — a non-owner member never sees this modal,
 // see the isOwner-gated menu item in Layout.tsx.
-export default function ListMembersModal({ onClose }: ListMembersModalProps) {
+export const ListMembersModal = ({ onClose }: ListMembersModalProps) => {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { activeList } = useActiveList()

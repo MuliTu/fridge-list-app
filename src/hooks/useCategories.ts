@@ -5,7 +5,7 @@ import { useIsPrerendering } from './useIsPrerendering'
 import { useActiveList } from './ListContext'
 import type { Category } from '../types'
 
-export function useCategories() {
+export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([])
   const isPrerendering = useIsPrerendering()
   const { listApi } = useActiveList()

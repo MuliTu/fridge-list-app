@@ -47,13 +47,61 @@ const logClientAction = (legacyMessage: string) => {
     .catch(() => {})
 }
 
-const firebaseConfig = {
-  apiKey: 'AIzaSyAcwoGM2xPNBF372qI9kqVsp72kUG-Errs',
-  authDomain: 'n8n-vocal-2-db.firebaseapp.com',
-  databaseURL: 'https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app',
-  projectId: 'n8n-vocal-2-db',
-  appId: '1:32784605229:web:0375ee6a30d8bb5da5d8a4'
+type FirebaseClientConfig = {
+  apiKey?: string
+  authDomain?: string
+  databaseURL?: string
+  projectId?: string
+  appId?: string
 }
+
+declare const __FIREBASE_CONFIG__: FirebaseClientConfig | undefined
+
+const processEnv =
+  typeof process === 'undefined' ? {} : process.env
+const firebaseConfigKeys = ['apiKey', 'authDomain', 'databaseURL', 'projectId', 'appId'] as const
+const serverFallbackFirebaseConfig: Required<FirebaseClientConfig> = {
+  apiKey: 'server-render-placeholder-api-key',
+  authDomain: 'server-render-placeholder.firebaseapp.com',
+  databaseURL: 'https://server-render-placeholder-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId: 'server-render-placeholder',
+  appId: 'server-render-placeholder-app-id'
+}
+
+const getFirebaseConfig = (): Required<FirebaseClientConfig> => {
+  const injectedConfig =
+    typeof __FIREBASE_CONFIG__ === 'undefined' ? undefined : __FIREBASE_CONFIG__
+  const source: FirebaseClientConfig =
+    injectedConfig ?? {
+      apiKey: processEnv.VITE_FIREBASE_API_KEY,
+      authDomain: processEnv.VITE_FIREBASE_AUTH_DOMAIN,
+      databaseURL: processEnv.VITE_FIREBASE_DATABASE_URL,
+      projectId: processEnv.VITE_FIREBASE_PROJECT_ID,
+      appId: processEnv.VITE_FIREBASE_APP_ID
+    }
+
+  if (processEnv.NODE_ENV === 'test') {
+    return {
+      apiKey: source.apiKey ?? 'test-api-key',
+      authDomain: source.authDomain ?? 'test.firebaseapp.com',
+      databaseURL: source.databaseURL ?? 'https://test-default-rtdb.europe-west1.firebasedatabase.app',
+      projectId: source.projectId ?? 'test-project',
+      appId: source.appId ?? 'test-app-id'
+    }
+  }
+
+  const missing = firebaseConfigKeys.filter((key) => !source[key]?.trim())
+  if (missing.length > 0) {
+    if (typeof window === 'undefined') {
+      return serverFallbackFirebaseConfig
+    }
+    throw new Error(`Missing Firebase client configuration: ${missing.join(', ')}`)
+  }
+
+  return source as Required<FirebaseClientConfig>
+}
+
+const firebaseConfig = getFirebaseConfig()
 
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
@@ -168,7 +216,7 @@ export const categorizeItem = async (text: string): Promise<{ item: string; cate
   return data.items || []
 }
 
-export interface ReleaseInfo {
+export type ReleaseInfo = {
   tag_name: string
   name: string
   published_at: string
@@ -258,19 +306,13 @@ export const getKeepBoughtItemsInCategories = async (email: string): Promise<boo
 export const setKeepBoughtItemsInCategories = (email: string, enabled: boolean) =>
   update(configRef(email), { keepBoughtItemsInCategories: enabled })
 
-// Global, sibling to `users` — app-wide "what's new" info (see WhatsNew in types.ts),
-// not owned by any particular list. Needs its own RTDB rule (not applied yet, same
-// category as the other manual Console steps this project has — see CLAUDE.md).
+// Global, sibling to `users`; app-wide "what's new" info, not owned by a list.
 export const whatsNewRef = ref(db, 'whats_new')
 
 // Global, sibling to `users`/`whats_new` — feedback isn't owned by any particular
-// list. A durability/observability layer over submitFeedback's existing
-// submit → n8n → Gemini → Trello flow (see FeedbackRecord in types.ts and the In-app
-// feedback module in CLAUDE.md): every submission attempt gets a record here so it's
-// trackable even if the Trello card creation itself fails or the browser tab closes
-// before the network call resolves. Needs its own RTDB rule, same open philosophy as
-// `/whats_new`/`/categories` (not applied yet, same category as this project's other
-// manual Console steps).
+// list. A durability/observability layer over submitFeedback: every submission attempt
+// gets a record here so it's trackable even if ticket creation fails or the browser tab
+// closes before the network call resolves.
 export const feedbacksRef = ref(db, 'feedbacks')
 
 // Small, purpose-built helpers (matching getOnboardingDismissed/setOnboardingDismissed's
@@ -324,7 +366,7 @@ export const ensureOwnList = async (email: string, displayName?: string | null):
   return name
 }
 
-export interface InviteEntry {
+export type InviteEntry = {
   email: string
   status: 'pending' | 'approved'
 }
@@ -387,7 +429,7 @@ export const renameOwnList = (ownerEmail: string, name: string) => {
 // rather than importing these functions directly, so the active list only has to
 // be threaded through in one place instead of as a parameter on every call site.
 // ---------------------------------------------------------------------------
-export function createListApi(ownerEmail: string) {
+export const createListApi = (ownerEmail: string) => {
   const base = `users/${sanitizeEmailKey(ownerEmail)}`
   const groceriesRef = ref(db, `${base}/groceries`)
   const stockRef = ref(db, `${base}/stock`)
@@ -928,7 +970,7 @@ export const sendInviteEmail = async (
 // existing n8n payload and route. An agent 403 is safe to fall back because that
 // route authorizes before parsing or execution. No other agent failure is retried:
 // network/5xx uncertainty could mean a ticket was already created.
-export interface FeedbackSubmission {
+export type FeedbackSubmission = {
   request: string
   route?: string
   user?: AuthUser | null

@@ -11,7 +11,7 @@ const trelloCardSchema = z.object({
   desc: z.string()
 })
 
-export interface TrelloTicketProviderConfig {
+export type TrelloTicketProviderConfig = {
   apiKey: string
   apiToken: string
   listId: string

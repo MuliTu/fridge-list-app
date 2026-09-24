@@ -1,78 +1,127 @@
-# Family Grocery List — Siri → n8n → Firebase
+# Fridge List App
 
-A shared, voice-driven shopping list for the family. Anyone can add items by talking to
-Siri in Hebrew; an AI step figures out what's actually groceries (vs. small talk),
-sorts each item into a category, and the whole household sees a live-updating list on
-a fridge tablet.
+A shared household grocery app built for a fridge tablet and mobile devices. The app
+combines real-time Firebase data, authenticated server routes, n8n automation, receipt
+scanning, feedback capture, and bilingual Hebrew/English UI.
 
-## How it works
+## Product Overview
 
-1. **Say it to Siri** — e.g. "תוסיף חלב, ביצים ולחם" ("add milk, eggs and bread").
-   An iOS Shortcut dictates your speech and sends it to an n8n webhook.
-2. **Gemini extracts and categorizes** — it pulls out only the actual shopping items
-   (ignoring reminders, small talk, etc.) and assigns each one a category (vegetables,
-   dairy, cleaning supplies, and so on — 17 categories total).
-3. **Smart de-duplication** — if an item is already on the list and not yet bought,
-   it won't be added twice. If it was already checked off as bought, adding it again
-   un-checks it (so "we need milk again" doesn't get lost behind an old checkmark).
-4. **Firebase stores the list** in real time.
-5. **The web app** (this repo) displays it, grouped by category, on any screen —
-   a tablet stuck on the fridge works great. Checking an item off syncs instantly to
-   every other device looking at the list.
+- Real-time grocery lists grouped by category, with bought/unbought state synced across devices.
+- Multi-list support for household shopping contexts.
+- Receipt scanning from uploaded files or receipt URLs.
+- Voice and automation-friendly n8n write endpoints.
+- Feedback-to-ticket workflow with retry handling.
+- Stock tracking and purchase-habit summaries.
+- Hebrew-first UI with English support.
 
-## Running the web app
+## Tech Stack
 
-Requires [Node.js](https://nodejs.org/).
+- React 18, TanStack Router/Start, Vite, TypeScript
+- Firebase Auth, Realtime Database, Firestore, Firebase Admin SDK
+- n8n webhook integrations for categorization, receipt scanning, and feedback routing
+- Jest, Testing Library, Playwright
+- GitHub Actions CI and Vercel deployment
+
+## Architecture
+
+```text
+Browser / fridge tablet
+  -> TanStack Router UI
+  -> Firebase client SDK for real-time reads
+  -> Authenticated server routes for trusted integrations and migrated writes
+
+Server routes
+  -> Firebase token verification
+  -> Application services under src/modules
+  -> Firebase Admin repositories or n8n providers
+
+n8n / external services
+  -> Categorization
+  -> Receipt parsing
+  -> Feedback ticket creation
+```
+
+The codebase is organized around module boundaries in `src/modules`. Shared client
+helpers live under `src/lib`, UI components under `src/components`, and route handlers
+under `src/routes`.
+
+The write boundary is being moved toward server-owned commands: grocery and receipt
+mutations have authenticated server-route paths, while some legacy Firebase client
+helpers remain for realtime-era flows that have not been fully migrated yet. The
+target fail-closed Realtime Database rules and cutover notes live in
+`database.rules.json` and `database.rules.md`.
+
+## Security Model
+
+- Firebase Realtime Database rules live in `database.rules.json`.
+- Browser-facing Firebase config is loaded from `VITE_FIREBASE_*` env vars.
+- Server-only credentials stay in server env vars and are never shipped to the browser.
+- Server routes that call paid or quota-limited integrations require Firebase auth.
+- n8n machine writes require `N8N_WRITE_SECRET` and are limited to `N8N_ALLOWED_LIST_ID`.
+- Receipt URL scanning uses an SSRF-safe fetcher before forwarding content to the scanner.
+- Missing integration configuration fails closed with safe error responses.
+
+## Local Setup
+
+Requires Node.js 22.12 or newer.
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Open the URL it prints (typically `http://localhost:5173`).
+Fill `.env.local` with Firebase and integration values for the features you want to run.
+Open the dev URL printed by Vite, usually `http://localhost:5173`.
 
-To deploy it somewhere permanent (e.g. a fridge tablet or a home server):
+For local manual QA without Google sign-in, set:
 
 ```bash
-npm run build      # builds into dist/
-npx serve dist      # or any static file host
+VITE_DEV_AUTH_BYPASS=true
 ```
 
-> **Note:** don't just double-click `index.html` to open it — it needs to be served
-> over `http://` or `https://`, not opened directly from disk (`file://`), or the
-> Firebase connection won't load.
+Do not enable the dev auth bypass in production.
 
-## Setting up the Siri Shortcut
+## Environment
 
-1. Shortcuts app → new shortcut → add **Dictate Text**.
-2. Add **Get Contents of URL**:
-   - URL: the n8n webhook (ask whoever set this up for the current one — see the
-     "known issue" below about it changing).
-   - Method: POST
-   - Headers: `Content-Type: application/json`
-   - Request Body (JSON): `{"text": "Dictated Text", "person": "Muli"}` — set `person`
-     to whoever owns *this* phone (hardcode their name in each person's own copy of the
-     Shortcut, don't make it dynamic). This is what lets the web app show "added by
-     Muli" instead of just "Siri" for items added by voice. Optional — if you skip it,
-     everything still works exactly as before, items just show as added by "Siri" with
-     no individual attribution.
-3. Add **Get Dictionary from Input** → **Get Dictionary Value** for key `response`.
-4. Add **Speak Text** using that value.
-5. Name the shortcut something like "תוסיף למכולת" and say "Hey Siri, [name]".
-6. **If more than one person uses this**: each family member should have their own
-   copy of the Shortcut on their own phone, with their own name hardcoded in step 2 —
-   that's the only way n8n can tell who said what, since Siri itself doesn't identify
-   the speaker to the Shortcut.
+See `.env.example` for the full list. The main groups are:
 
-## Known issue: the webhook URL isn't permanent
+- `VITE_FIREBASE_*`: public Firebase web config.
+- `FIREBASE_*`: server Firebase project, database, and Admin SDK configuration.
+- `*_WEBHOOK_URL` / `RECEIPT_*`: stable n8n webhook endpoints.
+- `N8N_*`: machine-to-machine write authorization.
+- `CRON_SECRET`, `GITHUB_RELEASES_TOKEN`, `SMTP_*`: optional scheduled, release, and email integrations.
 
-The n8n instance is currently exposed via a free ngrok tunnel, which means the URL can
-change if it restarts. If Siri suddenly stops working, that's the most likely reason —
-check with whoever manages the n8n instance for the current URL. A more permanent
-solution (Cloudflare Tunnel or Tailscale Funnel) is on the list of future improvements.
+## Test Commands
 
-## For developers / AI assistants picking this up
+```bash
+npm run typecheck
+npm test -- --ci
+npm run test:architecture
+npm run architecture:check
+npm run build
+npm run test:e2e
+```
 
-See `CLAUDE.md` in this same folder for the full technical architecture, the exact
-n8n workflow structure, Firebase configuration, and a list of known gaps / in-progress
-work.
+CI runs architecture checks, typecheck, Jest, and build on every push and pull request.
+Production deployments also run Playwright smoke tests against the deployed app.
+
+## Deployment
+
+The app is designed for Vercel.
+
+1. Configure the environment variables from `.env.example`.
+2. Connect the repository to Vercel.
+3. Deploy with the project build command:
+
+```bash
+npm run build
+```
+
+The app includes server routes and scheduled work, so deploy it as a full Vercel app,
+not as a static-only `dist` folder.
+
+## Demo Notes
+
+For assessment, pair this repository with a short screen recording or screenshots of
+the live app showing list sync, receipt scanning, and the fridge-tablet layout.

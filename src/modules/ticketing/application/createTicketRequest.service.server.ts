@@ -30,20 +30,20 @@ type RouteErrorCode =
   | 'TICKET_PROVIDER_ERROR'
   | 'AGENT_ERROR'
 
-export interface HandlerLogger {
+export type HandlerLogger = {
   success(message: string): void
   warn(message: string): void
   error(message: string): void
 }
 
-export interface RunAgentInput {
+export type RunAgentInput = {
   config: CreateTicketConfig
   prompt: ManagedCreateTicketPrompt
   request: ValidatedCreateTicketRequest
   runId: string
 }
 
-export interface CreateTicketRouteDependencies {
+export type CreateTicketRouteDependencies = {
   environment: NodeJS.ProcessEnv
   createRunId: () => string
   now: () => number

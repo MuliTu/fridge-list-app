@@ -24,6 +24,6 @@
 // Effects that touch Firebase (reads, writes, or listeners) must check this and
 // no-op during prerender; the real subscription/write then runs normally on the
 // client after hydration, exactly as before SPA mode existed.
-export function useIsPrerendering() {
+export const useIsPrerendering = () => {
   return typeof process !== 'undefined' && process.env?.TSS_PRERENDERING === 'true'
 }

@@ -10,7 +10,7 @@ export type CategoryRecord = {
 export type NewCategoryRecord = Omit<CategoryRecord, 'key' | 'protected'> & { protected: false }
 export type CategoryPatch = Partial<Pick<CategoryRecord, 'name' | 'color' | 'icon' | 'order'>>
 
-export interface CatalogCommandRepository {
+export type CatalogCommandRepository = {
   insert(listId: string, category: NewCategoryRecord): Promise<string>
   update(listId: string, categoryId: string, patch: CategoryPatch): Promise<void>
   reorder(listId: string, orders: Readonly<Record<string, number>>): Promise<void>

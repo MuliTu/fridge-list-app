@@ -8,7 +8,7 @@
 // so the caller can drop it silently.
 export const MAX_LOG_MESSAGE_LENGTH = 2000
 
-export function sanitizeLogMessage(message: unknown): string | null {
+export const sanitizeLogMessage = (message: unknown): string | null => {
   if (typeof message !== 'string') return null
   // \r and \n are what a terminal / log file splits lines on — collapsing them is
   // what actually closes the log-injection hole.

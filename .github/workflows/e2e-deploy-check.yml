@@ -1,25 +1,13 @@
 name: E2E (post-deploy)
 
-# This project is connected to Vercel via its native GitHub integration (confirmed:
-# the git-branch-aliased domain fridge-list-app-git-main-*.vercel.app only exists for
-# git-linked projects) — Vercel's GitHub App creates a Deployment for every push and
-# fires `deployment_status` once it finishes, for both preview and production
-# deployments. Running here, not on `push`, means these e2e tests hit the actual
-# deployed app (real Firebase, real routing, real build output) instead of a
-# freshly-checked-out dev server — a meaningfully different, complementary check to
-# the unit/integration suite in test.yml.
+# Vercel's GitHub integration creates a Deployment for every push and emits
+# `deployment_status` after each deployment. Running here means these e2e tests hit
+# the actual deployed app instead of a freshly checked-out dev server.
 #
 # Only runs for Production deployments, against the fixed custom domain
 # (fridge-list-app.vercel.app), not the deployment_status payload's own
-# environment_url/target_url. Confirmed the hard way (every run failed identically
-# until this was root-caused): that per-deployment URL is behind Vercel's Deployment
-# Protection auth wall for BOTH preview and production targets — a plain curl against
-# it 302-redirects to Vercel's login page, while the stable production domain is
-# genuinely public (confirmed separately, matching this app's own "viewing never
-# requires auth" design in CLAUDE.md). Preview deployments have no equivalent public
-# URL, so they're skipped here rather than producing another guaranteed-red check —
-# giving them real e2e coverage would need Vercel's "Protection Bypass for
-# Automation" secret wired in as a GitHub Actions secret, not set up yet.
+# environment_url/target_url. Preview deployments may be protected, while the stable
+# production domain is public and matches the app's view-only access model.
 on:
   deployment_status:
 

@@ -1,18 +1,18 @@
 import '@tanstack/react-start/server-only'
 import nodemailer from 'nodemailer'
 
-export interface InvitationEmailMessage {
+export type InvitationEmailMessage = {
   to: string
   subject: string
   text: string
   html: string
 }
 
-export interface InvitationEmailSender {
+export type InvitationEmailSender = {
   send(message: InvitationEmailMessage): Promise<void>
 }
 
-interface SmtpEnvironment {
+type SmtpEnvironment = {
   SMTP_HOST?: string
   SMTP_PORT?: string
   SMTP_USER?: string
@@ -26,9 +26,9 @@ interface SmtpEnvironment {
  * A null result deliberately preserves the route's existing fail-soft behavior
  * when SMTP has not been provisioned.
  */
-export function createSmtpInvitationEmailSender(
+export const createSmtpInvitationEmailSender = (
   environment: SmtpEnvironment
-): InvitationEmailSender | null {
+): InvitationEmailSender | null => {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = environment
   if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) return null
 

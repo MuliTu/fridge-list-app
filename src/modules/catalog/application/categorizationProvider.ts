@@ -7,6 +7,6 @@ export type CategorizationResult = {
   items: readonly CategorizedItem[]
 }
 
-export interface CategorizationProvider {
+export type CategorizationProvider = {
   categorize(text: string): Promise<CategorizationResult>
 }

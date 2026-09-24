@@ -6,7 +6,7 @@ import { useAuth } from './AuthContext'
 
 export type FeedbackToastStatus = 'pending' | 'success' | 'error'
 
-export interface FeedbackToast {
+export type FeedbackToast = {
   // Monotonic id so a second submission supersedes the first one's late-arriving
   // result instead of clobbering the newer toast (the n8n round-trip can take ~30s).
   id: number
@@ -21,7 +21,7 @@ export interface FeedbackToast {
  * and deliberately not a context — it's read by exactly one owner (Layout), so the
  * `shared, live, cross-component` bar for adding a context here isn't met.
  */
-export function useFeedbackToast() {
+export const useFeedbackToast = () => {
   const { i18n } = useTranslation()
   const { user } = useAuth()
   const route = useRouterState({ select: (s) => s.location.pathname })

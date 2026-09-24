@@ -11,7 +11,7 @@ export type CreateTicketAccessDecision =
   | { ok: true; uid: string }
   | CreateTicketAccessRejection
 
-export interface CreateTicketAccessOptions {
+export type CreateTicketAccessOptions = {
   environment: NodeJS.ProcessEnv
   authenticate: (request: Request) => Promise<AuthCheckResult>
 }

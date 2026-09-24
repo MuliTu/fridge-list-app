@@ -49,13 +49,13 @@ const isExpectedPrompt = (value: unknown): value is ManagedCreateTicketPrompt =>
 const promptReference = ({ promptId, promptVersion }: LangChainPromptConfig): string =>
   promptVersion ? `${promptId}:${promptVersion}` : promptId
 
-interface ManagedPromptLoaderOptions {
+type ManagedPromptLoaderOptions = {
   pullPrompt?: PullManagedPrompt
   cacheTtlMs?: number
   now?: () => number
 }
 
-interface CacheEntry {
+type CacheEntry = {
   apiKey: string
   promptReference: string
   expiresAt: number

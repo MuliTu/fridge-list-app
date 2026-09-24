@@ -4,7 +4,7 @@ import { useIsPrerendering } from './useIsPrerendering'
 import { useActiveList } from './ListContext'
 import type { GroceryItem } from '../types'
 
-interface GroceriesFeedValue {
+type GroceriesFeedValue = {
   entries: GroceryItem[]
   status: string
   toast: string | null
@@ -18,7 +18,7 @@ const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
 // every tab, not just the shopping list. Re-subscribes whenever the active list
 // changes (switching households) — knownKeys/firstLoad reset too, so a fresh list's
 // existing items never get mistaken for "newly added" and trigger a toast.
-export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
+export const GroceriesFeedProvider = ({ children }: { children: ReactNode }) => {
   const [entries, setEntries] = useState<GroceryItem[]>([])
   const [status, setStatus] = useState('מתחבר...')
   const [toast, setToast] = useState<string | null>(null)
@@ -79,7 +79,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   return <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>{children}</GroceriesFeedContext.Provider>
 }
 
-export function useGroceriesFeed() {
+export const useGroceriesFeed = () => {
   const ctx = useContext(GroceriesFeedContext)
   if (!ctx) throw new Error('useGroceriesFeed must be used within GroceriesFeedProvider')
   return ctx

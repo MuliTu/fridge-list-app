@@ -9,15 +9,15 @@ import { useCollapsedSections } from '../hooks/useCollapsedSections'
 import { useAuth } from '../hooks/AuthContext'
 import { useActiveList, useListApi } from '../hooks/ListContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
-import StockItemModal from '../components/StockItemModal'
-import ListSkeleton from '../components/ListSkeleton'
+import { StockItemModal } from '../components/StockItemModal'
+import { ListSkeleton } from '../components/ListSkeleton'
 import type { StockItem } from '../types'
 
 export const Route = createFileRoute('/stock')({
-  component: StockPage
+  component: () => <StockPage />
 })
 
-function StockPage() {
+const StockPage = () => {
   const { t } = useTranslation(['stock', 'common'])
   const { user } = useAuth()
   const { canEdit } = useActiveList()

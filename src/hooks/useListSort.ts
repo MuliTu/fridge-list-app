@@ -18,7 +18,7 @@ const readStored = (): Record<string, SortOption> => {
 // view preference, not shared list data, matching Scenario 6 (User B's view must not
 // change when User A re-sorts) and the same "per device" philosophy already used by
 // useShowPurchased/useCollapsedSections.
-export function useListSort(listKey: string, userEmail: string | null | undefined) {
+export const useListSort = (listKey: string, userEmail: string | null | undefined) => {
   const [map, setMap] = useState<Record<string, SortOption>>(readStored)
 
   useEffect(() => {

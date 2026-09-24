@@ -35,7 +35,7 @@ type ActiveListApi = Omit<ListApi, 'addGroceryItem'> & {
   ): PromiseLike<unknown>
 }
 
-interface ListContextValue {
+type ListContextValue = {
   myLists: UserList[]
   // True once this user's own list + memberOf discovery have both resolved at
   // least once (or immediately for a signed-out user) — lets Layout distinguish
@@ -60,7 +60,7 @@ interface ListContextValue {
 
 const ListContext = createContext<ListContextValue | null>(null)
 
-export function ListProvider({ children }: { children: ReactNode }) {
+export const ListProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth()
   const isPrerendering = useIsPrerendering()
   const [ownName, setOwnName] = useState<string | null>(null)
@@ -333,7 +333,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useActiveList() {
+export const useActiveList = () => {
   const ctx = useContext(ListContext)
   if (!ctx) throw new Error('useActiveList must be used within ListProvider')
   return ctx
@@ -345,7 +345,7 @@ export function useActiveList() {
 // resolved (always true almost immediately, since it's auto-provisioned), so a
 // null here means a real bug, not an expected transient state worth handling
 // gracefully.
-export function useListApi(): ActiveListApi {
+export const useListApi = (): ActiveListApi => {
   const { listApi } = useActiveList()
   if (!listApi) throw new Error('useListApi called with no active list')
   return listApi

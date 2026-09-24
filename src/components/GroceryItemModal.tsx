@@ -9,7 +9,7 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
-interface GroceryItemModalProps {
+type GroceryItemModalProps = {
   listName: string | null
   // Pre-fills the name field — used when this modal is opened from the shopping
   // list search's "no results, add it?" prompt (SearchSuggestAdd) instead of the
@@ -24,7 +24,7 @@ interface GroceryItemModalProps {
   }) => Promise<unknown> | PromiseLike<unknown>
 }
 
-export default function GroceryItemModal({ listName, initialName, onClose, onAdd }: GroceryItemModalProps) {
+export const GroceryItemModal = ({ listName, initialName, onClose, onAdd }: GroceryItemModalProps) => {
   const { t } = useTranslation()
   const [name, setName] = useState(initialName ?? '')
   const [quantityText, setQuantityText] = useState('')

@@ -9,7 +9,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 // actions into a slot the sidebar (an ancestor) can read. `actions` stays null on
 // every other route (stock, receipts), which is exactly the signal the sidebar
 // uses to hide this section entirely when it doesn't apply.
-export interface ListPickerActions {
+export type ListPickerActions = {
   canEdit: boolean
   isCustomList: boolean
   hasUnbought: boolean
@@ -19,14 +19,14 @@ export interface ListPickerActions {
   onBulkUpload: () => void
 }
 
-interface ListPickerActionsContextValue {
+type ListPickerActionsContextValue = {
   actions: ListPickerActions | null
   setActions: (actions: ListPickerActions | null) => void
 }
 
 const ListPickerActionsContext = createContext<ListPickerActionsContextValue | null>(null)
 
-export function ListPickerActionsProvider({ children }: { children: ReactNode }) {
+export const ListPickerActionsProvider = ({ children }: { children: ReactNode }) => {
   const [actions, setActions] = useState<ListPickerActions | null>(null)
   return (
     <ListPickerActionsContext.Provider value={{ actions, setActions }}>
@@ -35,7 +35,7 @@ export function ListPickerActionsProvider({ children }: { children: ReactNode })
   )
 }
 
-export function useListPickerActions() {
+export const useListPickerActions = () => {
   const ctx = useContext(ListPickerActionsContext)
   if (!ctx) throw new Error('useListPickerActions must be used within ListPickerActionsProvider')
   return ctx

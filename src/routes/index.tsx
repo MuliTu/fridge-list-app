@@ -16,19 +16,19 @@ import { useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { useListPickerActions } from '../hooks/ListPickerActionsContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import { useBoughtItemsPreference } from '../hooks/BoughtItemsPreferenceContext'
-import ItemDetailModal from '../components/ItemDetailModal'
-import GroceryItemModal from '../components/GroceryItemModal'
-import BulkUploadModal from '../components/BulkUploadModal'
-import RestockPrompt from '../components/RestockPrompt'
-import ListPicker from '../components/ListPicker'
-import ActiveListLabel from '../components/ActiveListLabel'
-import ShoppingListSearch from '../components/ShoppingListSearch'
-import SearchSuggestAdd from '../components/SearchSuggestAdd'
-import ShoppingListSort from '../components/ShoppingListSort'
-import ShoppingListItemRow from '../components/ShoppingListItemRow'
-import CategorySection from '../components/CategorySection'
-import QuickAddBar from '../components/QuickAddBar'
-import ListSkeleton from '../components/ListSkeleton'
+import { ItemDetailModal } from '../components/ItemDetailModal'
+import { GroceryItemModal } from '../components/GroceryItemModal'
+import { BulkUploadModal } from '../components/BulkUploadModal'
+import { RestockPrompt } from '../components/RestockPrompt'
+import { ListPicker } from '../components/ListPicker'
+import { ActiveListLabel } from '../components/ActiveListLabel'
+import { ShoppingListSearch } from '../components/ShoppingListSearch'
+import { SearchSuggestAdd } from '../components/SearchSuggestAdd'
+import { ShoppingListSort } from '../components/ShoppingListSort'
+import { ShoppingListItemRow } from '../components/ShoppingListItemRow'
+import { CategorySection } from '../components/CategorySection'
+import { QuickAddBar } from '../components/QuickAddBar'
+import { ListSkeleton } from '../components/ListSkeleton'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
 import { partitionGroceryItemsByPlacement } from '../lib/boughtItemsPlacement'
 import type { GroceryItem, StockItem } from '../types'
@@ -39,10 +39,10 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { list?: string } => ({
     list: typeof search.list === 'string' ? search.list : undefined
   }),
-  component: ShoppingListPage
+  component: () => <ShoppingListPage />
 })
 
-function ShoppingListPage() {
+const ShoppingListPage = () => {
   const { t, i18n } = useTranslation()
   const { list } = Route.useSearch()
   const navigate = Route.useNavigate()

@@ -9,7 +9,7 @@ import type { AuthUser } from '../types'
 // replaced that: "can I edit" is now a property of a specific list (am I a member
 // of the currently active one), not of the app as a whole — see
 // src/hooks/ListContext.tsx's useActiveList(), which is where those checks live now.
-interface AuthContextValue {
+type AuthContextValue = {
   user: AuthUser | null
   // True once Firebase has resolved whether a session already exists (or immediately
   // for the dev bypass) — lets consumers avoid flashing a "please sign in" screen for
@@ -34,7 +34,7 @@ const DEV_USER: AuthUser | null = DEV_BYPASS
     }
   : null
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { t } = useTranslation()
   const [user, setUser] = useState<AuthUser | null>(DEV_USER)
   const [authResolved, setAuthResolved] = useState(DEV_BYPASS)
@@ -58,10 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // blocks that storage (Safari's cross-site tracking prevention, an app's
       // built-in in-app browser like Gmail/WhatsApp, private browsing) breaks the
       // handshake and throws exactly this error, with no user-actionable code, only
-      // a long internal English message. Same root cause this project already hit
-      // with signInWithRedirect (see CLAUDE.md's Auth section) — surfaced here
-      // instead of Firebase's raw text, since a real invited user hit this and had
-      // no way to know what to do about it.
+      // a long internal English message. Surface a localized recovery message instead
+      // of Firebase's raw text.
       const isStorageBlocked =
         err.code === 'auth/missing-initial-state' || /missing initial state|sessionStorage/i.test(err.message || '')
       // The storage-blocked message is already a complete, translated sentence — the
@@ -79,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx

@@ -1,4 +1,4 @@
-export interface NewGroceryRecord {
+export type NewGroceryRecord = {
   item: string
   category: string
   added_at: string
@@ -12,7 +12,7 @@ export interface NewGroceryRecord {
   modified_by?: string | null
 }
 
-export interface ReactivateGroceryRecord {
+export type ReactivateGroceryRecord = {
   bought: false
   added_at: string
 }
@@ -27,7 +27,7 @@ export type GroceryPatch = Partial<
 }
 
 /** Persistence boundary for the existing users/{listId}/groceries RTDB collection. */
-export interface GroceryRepository {
+export type GroceryRepository = {
   insert(listId: string, record: NewGroceryRecord): Promise<string>
   insertIdempotent(listId: string, idempotencyKey: string, record: NewGroceryRecord): Promise<string>
   reactivate(listId: string, itemKey: string, record: ReactivateGroceryRecord): Promise<void>

@@ -9,7 +9,7 @@ import type { TicketProvider } from '../../application/ticketProvider'
 export const CREATE_TICKET_TOOL_NAME = 'create_ticket'
 export const DEFAULT_CREATE_TICKET_TIMEOUT_MS = 10_000
 
-export interface CreateTicketToolOptions {
+export type CreateTicketToolOptions = {
   timeoutMs?: number
 }
 

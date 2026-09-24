@@ -1,9 +1,12 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return {
   plugins: [
     tanstackStart({
       spa: { enabled: true },
@@ -12,6 +15,15 @@ export default defineConfig(({ command }) => ({
     tailwindcss(),
     react()
   ],
+  define: {
+    __FIREBASE_CONFIG__: JSON.stringify({
+      apiKey: env.VITE_FIREBASE_API_KEY,
+      authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+      databaseURL: env.VITE_FIREBASE_DATABASE_URL,
+      projectId: env.VITE_FIREBASE_PROJECT_ID,
+      appId: env.VITE_FIREBASE_APP_ID
+    })
+  },
   // Bundles all npm dependencies (react, @tanstack/*, h3-v2, seroval, ...) directly
   // into dist/server/server.js instead of leaving them as bare imports resolved from
   // node_modules at runtime. Needed for the Vercel deploy (scripts/vercel-build.mjs)
@@ -34,9 +46,10 @@ export default defineConfig(({ command }) => ({
   // subtree (traced via @vercel/nft) alongside the function output, so this doesn't
   // reintroduce the ERR_MODULE_NOT_FOUND problem the comment above describes — see
   // that script for the copy step.
-  ssr: command === 'build' ? { noExternal: true, external: ['firebase-admin'] } : undefined,
-  server: {
-    host: true,
-    port: process.env.PORT ? Number(process.env.PORT) : 5173
+    ssr: command === 'build' ? { noExternal: true, external: ['firebase-admin'] } : undefined,
+    server: {
+      host: true,
+      port: process.env.PORT ? Number(process.env.PORT) : 5173
+    }
   }
-}))
+})

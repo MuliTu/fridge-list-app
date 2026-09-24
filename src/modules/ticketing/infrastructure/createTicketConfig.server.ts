@@ -39,7 +39,7 @@ export type CreateTicketProviderConfig =
       listId: string
     }
 
-export interface CreateTicketConfig {
+export type CreateTicketConfig = {
   enabled: boolean
   allowedUids: ReadonlySet<string>
   model: {

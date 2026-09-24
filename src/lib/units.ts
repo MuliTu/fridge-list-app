@@ -1,8 +1,6 @@
 // Stock unit values. These are persisted as-is in Firebase (`/stock/{pushId}.unit` and,
 // since the same picker is reused for shopping-list item quantities, also
-// `/groceries/{pushId}.unit`), so the string values must never change/translate — same
-// rule as OTHER_CATEGORY_NAME in categories.ts (see CLAUDE.md "Persisted data values
-// are never translated").
+// `/groceries/{pushId}.unit`), so the string values must never change or translate.
 export enum StockUnit {
   Piece = 'יח\'',
   Kilogram = 'ק"ג',
@@ -32,13 +30,13 @@ export const OTHER_UNIT = 'אחר'
 // value, hence a distinct marker rather than ''.
 export const NO_UNIT = '__no_unit__'
 
-export interface QuantityUnitFields {
+export type QuantityUnitFields = {
   quantityText: string
   unit: string
   customUnit: string
 }
 
-export interface QuantityUnitResolution {
+export type QuantityUnitResolution = {
   quantity: number | null
   unit: string | null
   error: 'invalidQuantity' | 'unitRequiresQuantity' | null
@@ -49,7 +47,7 @@ export interface QuantityUnitResolution {
 // can't drift apart. Rules straight from the ticket: quantity is optional but must be
 // a positive number if given; a unit may only be set alongside a quantity (an empty
 // item name field is out of scope here — callers validate that separately).
-export function resolveQuantityUnit({ quantityText, unit, customUnit }: QuantityUnitFields): QuantityUnitResolution {
+export const resolveQuantityUnit = ({ quantityText, unit, customUnit }: QuantityUnitFields): QuantityUnitResolution => {
   const trimmedQuantity = quantityText.trim()
   let quantity: number | null = null
   if (trimmedQuantity) {
@@ -112,7 +110,7 @@ const UNIT_ALIASES: Record<string, StockUnit> = {
 // Resolves free text (e.g. from a parsed bulk-import row) to a known StockUnit, or
 // null if it doesn't match any recognized preset/alias — callers fall back to treating
 // the raw text as a custom unit in that case.
-export function matchUnitAlias(text: string): StockUnit | null {
+export const matchUnitAlias = (text: string): StockUnit | null => {
   const trimmed = text.trim()
   if (!trimmed) return null
   const exactPreset = UNIT_PRESETS.find((preset) => preset === trimmed)

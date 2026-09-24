@@ -30,6 +30,6 @@
     "deleteFailed": "מחיקה נכשלה"
   },
   "errors": {
-    "permissionDenied": "אין הרשאת כתיבה במסד הנתונים — יש להוסיף את הכלל עבור /stock בקונסולת Firebase (ראה CLAUDE.md)."
+    "permissionDenied": "אין הרשאת כתיבה במסד הנתונים. יש לבדוק את כלל /stock ב-Firebase."
   }
 }

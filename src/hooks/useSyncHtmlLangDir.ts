@@ -8,7 +8,7 @@ import { changeLanguage, readStoredLanguage, RTL_LANGUAGES } from '../i18n/confi
 // very first render matches exactly; only after that commit do we switch to whatever
 // the user previously chose, trading a brief flash of Hebrew for a returning
 // English-preferring user for avoiding a hydration mismatch entirely.
-export function useSyncHtmlLangDir() {
+export const useSyncHtmlLangDir = () => {
   const { i18n } = useTranslation()
 
   useEffect(() => {

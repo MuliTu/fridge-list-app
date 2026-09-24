@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { SORT_OPTIONS, type SortOption } from '../lib/sortGroceryItems'
 
-interface ShoppingListSortProps {
+type ShoppingListSortProps = {
   value: SortOption
   onChange: (value: SortOption) => void
 }
@@ -20,7 +20,7 @@ const LABEL_KEY: Record<SortOption, string> = {
 // pattern already used elsewhere for a compact shadcn trigger (e.g. AdminsModal's
 // `h-[26px] w-[26px]` icon buttons). SelectValue renders the active option's own label
 // text, which doubles as the "currently sorted by" visual indicator (FR-6).
-export default function ShoppingListSort({ value, onChange }: ShoppingListSortProps) {
+export const ShoppingListSort = ({ value, onChange }: ShoppingListSortProps) => {
   const { t } = useTranslation()
   return (
     <Select value={value} onValueChange={(v) => onChange(v as SortOption)}>

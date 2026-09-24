@@ -9,7 +9,7 @@ import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { StockUnit, UNIT_PRESETS, OTHER_UNIT } from '../lib/units'
 
-interface StockItemFields {
+type StockItemFields = {
   name: string
   category: string
   quantity: number
@@ -17,14 +17,14 @@ interface StockItemFields {
   low_threshold: number
 }
 
-interface StockItemModalProps {
+type StockItemModalProps = {
   item: StockItem | null
   categories: Category[]
   onClose: () => void
   onSubmit: (fields: StockItemFields) => Promise<unknown> | PromiseLike<unknown>
 }
 
-export default function StockItemModal({ item, categories, onClose, onSubmit }: StockItemModalProps) {
+export const StockItemModal = ({ item, categories, onClose, onSubmit }: StockItemModalProps) => {
   const { t } = useTranslation(['stock', 'common'])
   const isEdit = !!item
   const [name, setName] = useState(item?.name || '')

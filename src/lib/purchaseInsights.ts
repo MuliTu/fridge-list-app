@@ -10,7 +10,7 @@ import type { PurchaseEvent } from '../types'
 // summary) is expected to build directly on top of this same windowed-count shape
 // rather than re-deriving it.
 
-export interface PurchaseInsightItem {
+export type PurchaseInsightItem = {
   // Display name — the raw (untranslated, exactly-as-purchased) item name from the
   // most recent event in this group, same "persisted data values are never
   // translated" rule as categories/list names/item notes elsewhere in this app.
@@ -18,7 +18,7 @@ export interface PurchaseInsightItem {
   count: number
 }
 
-export interface PurchaseInsights {
+export type PurchaseInsights = {
   // Trailing 7 days, counted from `now`.
   weekly: PurchaseInsightItem[]
   // Trailing 30 days, counted from `now`.
@@ -45,7 +45,7 @@ const FREQUENT_WINDOW_DAYS = 90
 // normalized) name as the group's display label. Sorted by count descending, then
 // alphabetically (Hebrew-aware, matching useCategories' own tie-break) for a
 // deterministic, non-flickering order across re-renders.
-function aggregateWindow(events: PurchaseEvent[], now: Date, windowDays: number): PurchaseInsightItem[] {
+const aggregateWindow = (events: PurchaseEvent[], now: Date, windowDays: number): PurchaseInsightItem[] => {
   const cutoff = now.getTime() - windowDays * DAY_MS
   const groups = new Map<string, { itemName: string; count: number; latestAt: number }>()
 
@@ -76,7 +76,7 @@ function aggregateWindow(events: PurchaseEvent[], now: Date, windowDays: number)
     .sort((a, b) => b.count - a.count || a.itemName.localeCompare(b.itemName, 'he'))
 }
 
-export function computePurchaseInsights(events: PurchaseEvent[], now: Date = new Date()): PurchaseInsights {
+export const computePurchaseInsights = (events: PurchaseEvent[], now: Date = new Date()): PurchaseInsights => {
   return {
     weekly: aggregateWindow(events, now, WEEKLY_WINDOW_DAYS),
     monthly: aggregateWindow(events, now, MONTHLY_WINDOW_DAYS),

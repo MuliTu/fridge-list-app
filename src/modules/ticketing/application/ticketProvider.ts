@@ -1,6 +1,6 @@
 import type { CreatedTicket, CreateTicketInput } from '../domain/createTicketSchemas'
 
-export interface CreateTicketProviderOptions {
+export type CreateTicketProviderOptions = {
   signal?: AbortSignal
 }
 
@@ -10,7 +10,7 @@ export interface CreateTicketProviderOptions {
  * Implementations normalize their provider-specific response to CreatedTicket
  * and reject when creation fails or the response cannot be normalized.
  */
-export interface TicketProvider {
+export type TicketProvider = {
   createTicket(
     input: CreateTicketInput,
     options?: CreateTicketProviderOptions

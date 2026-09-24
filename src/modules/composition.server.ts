@@ -41,7 +41,9 @@ export type ServerEnvironment = Readonly<{
   FIREBASE_DATABASE_URL?: string
   FIREBASE_PROJECT_ID?: string
   FIREBASE_SERVICE_ACCOUNT_JSON?: string
+  CATEGORIZE_ITEM_WEBHOOK_URL?: string
   GITHUB_RELEASES_TOKEN?: string
+  SUBMIT_FEEDBACK_WEBHOOK_URL?: string
   RECEIPT_SCAN_URL?: string
   RECEIPT_URL_SCAN_ENDPOINT?: string
   N8N_ALLOWED_LIST_ID?: string
@@ -280,14 +282,18 @@ export class ServerComposition {
 
   getCategorizeItemService(): CategorizeItemService {
     this.categorizeItemService ??= new CategorizeItemService(
-      new N8nCategorizationProvider()
+      new N8nCategorizationProvider(
+        configured(this.options.environment, 'CATEGORIZE_ITEM_WEBHOOK_URL')
+      )
     )
     return this.categorizeItemService
   }
 
   getSubmitFeedbackService(): SubmitFeedbackService {
     this.submitFeedbackService ??= new SubmitFeedbackService(
-      new N8nFeedbackProvider()
+      new N8nFeedbackProvider(
+        configured(this.options.environment, 'SUBMIT_FEEDBACK_WEBHOOK_URL')
+      )
     )
     return this.submitFeedbackService
   }

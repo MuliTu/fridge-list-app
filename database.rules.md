@@ -40,6 +40,9 @@ email-to-key comparison.
   authorization remains mandatory.
 - Authenticated non-anonymous users may read `whats_new`; nobody may write it from
   the browser.
+- Authenticated non-anonymous users may create and update only their own
+  `/feedbacks/{id}` tracking records. Records are intentionally not browser-readable;
+  the retry job and maintainer workflows use privileged server access.
 
 Because RTDB read rules are not filters, no `.read` is granted at `/users` or at a
 whole `/users/{listId}` node. Clients must read the explicitly permitted child
@@ -82,7 +85,9 @@ pending user. Verify:
    `identityBindings` through a client SDK;
 8. a user can read only their own identity binding;
 9. authenticated non-anonymous reads of `whats_new` succeed and all writes fail;
-10. Admin SDK writes succeed only after the application service independently
+10. authenticated users can create/update only feedback records whose `userId`
+    matches their verified email, and cannot read any feedback records;
+11. Admin SDK writes succeed only after the application service independently
     authorizes the principal (tested outside the Rules suite).
 
 Suggested command after adding `@firebase/rules-unit-testing` in the dedicated

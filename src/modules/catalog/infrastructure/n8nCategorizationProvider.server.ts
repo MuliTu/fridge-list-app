@@ -7,9 +7,6 @@ import type {
   CategorizedItem
 } from '../application/categorizationProvider'
 
-export const CATEGORIZE_ITEM_WEBHOOK_URL =
-  'https://whiny-idealist-unseen.ngrok-free.dev/webhook/categorize-item'
-
 type Fetch = typeof fetch
 
 const normalizeItem = (value: unknown): CategorizedItem | null => {
@@ -21,12 +18,12 @@ const normalizeItem = (value: unknown): CategorizedItem | null => {
 }
 
 export class N8nCategorizationProvider implements CategorizationProvider {
-  constructor(private readonly fetchImpl: Fetch = fetch) {}
+  constructor(private readonly webhookUrl: string, private readonly fetchImpl: Fetch = fetch) {}
 
   async categorize(text: string): Promise<CategorizationResult> {
     let response: Response
     try {
-      response = await this.fetchImpl(CATEGORIZE_ITEM_WEBHOOK_URL, {
+      response = await this.fetchImpl(this.webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })

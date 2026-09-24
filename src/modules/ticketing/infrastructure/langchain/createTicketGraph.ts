@@ -21,30 +21,30 @@ import type { TicketProvider } from '../../application/ticketProvider'
 export const DEFAULT_CREATE_TICKET_RECURSION_LIMIT = 8
 export const DEFAULT_CREATE_TICKET_MODEL_TIMEOUT_MS = 30_000
 
-export interface CreateTicketRequestContext {
+export type CreateTicketRequestContext = {
   route?: string
   language?: string
   appVersion?: string
 }
 
-export interface CreateTicketAgentInput {
+export type CreateTicketAgentInput = {
   request: string
   context?: CreateTicketRequestContext
   runId: string
 }
 
-export interface CreateTicketAgentResult {
+export type CreateTicketAgentResult = {
   ticket: CreatedTicket
   runId: string
 }
 
-interface PendingToolCall {
+type PendingToolCall = {
   name: string
   args: Record<string, unknown>
   id?: string
 }
 
-export interface ToolCallingModel {
+export type ToolCallingModel = {
   bindTools(
     tools: DynamicStructuredTool[],
     options?: { tool_choice?: string }
@@ -89,7 +89,7 @@ const CreateTicketState = Annotation.Root({
   pendingToolCall: Annotation<PendingToolCall | undefined>()
 })
 
-export interface CreateTicketGraphOptions extends CreateTicketToolOptions {
+export type CreateTicketGraphOptions = CreateTicketToolOptions & {
   recursionLimit?: number
   modelTimeoutMs?: number
 }

@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 const MAX_NAME_LENGTH = 100
 
-interface ItemDetailModalProps {
+type ItemDetailModalProps = {
   entry: GroceryItem
   canEdit: boolean
   categories?: Category[]
@@ -29,7 +29,7 @@ interface ItemDetailModalProps {
   onMoveCategory?: (key: string, category: string) => void
 }
 
-export default function ItemDetailModal({
+export const ItemDetailModal = ({
   entry,
   canEdit,
   categories = [],
@@ -38,7 +38,7 @@ export default function ItemDetailModal({
   onSave,
   onDelete,
   onMoveCategory
-}: ItemDetailModalProps) {
+}: ItemDetailModalProps) => {
   const { t } = useTranslation()
   const { confirm } = useDialogService()
   // Editable product name (FR-1..FR-5). Kept in the same unified edit-and-Save modal

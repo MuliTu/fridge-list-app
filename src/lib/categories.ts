@@ -1,6 +1,6 @@
 export const OTHER_CATEGORY_NAME = 'אחר'
 
-interface DefaultCategory {
+type DefaultCategory = {
   name: string
   color: string
   icon: string

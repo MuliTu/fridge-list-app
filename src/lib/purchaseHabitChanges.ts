@@ -26,7 +26,7 @@ import type { PurchaseEvent } from '../types'
 export type HabitChangeDirection = 'increase' | 'decrease'
 export type HabitChangeWindow = 'weekly' | 'monthly'
 
-export interface HabitChange {
+export type HabitChange = {
   // Display name — same "raw, untranslated, most-recent-event's-spelling" convention
   // as PurchaseInsightItem.itemName in purchaseInsights.ts.
   itemName: string
@@ -52,7 +52,7 @@ const NOISE_FLOOR = 3
 // handful of genuinely notable shifts rather than a long tail of borderline ones.
 export const MAX_HABIT_CHANGES = 8
 
-interface WindowDefinition {
+type WindowDefinition = {
   window: HabitChangeWindow
   windowDays: number
 }
@@ -62,7 +62,7 @@ const WINDOW_DEFINITIONS: WindowDefinition[] = [
   { window: 'monthly', windowDays: 30 }
 ]
 
-interface CountEntry {
+type CountEntry = {
   itemName: string
   count: number
 }
@@ -70,7 +70,7 @@ interface CountEntry {
 // Counts events strictly within (rangeStart, rangeEnd] by normalized item name, same
 // exclusive-lower/inclusive-upper boundary convention as aggregateWindow in
 // purchaseInsights.ts (pinned down there by its own boundary test).
-function countsInRange(events: PurchaseEvent[], rangeStart: number, rangeEnd: number): Map<string, CountEntry> {
+const countsInRange = (events: PurchaseEvent[], rangeStart: number, rangeEnd: number): Map<string, CountEntry> => {
   const counts = new Map<string, CountEntry>()
 
   for (const event of events) {
@@ -95,7 +95,7 @@ function countsInRange(events: PurchaseEvent[], rangeStart: number, rangeEnd: nu
 // change. Handles the "brand new habit" / "stopped entirely" edge cases (one side is
 // zero) separately from the "both sides nonzero" doubled/halved case, since a plain
 // ratio is undefined when either count is zero.
-function classify(recentCount: number, priorCount: number): HabitChangeDirection | null {
+const classify = (recentCount: number, priorCount: number): HabitChangeDirection | null => {
   if (recentCount === 0 && priorCount === 0) return null
   if (priorCount === 0) return recentCount >= NOISE_FLOOR ? 'increase' : null
   if (recentCount === 0) return priorCount >= NOISE_FLOOR ? 'decrease' : null
@@ -108,16 +108,16 @@ function classify(recentCount: number, priorCount: number): HabitChangeDirection
 // How dramatic a change is, used purely for sort order (most notable first) — a
 // brand-new or fully-stopped item (one side zero) is treated as maximally dramatic
 // since there's no meaningful ratio to compute.
-function magnitude(recentCount: number, priorCount: number): number {
+const magnitude = (recentCount: number, priorCount: number): number => {
   if (recentCount === 0 || priorCount === 0) return Infinity
   return Math.max(recentCount / priorCount, priorCount / recentCount)
 }
 
-export function computeHabitChanges(
+export const computeHabitChanges = (
   events: PurchaseEvent[],
   now: Date = new Date(),
   maxResults: number = MAX_HABIT_CHANGES
-): HabitChange[] {
+): HabitChange[] => {
   const changes: HabitChange[] = []
 
   for (const { window, windowDays } of WINDOW_DEFINITIONS) {
@@ -156,4 +156,16 @@ export function computeHabitChanges(
       return a.itemName.localeCompare(b.itemName, 'he')
     })
     .slice(0, maxResults)
+}
+
+export const habitChangesSignature = (changes: HabitChange[]): string => {
+  return JSON.stringify(
+    changes.map((change) => [
+      change.itemName,
+      change.window,
+      change.direction,
+      change.recentCount,
+      change.priorCount
+    ])
+  )
 }

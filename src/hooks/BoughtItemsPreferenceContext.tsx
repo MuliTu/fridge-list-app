@@ -4,7 +4,7 @@ import {
   setKeepBoughtItemsInCategories
 } from '../lib/firebase'
 
-interface BoughtItemsPreferenceContextValue {
+type BoughtItemsPreferenceContextValue = {
   keepBoughtItemsInCategories: boolean
   isResolved: boolean
   saveError: boolean
@@ -16,13 +16,13 @@ const BoughtItemsPreferenceContext = createContext<BoughtItemsPreferenceContextV
 // Cross-device display preference stored at
 // /users/{email}/config/keepBoughtItemsInCategories. An absent key preserves the
 // established default: bought items move into their own completed section.
-export function BoughtItemsPreferenceProvider({
+export const BoughtItemsPreferenceProvider = ({
   email,
   children
 }: {
   email: string | null | undefined
   children: ReactNode
-}) {
+}) => {
   const [keepBoughtItemsInCategories, setKeepBoughtItemsInCategoriesState] = useState(false)
   const [isResolved, setIsResolved] = useState(!email)
   const [saveError, setSaveError] = useState(false)
@@ -87,7 +87,7 @@ export function BoughtItemsPreferenceProvider({
   )
 }
 
-export function useBoughtItemsPreference() {
+export const useBoughtItemsPreference = () => {
   const context = useContext(BoughtItemsPreferenceContext)
   if (!context) {
     throw new Error('useBoughtItemsPreference must be used within BoughtItemsPreferenceProvider')

@@ -4,14 +4,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 
-interface FeedbackModalProps {
+type FeedbackModalProps = {
   onClose: () => void
   // Fires the (already non-empty, trimmed) request. The parent submits it in the
   // background and drives the status toast — the modal never awaits the network.
   onSubmit: (request: string) => void
 }
 
-export default function FeedbackModal({ onClose, onSubmit }: FeedbackModalProps) {
+export const FeedbackModal = ({ onClose, onSubmit }: FeedbackModalProps) => {
   const { t } = useTranslation()
   const [request, setRequest] = useState('')
   const [error, setError] = useState<string | null>(null)

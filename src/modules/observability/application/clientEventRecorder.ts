@@ -38,6 +38,6 @@ export type ClientEventRecord = {
   occurredAt: string
 }
 
-export interface ClientEventRecorder {
+export type ClientEventRecorder = {
   record(event: ClientEventRecord): void | Promise<void>
 }

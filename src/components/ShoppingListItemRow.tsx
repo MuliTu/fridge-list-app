@@ -5,7 +5,7 @@ import type { GroceryItem } from '../types'
 import { Checkbox } from './ui/checkbox'
 import { Popover, PopoverArrow, PopoverClose, PopoverContent, PopoverTrigger } from './ui/popover'
 
-interface ShoppingListItemRowProps {
+type ShoppingListItemRowProps = {
   entry: GroceryItem
   onCheckedChange: () => void
   onEditClick?: () => void
@@ -16,7 +16,7 @@ interface ShoppingListItemRowProps {
   onDragEnd?: (e: DragEvent<HTMLLIElement>) => void
 }
 
-export default function ShoppingListItemRow({
+export const ShoppingListItemRow = ({
   entry,
   onCheckedChange,
   onEditClick,
@@ -25,7 +25,7 @@ export default function ShoppingListItemRow({
   dragging = false,
   onDragStart,
   onDragEnd
-}: ShoppingListItemRowProps) {
+}: ShoppingListItemRowProps) => {
   const { t } = useTranslation()
   const checkboxId = useId()
   const createdAt = formatDateTime(entry.added_at)

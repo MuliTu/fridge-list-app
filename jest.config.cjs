@@ -5,17 +5,17 @@
 // mode isn't meaningful inside Jest's Node-based test runner).
 module.exports = {
   testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/test-support/setupTests.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.jest.json' }]
   },
   moduleNameMapper: {
-    '\\.css$': '<rootDir>/src/test/mocks/fileMock.ts',
+    '\\.css$': '<rootDir>/tests/test-support/mocks/fileMock.ts',
     // jose ships pure ESM with no CJS build — Jest's CJS module registry can't load
-    // it directly ("Unexpected token 'export'"). See src/test/mocks/joseMock.ts for
+    // it directly ("Unexpected token 'export'"). See tests/test-support/mocks/joseMock.ts for
     // the full reasoning; this fakes the small slice of jose's API this app uses.
-    '^jose$': '<rootDir>/src/test/mocks/joseMock.ts'
+    '^jose$': '<rootDir>/tests/test-support/mocks/joseMock.ts'
   },
-  testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
+  testMatch: ['<rootDir>/tests/**/*.test.{ts,tsx}'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node']
 }

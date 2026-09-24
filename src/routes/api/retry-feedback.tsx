@@ -12,33 +12,23 @@ import {
 } from '../../lib/retryFeedback'
 import type { FeedbackRecord } from '../../types'
 
-// Ticket F2 — the daily safety net over the existing submit → n8n → Gemini → Trello
-// feedback flow (see CLAUDE.md's In-app feedback module, and FeedbackRecord in
-// src/types.ts from ticket F1). Vercel Cron (see vercel.json's "crons" entry) hits this
-// path once a day at 04:00 UTC — Vercel's Hobby plan caps cron jobs at once per day,
-// and cron schedules always run in UTC (no per-project timezone setting), so "4am" here
-// means 04:00 UTC, not local time. It finds every /feedbacks record still stuck in
-// 'new' or 'error' with retryCount < 5 and replays it through n8n. Orchestration and
-// scheduling live here, in this app's own backend — not inside n8n — deliberately, so
-// an ngrok/n8n outage only ever means "today's retry attempt failed, try again
-// tomorrow" rather than "the whole retry system is down" (see the ticket brainstorm
-// this came out of; ngrok instability is an already-documented known gap, CLAUDE.md's
-// Known gaps #2).
+// Daily safety net over the existing submit -> n8n -> ticket workflow. Vercel Cron
+// hits this path once a day at 04:00 UTC and the app replays eligible feedback
+// records from Firebase through the configured feedback webhook.
 //
 // Ticket F3 adds the idempotency guard (attemptId, stamped/cleared in buildAdapter
 // below) and the maintainer-notification hook (notifyMaintainers below) — see
 // src/lib/retryFeedback.ts's top-of-file comment for the full design.
 //
-// Same n8n webhook URL submit-feedback.tsx already uses, reused for consistency — held
-// server-side only here too, never shipped to a browser.
-const FEEDBACK_WEBHOOK_URL = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/feedback'
+const feedbackWebhookUrl = (): string | null =>
+  process.env.SUBMIT_FEEDBACK_WEBHOOK_URL?.trim() || null
 
 // Wires the Admin SDK's real (non-modular, namespaced) Realtime Database API into the
 // FeedbackRetryAdapter shape retryEligibleFeedbacks expects — kept as a thin adapter so
 // the actual retry/claim logic in src/lib/retryFeedback.ts stays fully unit-testable
 // with a fake, without needing to mock firebase-admin's whole API surface (see that
 // file's tests).
-function buildAdapter(): FeedbackRetryAdapter {
+const buildAdapter = (): FeedbackRetryAdapter => {
   const feedbacksRef = getAdminDatabase().ref('feedbacks')
 
   return {
@@ -114,8 +104,11 @@ function buildAdapter(): FeedbackRetryAdapter {
 // stored record instead of a live browser session — n8n/Gemini has no way to tell (and
 // doesn't need to) whether a given call is the original attempt or a retry.
 const callN8n: N8nFeedbackCaller = async (record) => {
+  const webhookUrl = feedbackWebhookUrl()
+  if (!webhookUrl) return { ok: false, message: 'feedback webhook is not configured' }
+
   try {
-    const response = await fetch(FEEDBACK_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -138,36 +131,12 @@ const callN8n: N8nFeedbackCaller = async (record) => {
   }
 }
 
-// Ticket F3's notification mechanism: reuse the exact same "Feedback → Trello
-// (Hebrew/English)" n8n workflow (see CLAUDE.md's In-app feedback module — webhook
-// path `feedback`, same FEEDBACK_WEBHOOK_URL as callN8n above) that real user feedback
-// already goes through, rather than adding a brand-new Trello credential/API call to
-// this codebase. This was the deliberate choice among the options the ticket left open
-// (a fresh Trello call, an email via the existing SMTP setup, or a new admin view) —
-// reasoning:
-//   - Zero new credentials: the app has no Trello API key/token anywhere (Trello card
-//     creation has only ever lived inside n8n's workflow, per CLAUDE.md), so a "call
-//     Trello directly" implementation would need a brand-new credential provisioned
-//     and stored server-side, another manual step in the same category as
-//     GITHUB_RELEASES_TOKEN/CRON_SECRET (Known gaps #9) before it could ever run for
-//     real. Piggy-backing on the feedback webhook needs nothing new.
-//   - Same list, no extra wiring: the workflow already files every card into the
-//     Customer Response list on the Fridge app board (ids in CLAUDE.md), which is
-//     exactly where this ticket asks the summary to land.
-//   - Graceful degradation even if Gemini misreads the summary text: "Build Card"'s
-//     existing fallback still creates a raw-request card (labelled
-//     `needs-clarification`) if Gemini's structuring step fails or returns junk — so
-//     even in the worst case, a human still sees *something* land in Trello, just
-//     possibly less well-titled. That matches this app's house style (see
-//     senior-backend skill's "graceful degradation" note) better than a bespoke
-//     Trello/email call that could itself fail with no fallback.
-// Trade-off accepted: the workflow's Gemini step will try to structure this summary as
-// if it were a feature request, since that's what the prompt was written for — it may
-// title/tag the card oddly. That's a cosmetic risk, not a functional one (the card
-// still gets created, still contains every detail below), and was judged acceptable
-// against the cost of hardening a second, purpose-built n8n workflow or wiring a new
-// credential just for this.
+// Maintainer notifications reuse the same feedback webhook as user feedback. That
+// keeps ticket creation in one integration and avoids adding a second credential path.
 const notifyMaintainers: MaintainerNotifier = async (items) => {
+  const webhookUrl = feedbackWebhookUrl()
+  if (!webhookUrl) return { ok: false, message: 'feedback webhook is not configured' }
+
   const lines = items.map(({ key, record, reason }) => {
     const lastError = record.error ? ` | last error: ${record.error.message}` : ''
     return `- [${key}] "${record.message}" — submitted by ${record.username} (${record.userId}), retryCount=${record.retryCount}, reason: ${reason}${lastError}`
@@ -179,7 +148,7 @@ const notifyMaintainers: MaintainerNotifier = async (items) => {
     `card before taking any action.\n\n${lines.join('\n')}`
 
   try {
-    const response = await fetch(FEEDBACK_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -228,11 +197,12 @@ export const Route = createFileRoute('/api/retry-feedback')({
         }
 
         if (!isFirebaseAdminConfigured()) {
-          // Fails soft, same "not yet provisioned" pattern as GITHUB_RELEASES_TOKEN
-          // (releases.tsx, CLAUDE.md Known gaps #9) — this credential is a manual step
-          // outside this codebase (see src/lib/firebaseAdmin.server.ts).
-          logger.error('[retry-feedback] FIREBASE_SERVICE_ACCOUNT_KEY is not configured — cannot run retry job')
+          logger.error('[retry-feedback] Firebase Admin environment is not configured — cannot run retry job')
           return Response.json({ error: true, message: 'not_configured' }, { status: 503 })
+        }
+        if (!feedbackWebhookUrl()) {
+          logger.error('[retry-feedback] SUBMIT_FEEDBACK_WEBHOOK_URL is not configured — cannot run retry job')
+          return Response.json({ error: true, message: 'not_configured' }, { status: 500 })
         }
 
         try {

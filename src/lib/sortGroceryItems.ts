@@ -5,9 +5,8 @@ export type SortOption = 'default' | 'name-asc' | 'name-desc' | 'updated-desc' |
 export const SORT_OPTIONS: SortOption[] = ['default', 'name-asc', 'name-desc', 'updated-desc', 'updated-asc']
 
 // "Last updated" per this app's actual data model: `modified_at` is stamped on every
-// web-app write (bought/note/image — see Data Model in CLAUDE.md), so it does reflect a
-// bought/unbought toggle, not just content edits. Falls back to `added_at` for an item
-// that's never been touched since creation.
+// web-app write (bought/note/image), so it reflects bought/unbought toggles as well
+// as content edits. Falls back to `added_at` for untouched items.
 const lastUpdated = (entry: GroceryItem) => entry.modified_at || entry.added_at || ''
 
 // Locale-aware comparator (FR-2/3, i18n requirement) — Intl.Collator handles diacritics
@@ -22,7 +21,7 @@ const collatorCompare = (locale: string) => {
 // option sorts the FULL set together per FR-9 ("all items ... regardless of checked/
 // unchecked status"), superseding the bought-sinks-to-bottom default — Array.prototype
 // .sort is stable in all supported engines, satisfying FR-8.
-export function sortGroceryItems(entries: GroceryItem[], sortOption: SortOption, locale: string): GroceryItem[] {
+export const sortGroceryItems = (entries: GroceryItem[], sortOption: SortOption, locale: string): GroceryItem[] => {
   const sorted = [...entries]
   const compareNames = collatorCompare(locale)
 

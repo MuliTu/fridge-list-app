@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-interface ShoppingListSearchProps {
+type ShoppingListSearchProps = {
   value: string
   onChange: (value: string) => void
 }
@@ -8,7 +8,7 @@ interface ShoppingListSearchProps {
 // Real-time client-side search box for the shopping list. Purely a UI filter — it
 // never touches Firebase and its state is intentionally ephemeral (lives in the route's
 // local state, so navigating away and back resets it, per the ticket's FR-9).
-export default function ShoppingListSearch({ value, onChange }: ShoppingListSearchProps) {
+export const ShoppingListSearch = ({ value, onChange }: ShoppingListSearchProps) => {
   const { t } = useTranslation()
   return (
     <div className="list-search">

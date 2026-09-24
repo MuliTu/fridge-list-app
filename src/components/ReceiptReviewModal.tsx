@@ -7,7 +7,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 
-export interface ReceiptReviewData {
+export type ReceiptReviewData = {
   store_name: string | null
   items: ReceiptItem[]
   total: number | null
@@ -16,7 +16,7 @@ export interface ReceiptReviewData {
   queuePosition?: { index: number; total: number } | null
 }
 
-interface ReceiptReviewModalProps {
+type ReceiptReviewModalProps = {
   data: ReceiptReviewData
   queueLabel?: string | null
   // Why the auto-scan came up empty (quota exceeded, parse failure, etc.) — shown
@@ -32,7 +32,7 @@ interface ReceiptReviewModalProps {
   }) => Promise<unknown>
 }
 
-export default function ReceiptReviewModal({ data, queueLabel, scanErrorMessage, onClose, onSave }: ReceiptReviewModalProps) {
+export const ReceiptReviewModal = ({ data, queueLabel, scanErrorMessage, onClose, onSave }: ReceiptReviewModalProps) => {
   const { t } = useTranslation(['receipts', 'common'])
   const isPdfBlob = data.imageBlob?.type === 'application/pdf'
   const [previewUrl] = useState<string | null>(() => (data.imageBlob ? URL.createObjectURL(data.imageBlob) : null))

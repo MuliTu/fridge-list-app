@@ -1,9 +1,9 @@
 import type { GroceryItem } from '../types'
 
-export function partitionGroceryItemsByPlacement(
+export const partitionGroceryItemsByPlacement = (
   entries: GroceryItem[],
   keepBoughtItemsInCategories: boolean
-) {
+) => {
   if (keepBoughtItemsInCategories) {
     return { categoryEntries: entries, completedEntries: [] }
   }

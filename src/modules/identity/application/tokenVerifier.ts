@@ -4,6 +4,6 @@ export type VerifiedUser = {
   emailVerified: boolean
 }
 
-export interface UserTokenVerifier {
+export type UserTokenVerifier = {
   verifyIdToken(token: string): Promise<VerifiedUser>
 }

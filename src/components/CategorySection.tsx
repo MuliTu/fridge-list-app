@@ -1,6 +1,6 @@
 import { useId, type CSSProperties, type DragEvent, type ReactNode } from 'react'
 
-interface CategorySectionProps {
+type CategorySectionProps = {
   name: string
   color: string
   icon: string
@@ -13,7 +13,7 @@ interface CategorySectionProps {
   onDrop?: (e: DragEvent<HTMLDivElement>) => void
 }
 
-export default function CategorySection({
+export const CategorySection = ({
   name,
   color,
   icon,
@@ -24,7 +24,7 @@ export default function CategorySection({
   onDragOver,
   onDragLeave,
   onDrop
-}: CategorySectionProps) {
+}: CategorySectionProps) => {
   const contentId = useId()
 
   return (

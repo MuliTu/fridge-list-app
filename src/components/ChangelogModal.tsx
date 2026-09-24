@@ -4,7 +4,7 @@ import { getReleases, type ReleaseInfo } from '../lib/firebase'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 
-interface ChangelogModalProps {
+type ChangelogModalProps = {
   onClose: () => void
 }
 
@@ -16,9 +16,9 @@ const renderInline = (s: string) =>
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
 
-// GitHub Release notes are written for engineers (see CLAUDE.md), not translated/
-// localized — rendered as-is here since this view is for technical tracking, not end
-// users. A tiny hand-rolled parser instead of pulling in a markdown dependency: release
+// GitHub Release notes are written for engineers and rendered as-is here since this
+// view is for technical tracking, not end users. A tiny hand-rolled parser instead of
+// pulling in a markdown dependency: release
 // bodies only ever use #/##/### headers, "- " bullets (with indented continuation
 // lines), **bold**, `code`, and [text](url) links — no fenced code blocks, tables, etc.
 const renderChangelogHtml = (markdown: string) => {
@@ -60,7 +60,7 @@ const renderChangelogHtml = (markdown: string) => {
   return html
 }
 
-export default function ChangelogModal({ onClose }: ChangelogModalProps) {
+export const ChangelogModal = ({ onClose }: ChangelogModalProps) => {
   const { t } = useTranslation('changelog')
   const [releases, setReleases] = useState<ReleaseInfo[] | null>(null)
   const [error, setError] = useState(false)

@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
-interface CategoriesModalProps {
+type CategoriesModalProps = {
   categories: Category[]
   onClose: () => void
 }
 
-export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
+export const CategoriesModal = ({ categories, onClose }: CategoriesModalProps) => {
   const { t } = useTranslation()
   const { confirm } = useDialogService()
   const { addCategory, deleteCategory, updateCategory } = useListApi()

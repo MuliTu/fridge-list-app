@@ -6,12 +6,12 @@ import type { FeedbackToast } from '../hooks/useFeedbackToast'
 // n8n round-trip resolves so the user always sees a final outcome.
 const AUTO_DISMISS_MS = 4500
 
-interface FeedbackStatusToastProps {
+type FeedbackStatusToastProps = {
   toast: FeedbackToast | null
   onDismiss: () => void
 }
 
-export default function FeedbackStatusToast({ toast, onDismiss }: FeedbackStatusToastProps) {
+export const FeedbackStatusToast = ({ toast, onDismiss }: FeedbackStatusToastProps) => {
   const { t } = useTranslation()
   const id = toast?.id
   const status = toast?.status

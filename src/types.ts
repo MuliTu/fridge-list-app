@@ -1,4 +1,4 @@
-export interface AuthUser {
+export type AuthUser = {
   email: string | null
   displayName?: string | null
 }
@@ -10,14 +10,14 @@ export interface AuthUser {
 // ownership checks) without every consumer needing to know they're identical here.
 // `status` is only meaningful for a list the current user doesn't own — see
 // ListContext's memberOf discovery.
-export interface UserList {
+export type UserList = {
   id: string
   name: string
   owner: string
   status: 'owner' | 'pending' | 'approved'
 }
 
-export interface GroceryItem {
+export type GroceryItem = {
   key: string
   item: string
   category: string
@@ -36,7 +36,7 @@ export interface GroceryItem {
   unit?: string | null
 }
 
-export interface Category {
+export type Category = {
   key: string
   name: string
   color: string
@@ -48,7 +48,7 @@ export interface Category {
 // Global, not per-list — lives at the RTDB root (`/whats_new`), same tier as `/users`,
 // since it's app-wide release info rather than household data. Single object (not a
 // history), so a new version simply overwrites the previous one.
-export interface WhatsNew {
+export type WhatsNew = {
   version: string
   updates: string[]
 }
@@ -61,7 +61,7 @@ export interface WhatsNew {
 // separate price-history feature) — see recordPurchaseEvent in src/lib/firebase.ts.
 // Purely a write path for now; a future ticket (consumption insights / AI habit
 // summary) reads from this — no aggregation/UI is built against it yet.
-export interface PurchaseEvent {
+export type PurchaseEvent = {
   itemName: string
   category: string
   quantity: number | null
@@ -70,7 +70,7 @@ export interface PurchaseEvent {
   purchasedBy: string | null
 }
 
-export interface StockItem {
+export type StockItem = {
   key: string
   name: string
   category: string
@@ -81,13 +81,13 @@ export interface StockItem {
   updated_by?: string | null
 }
 
-export interface ReceiptItem {
+export type ReceiptItem = {
   name: string
   price: number
   quantity: number
 }
 
-export interface Receipt {
+export type Receipt = {
   key: string
   image_url: string | null
   image_ref?: string | null
@@ -101,8 +101,7 @@ export interface Receipt {
 
 // Global, not per-list — lives at the RTDB root (`/feedbacks`), same tier as `/users`/
 // `/whats_new`, since feedback isn't owned by any particular household list. This is a
-// durability/observability layer over the existing submit → n8n → Gemini → Trello flow
-// (see submitFeedback in firebase.ts, and the In-app feedback module in CLAUDE.md) — it
+// durability/observability layer over the existing submit -> n8n -> ticket flow. It
 // records every submission attempt and its outcome, but never changes what that flow
 // itself does.
 // 'needs_attention' (ticket F3) is a terminal status distinct from 'error': it means a
@@ -112,7 +111,7 @@ export interface Receipt {
 // picked up by the retry job again (see ELIGIBLE_STATUSES in retryFeedback.ts) — it's
 // reported once, via the maintainer-notification path, at the moment it transitions
 // here, not re-reported on every subsequent run.
-export interface FeedbackRecord {
+export type FeedbackRecord = {
   createdAt: string
   updatedAt: string
   userId: string

@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from 'react'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { AuthProvider } from '../hooks/AuthContext'
-import Layout from '../components/Layout'
+import { Layout } from '../components/Layout'
 import appCss from '../App.css?url'
 
 export const Route = createRootRoute({
@@ -27,7 +27,7 @@ export const Route = createRootRoute({
       { rel: 'icon', href: '/icons/icon-192.png' }
     ]
   }),
-  shellComponent: RootDocument
+  shellComponent: (props) => <RootDocument {...props} />
 })
 
 // Registers the app-shell service worker (public/sw.js) once the page has
@@ -37,7 +37,7 @@ export const Route = createRootRoute({
 // `navigator.serviceWorker`, and this must never run during the SPA build's
 // prerender pass either (see scripts/build.mjs's note on that pass importing
 // this whole module tree).
-function useRegisterServiceWorker() {
+const useRegisterServiceWorker = () => {
   useEffect(() => {
     // Dev-mode only: Vite serves unhashed paths (/src/App.css, etc.) that change
     // on every edit, but the service worker's cache-first strategy for static
@@ -68,7 +68,7 @@ function useRegisterServiceWorker() {
   }, [])
 }
 
-function RootDocument({ children }: { children: ReactNode }) {
+const RootDocument = ({ children }: { children: ReactNode }) => {
   useRegisterServiceWorker()
   return (
     <html lang="he" dir="rtl">

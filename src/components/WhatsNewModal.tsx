@@ -3,7 +3,7 @@ import { useWhatsNew } from '../hooks/useWhatsNew'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 
-interface WhatsNewModalProps {
+type WhatsNewModalProps = {
   onClose: () => void
 }
 
@@ -12,7 +12,7 @@ interface WhatsNewModalProps {
 // single global `/whats_new` object (see WhatsNew in types.ts), not translated per
 // this app's existing convention for freeform dynamic content (category/list names,
 // item notes) that isn't backed by fixed i18n keys.
-export default function WhatsNewModal({ onClose }: WhatsNewModalProps) {
+export const WhatsNewModal = ({ onClose }: WhatsNewModalProps) => {
   const { t } = useTranslation('whatsNew')
   const { whatsNew } = useWhatsNew()
 

@@ -4,18 +4,15 @@ import { deriveTicketFromN8nResponse } from '../../../lib/deriveTicket'
 import { ApplicationError } from '../../shared'
 import type { FeedbackProvider, FeedbackResult, FeedbackSubmission } from '../application/feedbackProvider'
 
-export const SUBMIT_FEEDBACK_WEBHOOK_URL =
-  'https://whiny-idealist-unseen.ngrok-free.dev/webhook/feedback'
-
 type Fetch = typeof fetch
 
 export class N8nFeedbackProvider implements FeedbackProvider {
-  constructor(private readonly fetchImpl: Fetch = fetch) {}
+  constructor(private readonly webhookUrl: string, private readonly fetchImpl: Fetch = fetch) {}
 
   async submit(submission: FeedbackSubmission): Promise<FeedbackResult> {
     let response: Response
     try {
-      response = await this.fetchImpl(SUBMIT_FEEDBACK_WEBHOOK_URL, {
+      response = await this.fetchImpl(this.webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

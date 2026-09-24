@@ -10,14 +10,14 @@ import { ListPickerActionsProvider, useListPickerActions } from '../hooks/ListPi
 import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
-import CategoriesModal from './CategoriesModal'
-import ListMembersModal from './ListMembersModal'
-import ChangelogModal from './ChangelogModal'
-import WhatsNewModal from './WhatsNewModal'
-import PurchaseInsightsModal from './PurchaseInsightsModal'
-import FeedbackModal from './FeedbackModal'
-import FeedbackStatusToast from './FeedbackStatusToast'
-import OnboardingModal from './OnboardingModal'
+import { CategoriesModal } from './CategoriesModal'
+import { ListMembersModal } from './ListMembersModal'
+import { ChangelogModal } from './ChangelogModal'
+import { WhatsNewModal } from './WhatsNewModal'
+import { PurchaseInsightsModal } from './PurchaseInsightsModal'
+import { FeedbackModal } from './FeedbackModal'
+import { FeedbackStatusToast } from './FeedbackStatusToast'
+import { OnboardingModal } from './OnboardingModal'
 import { useCategories } from '../hooks/useCategories'
 import { useFeedbackToast } from '../hooks/useFeedbackToast'
 import { useStockSuggestion } from '../hooks/useStockSuggestion'
@@ -37,7 +37,7 @@ const sidebarItemActiveClass = 'bg-accent shadow-[inset_0_0_0_1px_rgba(244,241,2
 const sidebarSectionLabelClass = 'mx-0.5 mb-0.5 mt-3 text-[11px] text-muted-foreground opacity-80'
 const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-[rgba(244,241,232,0.12)]'
 
-export default function Layout({ children }: { children: ReactNode }) {
+export const Layout = ({ children }: { children: ReactNode }) => {
   const { i18n } = useTranslation()
 
   return (
@@ -57,7 +57,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   )
 }
 
-function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
+const BoughtItemsPreferenceBoundary = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth()
   return (
     <BoughtItemsPreferenceProvider email={user?.email}>
@@ -66,7 +66,7 @@ function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
   )
 }
 
-function LayoutContent({ children }: { children: ReactNode }) {
+const LayoutContent = ({ children }: { children: ReactNode }) => {
   const { t, i18n } = useTranslation()
   useSyncHtmlLangDir()
   const { user, authResolved, onSignIn, onSignOut, authError } = useAuth()

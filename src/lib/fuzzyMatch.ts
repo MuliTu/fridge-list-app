@@ -25,7 +25,7 @@ const foldHebrewFinals = (text: string): string =>
 
 // Plain Levenshtein (edit distance), iterative two-row DP — no need for anything
 // fancier at the string lengths involved here (single grocery-item words).
-function levenshtein(a: string, b: string): number {
+const levenshtein = (a: string, b: string): number => {
   if (a === b) return 0
   if (a.length === 0) return b.length
   if (b.length === 0) return a.length
@@ -48,7 +48,7 @@ function levenshtein(a: string, b: string): number {
 // longer words can absorb a couple of edits (a plural suffix, one typo'd letter).
 const editToleranceFor = (maxLen: number) => Math.min(2, Math.ceil(maxLen * 0.3))
 
-function wordsCloseEnough(target: string, word: string): boolean {
+const wordsCloseEnough = (target: string, word: string): boolean => {
   if (!target || !word) return false
   if (word.includes(target) || target.includes(word)) return true
   const maxLen = Math.max(target.length, word.length)
@@ -59,7 +59,7 @@ function wordsCloseEnough(target: string, word: string): boolean {
 // the whole normalized string first, then falls back to each whitespace-separated word
 // of a multi-word candidate — so a compound product name like "עגבניות שרי" still
 // matches a bare "עגבניה" typo via its first word.
-export function isFuzzyProductMatch(typedName: string, candidateName: string): boolean {
+export const isFuzzyProductMatch = (typedName: string, candidateName: string): boolean => {
   const target = foldHebrewFinals(normalizeName(typedName))
   const candidate = foldHebrewFinals(normalizeName(candidateName))
   if (!target || !candidate) return false
@@ -73,7 +73,7 @@ export function isFuzzyProductMatch(typedName: string, candidateName: string): b
 // ascending edit distance against whichever of the candidate's words is closest) — so
 // when several existing products plausibly match a typed name, the default selection
 // in the review UI is the most plausible one.
-export function rankFuzzyMatches<T extends { name: string }>(typedName: string, candidates: T[]): T[] {
+export const rankFuzzyMatches = <T extends { name: string }>(typedName: string, candidates: T[]): T[] => {
   const target = foldHebrewFinals(normalizeName(typedName))
   if (!target) return []
 

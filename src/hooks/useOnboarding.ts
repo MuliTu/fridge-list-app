@@ -8,7 +8,7 @@ import { getOnboardingDismissed, setOnboardingDismissed } from '../lib/firebase'
 // dismissed=false, so a returning user on a fresh device never flashes the tutorial
 // before their real preference loads; replay() can still force it open at any time
 // regardless of that read's timing.
-export function useOnboarding(email: string | null | undefined) {
+export const useOnboarding = (email: string | null | undefined) => {
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {

@@ -2,19 +2,29 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
 import { logger } from './logger'
 
 // Server-only. Verifies a Firebase Auth ID token's JWT signature manually against
-// Google's public JWKS for Firebase Auth, instead of the firebase-admin SDK's
-// `admin.auth().verifyIdToken()` — this project has no Firebase Admin / service-account
-// credential available at all (see .claude/skills/firebase-data-model), so a real
-// Admin SDK verification isn't an option here.
+// Google's public JWKS for Firebase Auth.
 //
 // Used by the 4 server routes that proxy to n8n/Gemini or Trello and were previously
 // completely unauthenticated (scan-receipt, scan-receipt-url, categorize-item,
-// submit-feedback) — see Trello cards security-2/security-3. Those flows are already
-// gated behind canEdit/sign-in in the UI; this closes the gap where the route itself
-// never checked that server-side, letting an anonymous script hit them directly and
-// burn the shared Gemini free-tier quota (20 req/day) or spam Trello.
-export const FIREBASE_PROJECT_ID = 'n8n-vocal-2-db' // == firebaseConfig.projectId in src/lib/firebase.ts
-const ISSUER = `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`
+// submit-feedback). Those flows are already gated behind canEdit/sign-in in the UI;
+// this closes the route-level gap where an anonymous script could hit them directly.
+const configuredProjectId = (): string | null => {
+  const value =
+    process.env.FIREBASE_PROJECT_ID?.trim() ||
+    process.env.VITE_FIREBASE_PROJECT_ID?.trim()
+  if (value) return value
+  if (process.env.NODE_ENV === 'test') return 'test-project'
+  return null
+}
+
+const requiredProjectId = (): string => {
+  const value = configuredProjectId()
+  if (value) return value
+  throw new Error('Missing Firebase project configuration: FIREBASE_PROJECT_ID')
+}
+
+export const FIREBASE_PROJECT_ID = configuredProjectId() ?? 'server-render-placeholder'
+const issuerForProject = (projectId: string) => `https://securetoken.google.com/${projectId}`
 const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'
 
 // createRemoteJWKSet fetches + caches Google's public keys internally (honors the
@@ -53,11 +63,15 @@ export type AuthCheckResult = { ok: true; uid: string } | { ok: false; reason: s
 // createLocalJWKSet) instead of either hitting the real Google endpoint or mocking
 // the 'jose' module wholesale — mirrors this repo's existing pattern of exporting
 // internals for direct testing (see scan-receipt-url.tsx's __ssrfInternals).
-export const verifyIdTokenClaims = async (token: string, jwks: JWTVerifyGetKey): Promise<AuthCheckResult> => {
+export const verifyIdTokenClaims = async (
+  token: string,
+  jwks: JWTVerifyGetKey,
+  projectId = requiredProjectId()
+): Promise<AuthCheckResult> => {
   try {
     const { payload } = await jwtVerify(token, jwks, {
-      issuer: ISSUER,
-      audience: FIREBASE_PROJECT_ID,
+      issuer: issuerForProject(projectId),
+      audience: projectId,
       requiredClaims: ['exp', 'sub']
     })
     const uid = typeof payload.sub === 'string' && payload.sub ? payload.sub : ''
@@ -79,15 +93,9 @@ export const verifyIdTokenClaims = async (token: string, jwks: JWTVerifyGetKey):
 // self-signed token with no network call) — real callers never pass a second argument,
 // so production always resolves keys from the real Google JWKS endpoint.
 //
-// Scope decision, deliberate: this only proves "some valid, currently-signed-in
-// Google/Firebase-authenticated user made this request" — it does NOT check that the
-// user is an invited household editor (ADMIN_EMAILS / the live /admins path). Doing
-// that server-side isn't reliably possible right now: `/admins` currently has no RTDB
-// read rule applied (see .claude/skills/firebase-data-model), so a server-side get()
-// against it would itself get permission-denied. Both security tickets this fixes
-// (security-2, security-3) ask for "require sign-in" as the fix, not full
-// authorization-list enforcement — narrowing the previously-open-to-the-internet
-// surface down to "any signed-in Google account" is the intended, scoped fix here.
+// Scope decision: this proves "some valid, currently-signed-in Firebase user made
+// this request." Resource-level membership checks belong in the individual
+// application services that have a target list/household to authorize against.
 export const verifyAuthToken = async (request: Request, jwks: JWTVerifyGetKey = getRemoteJwks()): Promise<AuthCheckResult> => {
   if (isDevBypassActive()) {
     logger.warn('[verifyAuthToken] dev-bypass active (VITE_DEV_AUTH_BYPASS=true, non-production) — skipping real token verification')
