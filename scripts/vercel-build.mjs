@@ -12,7 +12,7 @@
 // Presence of .vercel/output after the build command runs is what makes Vercel use
 // it directly instead of framework-specific defaults — see vercel.json's
 // buildCommand.
-import { cp, mkdir, writeFile, rm, readFile } from 'node:fs/promises'
+import { cp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { nodeFileTrace } from '@vercel/nft'
@@ -69,47 +69,6 @@ for (const file of nodeModuleFiles) {
   await mkdir(path.dirname(dest), { recursive: true })
   await cp(file, dest)
 }
-
-// firebase-admin pulls in jwks-rsa for token verification. jwks-rsa@4.1.0 is
-// CommonJS but depends on jose@6, which is ESM-only; Vercel's Node function
-// launcher still rejects jwks-rsa's top-level `require('jose')` at runtime with
-// ERR_REQUIRE_ESM. Patch only the copied function artifact so the package can load
-// jose lazily via dynamic import(), leaving root node_modules untouched.
-const patchCopiedJwksRsaJoseInterop = async () => {
-  const replaceInCopiedFile = async (relativePath, replacements) => {
-    const file = path.join(FUNC, relativePath)
-    if (!existsSync(file)) return
-    let source = await readFile(file, 'utf8')
-    for (const [from, to] of replacements) {
-      if (!source.includes(from)) {
-        throw new Error(`vercel-build.mjs: expected jwks-rsa patch target missing in ${relativePath}`)
-      }
-      source = source.replace(from, to)
-    }
-    await writeFile(file, source)
-  }
-
-  const joseLoader = `let josePromise;\nconst getJose = () => josePromise ??= import('jose');`
-
-  await replaceInCopiedFile('node_modules/jwks-rsa/src/utils.js', [
-    [`const jose = require('jose');`, joseLoader],
-    [
-      `      const key = await jose.importJWK({ ...jwk, ext: true }, resolveAlg(jwk));`,
-      `      const jose = await getJose();\n      const key = await jose.importJWK({ ...jwk, ext: true }, resolveAlg(jwk));`
-    ]
-  ])
-
-  await replaceInCopiedFile('node_modules/jwks-rsa/src/integrations/passport.js', [
-    [`const jose = require('jose');`, joseLoader],
-    [`  return function secretProvider(req, rawJwtToken, cb) {`, `  return async function secretProvider(req, rawJwtToken, cb) {`],
-    [
-      `    try {\n      decoded = {\n        payload: jose.decodeJwt(rawJwtToken),\n        header: jose.decodeProtectedHeader(rawJwtToken)\n      };`,
-      `    try {\n      const jose = await getJose();\n      decoded = {\n        payload: jose.decodeJwt(rawJwtToken),\n        header: jose.decodeProtectedHeader(rawJwtToken)\n      };`
-    ]
-  ])
-}
-
-await patchCopiedJwksRsaJoseInterop()
 console.log(`vercel-build.mjs: copied ${nodeModuleFiles.length} traced node_modules files (firebase-admin + deps) into ${FUNC}`)
 
 await writeFile(
@@ -154,7 +113,7 @@ export default async function (req, res) {
 
 await writeFile(
   `${FUNC}/.vc-config.json`,
-  JSON.stringify({ runtime: 'nodejs24.x', handler: 'index.mjs', launcherType: 'Nodejs' }, null, 2)
+  JSON.stringify({ runtime: 'nodejs22.x', handler: 'index.mjs', launcherType: 'Nodejs' }, null, 2)
 )
 
 await writeFile(
@@ -198,11 +157,6 @@ await writeFile(
       version: 3,
       routes: [
         { src: '/(.*)', headers: SECURITY_HEADERS, continue: true },
-        // Vercel's filesystem handler treats the root path as eligible for the
-        // `index.func` function, so "/" can hit the Lambda instead of static
-        // index.html when both exist. Pin "/" to the SPA shell before filesystem
-        // routing; other client routes still use the fallback below.
-        { src: '/', dest: '/index.html' },
         { handle: 'filesystem' },
         { src: '/api/(.*)', dest: '/index' },
         { src: '/(.*)', dest: '/index.html' }
