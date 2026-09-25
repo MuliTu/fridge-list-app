@@ -23,6 +23,7 @@ export const CLIENT_EVENT_NAMES = [
   'receipts.applyReceiptReconciliation',
   'receipts.saveReceipt',
   'receipts.deleteReceipt',
+  'recipes.saveRecipe',
   'categories.seedCategoriesIfEmpty',
   'categories.addCategory',
   'categories.updateCategory',

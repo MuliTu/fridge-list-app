@@ -345,6 +345,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
             <Link to="/receipts" className="tab-btn" activeProps={{ className: 'active' }}>
               🧾 {t('tabs.receipts')}
             </Link>
+            <Link to="/recipes" className="tab-btn" activeProps={{ className: 'active' }}>
+              🍳 {t('tabs.recipes')}
+            </Link>
           </nav>
         )}
       </header>

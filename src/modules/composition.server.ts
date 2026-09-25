@@ -25,10 +25,20 @@ import {
   N8nMachineAuthenticator,
   type N8nRequestContext
 } from './integrations/n8n/server'
+import { ChatOpenAI } from '@langchain/openai'
 import { RecordClientEventService } from './observability'
 import { StructuredClientEventLogger } from './observability/server'
 import { GetReleasesService } from './releases'
 import { GitHubReleaseRepository } from './releases/server'
+import { RecipeCommandService, SuggestRecipesService } from './recipes/server'
+import {
+  createDeterministicChefGenerator,
+  createFirebaseAdminListAuthorizationRepository,
+  createFirebaseAdminRecipeRepository,
+  createJsonTextChefGenerator,
+  createStructuredModelChefGenerator
+} from './recipes/server'
+import { recipeSuggestionResponseSchema } from './recipes'
 import { ReceiptCommandService, ScanReceiptFileService, ScanReceiptUrlService } from './receipts'
 import { FirebaseAdminReceiptImageRepository, FirebaseAdminReceiptRepository, N8nReceiptScanner, SafeReceiptUrlFetcher } from './receipts/server'
 import { ApplicationError } from './shared'
@@ -46,6 +56,12 @@ export type ServerEnvironment = Readonly<{
   RECEIPT_URL_SCAN_ENDPOINT?: string
   N8N_ALLOWED_LIST_ID?: string
   N8N_WRITE_SECRET?: string
+  OPENAI_API_KEY?: string
+  GROQ_API_KEY?: string
+  XAI_API_KEY?: string
+  PERSONAL_CHEF_PROVIDER?: string
+  PERSONAL_CHEF_BASE_URL?: string
+  PERSONAL_CHEF_MODEL?: string
 }>
 
 export type ServerCompositionOptions = {
@@ -161,6 +177,8 @@ export class ServerComposition {
   private receiptCommandService: ReceiptCommandService | undefined
   private categorizeItemService: CategorizeItemService | undefined
   private submitFeedbackService: SubmitFeedbackService | undefined
+  private recipeCommandService: RecipeCommandService | undefined
+  private suggestRecipesService: SuggestRecipesService | undefined
 
   constructor(private readonly options: ServerCompositionOptions) {
     this.generateRequestId = options.generateRequestId ?? randomUUID
@@ -334,6 +352,82 @@ export class ServerComposition {
     }
     return this.receiptCommandService
   }
+
+  private getRecipeFirebaseApp() {
+    return getFirebaseAdminApp({
+      FIREBASE_PROJECT_ID: this.options.environment.FIREBASE_PROJECT_ID,
+      FIREBASE_SERVICE_ACCOUNT_JSON: this.options.environment.FIREBASE_SERVICE_ACCOUNT_JSON
+    })
+  }
+
+  getRecipeCommandService(): RecipeCommandService {
+    if (!this.recipeCommandService) {
+      const app = this.getRecipeFirebaseApp()
+      const databaseUrl = firebaseDatabaseUrl(this.options.environment)
+      this.recipeCommandService = new RecipeCommandService(
+        createFirebaseAdminRecipeRepository(app, databaseUrl),
+        createFirebaseAdminListAuthorizationRepository(app, databaseUrl)
+      )
+    }
+    return this.recipeCommandService
+  }
+
+  getSuggestRecipesService(): SuggestRecipesService {
+    if (!this.suggestRecipesService) {
+      const app = this.getRecipeFirebaseApp()
+      const databaseUrl = firebaseDatabaseUrl(this.options.environment)
+      const recipeRepository = createFirebaseAdminRecipeRepository(app, databaseUrl)
+      const provider = this.options.environment.PERSONAL_CHEF_PROVIDER || 'openai'
+      const groqApiKey = this.options.environment.GROQ_API_KEY?.trim()
+      const xaiApiKey = this.options.environment.XAI_API_KEY?.trim()
+      const openAiApiKey = this.options.environment.OPENAI_API_KEY?.trim()
+      const apiKey =
+        provider === 'groq'
+          ? groqApiKey
+          : provider === 'xai'
+            ? xaiApiKey
+            : openAiApiKey
+      const model =
+        this.options.environment.PERSONAL_CHEF_MODEL ||
+        (provider === 'groq'
+          ? 'qwen/qwen3.8-27b'
+          : provider === 'xai'
+            ? 'grok-4.7'
+            : 'gpt-5.4-mini')
+      const configuration =
+        provider === 'groq'
+          ? { baseURL: this.options.environment.PERSONAL_CHEF_BASE_URL || 'https://api.groq.com/openai/v1' }
+          : provider === 'xai'
+            ? { baseURL: this.options.environment.PERSONAL_CHEF_BASE_URL || 'https://api.x.ai/v1' }
+            : undefined
+      const chatModel = apiKey
+        ? new ChatOpenAI({
+            model,
+            apiKey,
+            configuration,
+            temperature: 0.2
+          })
+        : null
+      const generator = chatModel
+        ? provider === 'groq'
+          ? createJsonTextChefGenerator(chatModel)
+          : createStructuredModelChefGenerator(
+              chatModel.withStructuredOutput(recipeSuggestionResponseSchema, {
+                name: 'personal_chef_recipe_suggestions',
+                strict: true
+              })
+            )
+        : createDeterministicChefGenerator()
+
+      this.suggestRecipesService = new SuggestRecipesService(
+        recipeRepository,
+        createFirebaseAdminListAuthorizationRepository(app, databaseUrl),
+        generator,
+        this.generateRequestId
+      )
+    }
+    return this.suggestRecipesService
+  }
 }
 
 let defaultComposition: ServerComposition | undefined
@@ -379,3 +473,9 @@ export const getCategorizeItemService = (): CategorizeItemService =>
 
 export const getSubmitFeedbackService = (): SubmitFeedbackService =>
   getServerComposition().getSubmitFeedbackService()
+
+export const getRecipeCommandService = (): RecipeCommandService =>
+  getServerComposition().getRecipeCommandService()
+
+export const getSuggestRecipesService = (): SuggestRecipesService =>
+  getServerComposition().getSuggestRecipesService()

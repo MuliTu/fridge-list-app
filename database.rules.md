@@ -32,10 +32,11 @@ email-to-key comparison.
 ## Browser access after cutover
 
 - Owners and approved UID members may read `name`, `groceries`, `categories`,
-  `stock`, and `receipts` for their list.
+  `stock`, `receipts`, and `recipes` for their list.
 - Owners may read private list metadata and update only `name` and `config`.
 - Membership, ownership, invitations, and identity bindings are server-owned.
-- Browser writes to `groceries`, `categories`, `stock`, and `receipts` are denied.
+- Browser writes to `groceries`, `categories`, `stock`, `receipts`, and
+  `recipes` are denied.
   Firebase Admin SDK repositories bypass Rules, so application-service
   authorization remains mandatory.
 - Authenticated non-anonymous users may read `whats_new`; nobody may write it from

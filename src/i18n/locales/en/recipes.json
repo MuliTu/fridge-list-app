@@ -1,0 +1,18 @@
+{
+  "empty": "No saved recipes yet.",
+  "loadFailed": "Couldn't load recipes: {{message}}",
+  "servings": "{{count}} people",
+  "minutes": "{{count}} min",
+  "timeUnknown": "Time unknown",
+  "ingredients": "Ingredients",
+  "steps": "Steps",
+  "mealTypes": {
+    "quick_dinner": "Quick dinner",
+    "full_dinner": "Full dinner",
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "snack": "Snack",
+    "meal_prep": "Meal prep",
+    "other": "Other"
+  }
+}
