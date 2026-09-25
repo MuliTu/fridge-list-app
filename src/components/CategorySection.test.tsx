@@ -29,4 +29,22 @@ describe('CategorySection', () => {
     expect(screen.getByRole('button', { name: /פירות/ })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('תפוח')).not.toBeInTheDocument()
   })
+
+  it('shows the unchecked item counter in the category header', () => {
+    render(
+      <CategorySection
+        name="Dairy"
+        color="#84cc16"
+        icon="🥛"
+        uncheckedCount={3}
+        uncheckedCountLabel="3 unchecked items"
+        collapsed={false}
+        onToggle={jest.fn()}
+      >
+        <li>Milk</li>
+      </CategorySection>
+    )
+
+    expect(screen.getByLabelText('3 unchecked items')).toHaveTextContent('3')
+  })
 })

@@ -31,6 +31,29 @@ npm run dev
 
 Open the URL it prints (typically `http://localhost:5173`).
 
+### AI assistant
+
+The menu's AI section uses LangGraph and LangChain with Gemini to summarize recent
+list activity, propose next steps or a new list, and review the current list for
+duplicates and overly specific product names. The app retrieves a small, structured
+context from Firebase (current items, recent list changes, recent purchases, and
+categories), filters quick add/remove corrections locally, and sends that context to
+Gemini. Suggested writes are shown for review and require confirmation.
+
+Configure the Gemini key only in the server environment; never expose it through a
+`VITE_` variable:
+
+```bash
+GOOGLE_API_KEY=your-gemini-api-key
+# Optional; defaults to gemini-2.5-flash
+AI_LIST_MODEL=gemini-2.5-flash
+```
+
+The current structured retrieval is the app's RAG layer. It intentionally does not
+need a vector database yet: exact list records and bounded time windows are more
+reliable for this household-sized dataset. A vector index can be added later for a
+large product catalog, receipt corpus, or household preference documents.
+
 To deploy it somewhere permanent (e.g. a fridge tablet or a home server):
 
 ```bash

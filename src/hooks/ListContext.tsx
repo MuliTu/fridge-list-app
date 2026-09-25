@@ -14,6 +14,7 @@ import { createGroceryApiClient } from '../client/api/groceries'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useAuth } from './AuthContext'
 import type { AuthUser, UserList } from '../types'
+import { normalizeName } from '../lib/normalizeName'
 
 const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
 // MM19's list-membership adapter is the final runtime dependency for server
@@ -280,7 +281,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
         ) => commands.setPurchased(resolvedActiveListId, entry.key, bought),
         updateGroceryItemCategory: (key: string, category: string, _mutationUser?: AuthUser | null) =>
           commands.update(resolvedActiveListId, key, { category }),
-        saveItemDetails: (
+        saveItemDetails: async (
           key: string,
           details: {
             name?: string
@@ -290,15 +291,55 @@ export function ListProvider({ children }: { children: ReactNode }) {
             unit?: string | null
           },
           mutationUser?: AuthUser | null
-        ) =>
-          details.imageFile
-            ? legacy.saveItemDetails(key, details, mutationUser)
-            : commands.update(resolvedActiveListId, key, details),
-        deleteItem: (key: string, imageRef?: string | null) =>
-          imageRef
-            ? legacy.deleteItem(key, imageRef)
-            : commands.delete(resolvedActiveListId, key),
-        addGroceryItem: (
+        ) => {
+          if (details.imageFile) return legacy.saveItemDetails(key, details, mutationUser)
+          const previous = details.name == null
+            ? null
+            : (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
+          await commands.update(resolvedActiveListId, key, details)
+          if (
+            details.name != null &&
+            previous &&
+            normalizeName(previous.item) !== normalizeName(details.name)
+          ) {
+            await legacy.recordListChange({
+              type: 'renamed',
+              itemKey: key,
+              itemName: details.name,
+              previousName: previous.item,
+              listName: previous.list_name ?? null,
+              changedBy: mutationUser?.email ?? null
+            })
+          }
+        },
+        updateGroceryItemName: async (key: string, name: string, mutationUser?: AuthUser | null) => {
+          const entry = (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
+          if (!entry || normalizeName(entry.item) === normalizeName(name)) return
+          await commands.update(resolvedActiveListId, key, { name })
+          await legacy.recordListChange({
+            type: 'renamed',
+            itemKey: key,
+            itemName: name,
+            previousName: entry.item,
+            listName: entry.list_name ?? null,
+            changedBy: mutationUser?.email ?? null
+          })
+        },
+        deleteItem: async (key: string, imageRef?: string | null, mutationUser?: AuthUser | null) => {
+          if (imageRef) return legacy.deleteItem(key, imageRef, mutationUser)
+          const entry = (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
+          await commands.delete(resolvedActiveListId, key)
+          if (entry) {
+            await legacy.recordListChange({
+              type: 'removed',
+              itemKey: key,
+              itemName: entry.item,
+              listName: entry.list_name ?? null,
+              changedBy: mutationUser?.email ?? null
+            })
+          }
+        },
+        addGroceryItem: async (
           item: {
             name: string
             category: string
@@ -306,8 +347,18 @@ export function ListProvider({ children }: { children: ReactNode }) {
             unit?: string | null
           },
           listName: string | null,
-          _mutationUser?: AuthUser | null
-        ) => commands.add(resolvedActiveListId, { ...item, listName })
+          mutationUser?: AuthUser | null
+        ) => {
+          const created = await commands.add(resolvedActiveListId, { ...item, listName })
+          await legacy.recordListChange({
+            type: 'added',
+            itemKey: created.key,
+            itemName: item.name,
+            listName,
+            changedBy: mutationUser?.email ?? null
+          })
+          return created
+        }
       }
     },
     [resolvedActiveListId]

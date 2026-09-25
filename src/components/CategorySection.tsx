@@ -4,6 +4,8 @@ interface CategorySectionProps {
   name: string
   color: string
   icon: string
+  uncheckedCount?: number
+  uncheckedCountLabel?: string
   collapsed: boolean
   onToggle: () => void
   children: ReactNode
@@ -17,6 +19,8 @@ export default function CategorySection({
   name,
   color,
   icon,
+  uncheckedCount,
+  uncheckedCountLabel,
   collapsed,
   onToggle,
   children,
@@ -46,6 +50,11 @@ export default function CategorySection({
           <span className="category-accent" aria-hidden="true" />
           <span className="cat-icon" aria-hidden="true">{icon}</span>
           <span>{name}</span>
+          {uncheckedCount !== undefined && (
+            <span className="category-unchecked-count" aria-label={uncheckedCountLabel}>
+              {uncheckedCount}
+            </span>
+          )}
           <span className={`chevron${collapsed ? ' collapsed' : ''}`} aria-hidden="true">⌄</span>
         </button>
       </h2>

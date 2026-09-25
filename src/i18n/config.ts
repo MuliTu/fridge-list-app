@@ -13,6 +13,7 @@ import listsHe from './locales/he/lists.json'
 import onboardingHe from './locales/he/onboarding.json'
 import whatsNewHe from './locales/he/whatsNew.json'
 import purchaseInsightsHe from './locales/he/purchaseInsights.json'
+import aiHe from './locales/he/ai.json'
 
 import commonEn from './locales/en/common.json'
 import shoppingListEn from './locales/en/shoppingList.json'
@@ -26,6 +27,7 @@ import listsEn from './locales/en/lists.json'
 import onboardingEn from './locales/en/onboarding.json'
 import whatsNewEn from './locales/en/whatsNew.json'
 import purchaseInsightsEn from './locales/en/purchaseInsights.json'
+import aiEn from './locales/en/ai.json'
 
 export const SUPPORTED_LANGUAGES = ['he', 'en'] as const
 export const RTL_LANGUAGES = ['he']
@@ -44,7 +46,8 @@ const resources = {
     lists: listsHe,
     onboarding: onboardingHe,
     whatsNew: whatsNewHe,
-    purchaseInsights: purchaseInsightsHe
+    purchaseInsights: purchaseInsightsHe,
+    ai: aiHe
   },
   en: {
     common: commonEn,
@@ -58,7 +61,8 @@ const resources = {
     lists: listsEn,
     onboarding: onboardingEn,
     whatsNew: whatsNewEn,
-    purchaseInsights: purchaseInsightsEn
+    purchaseInsights: purchaseInsightsEn,
+    ai: aiEn
   }
 }
 
@@ -85,7 +89,7 @@ if (!i18n.isInitialized) {
     lng: 'he',
     fallbackLng: 'he',
     defaultNS: 'common',
-    ns: ['common', 'shoppingList', 'stock', 'receipts', 'categories', 'admins', 'changelog', 'feedback', 'lists', 'onboarding', 'whatsNew', 'purchaseInsights'],
+    ns: ['common', 'shoppingList', 'stock', 'receipts', 'categories', 'admins', 'changelog', 'feedback', 'lists', 'onboarding', 'whatsNew', 'purchaseInsights', 'ai'],
     interpolation: { escapeValue: false }
   })
 }
