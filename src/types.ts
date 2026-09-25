@@ -70,6 +70,21 @@ export interface PurchaseEvent {
   purchasedBy: string | null
 }
 
+// Append-only audit trail used by the AI assistant's structured retrieval step.
+// Keeping removals here is essential: once a grocery record is deleted, the live
+// /groceries projection can no longer explain what changed. A matching add/remove
+// pair for the same item key within one minute is treated as a correction and is
+// filtered before any context is sent to Gemini.
+export interface ListChangeEvent {
+  type: 'added' | 'removed' | 'renamed'
+  itemKey: string
+  itemName: string
+  previousName?: string | null
+  listName?: string | null
+  changedAt: string
+  changedBy: string | null
+}
+
 export interface StockItem {
   key: string
   name: string
@@ -97,6 +112,64 @@ export interface Receipt {
   total: number | null
   scanned_at: string
   scanned_by?: string | null
+}
+
+export type RecipeMealType =
+  | 'quick_dinner'
+  | 'full_dinner'
+  | 'breakfast'
+  | 'lunch'
+  | 'snack'
+  | 'meal_prep'
+  | 'other'
+
+export interface RecipeProduct {
+  groceryKey: string
+  name: string
+  category: string
+  quantity?: number | null
+  unit?: string | null
+}
+
+export interface RecipeIngredient {
+  name: string
+  quantity: string | null
+  fromSelectedProducts: boolean
+  pantryBasic: boolean
+}
+
+export interface RecipeImage {
+  url: string | null
+  sourceUrl?: string | null
+  sourceName?: string | null
+  alt: string
+}
+
+export interface RecipeRecord {
+  key: string
+  title: string
+  description: string
+  servings: number
+  mealType: RecipeMealType
+  estimatedTimeMinutes: number | null
+  selectedProducts: RecipeProduct[]
+  assumedBasics: string[]
+  ingredients: RecipeIngredient[]
+  steps: string[]
+  image: RecipeImage
+  chefNotes?: string | null
+  createdAt: string
+  createdBy: string | null
+  listId: string
+  source: {
+    kind: 'personal_chef'
+    graphRunId: string
+    model?: string
+  }
+}
+
+export type RecipeCandidate = Omit<RecipeRecord, 'key' | 'createdAt' | 'createdBy' | 'listId'> & {
+  id: string
 }
 
 // Global, not per-list — lives at the RTDB root (`/feedbacks`), same tier as `/users`/

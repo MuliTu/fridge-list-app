@@ -5,7 +5,8 @@
     "label": "ניווט ראשי",
     "shoppingList": "רשימת קניות",
     "stock": "מלאי",
-    "receipts": "קבלות"
+    "receipts": "קבלות",
+    "recipes": "מתכונים"
   },
   "auth": {
     "signIn": "התחברות",
@@ -24,6 +25,7 @@
     "viewChangelog": "📝 יומן שינויים",
     "viewWhatsNew": "🆕 מה חדש",
     "viewPurchaseInsights": "📊 תובנות קנייה",
+    "viewAiAssistant": "✨ עוזר AI",
     "viewOnboarding": "🎓 הצגת ההדרכה",
     "sendFeedback": "💬 שליחת משוב",
     "stockSuggestionOn": "📦 הצעת מלאי: פעיל",
@@ -67,7 +69,9 @@
     "namePlaceholder": "שם הפריט (למשל: חלב, או חלב ולחם)",
     "nameRequired": "חובה להזין שם פריט",
     "categorizing": "מסווג...",
-    "addFailed": "הוספה נכשלה"
+    "addFailed": "הוספה נכשלה",
+    "aiAssistant": "עוזר AI",
+    "aiNoResult": "ה-AI לא החזיר הצעה לפריט"
   },
   "quantityUnit": {
     "noUnit": "ללא יחידה",

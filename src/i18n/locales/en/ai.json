@@ -1,0 +1,43 @@
+{
+  "title": "AI Assistant",
+  "description": "Grounded suggestions from this household's current list and recent history. Nothing changes until you approve it.",
+  "insights": {
+    "title": "Insights",
+    "description": "Summarize meaningful recent changes, suggest next steps, and propose a new list.",
+    "summary": "Summary",
+    "nextSteps": "Suggested next steps",
+    "proposedList": "Suggested list: {{listName}}"
+  },
+  "review": {
+    "title": "Go over list",
+    "description": "Find likely duplicates and simplify product names.",
+    "reviewBeforeApply": "AI suggestions can be wrong. Review every selected change before applying it.",
+    "duplicates": "Possible duplicates",
+    "renames": "Suggested names",
+    "keep": "Keep: {{name}}",
+    "remove": "Remove: {{names}}",
+    "itemResult": "Applied: {{applied}}, skipped: {{skipped}}"
+  },
+  "analyzing": "Retrieving list context and analyzing it…",
+  "loadError": "The AI assistant is unavailable right now. Your list was not changed.",
+  "errorDetails": "Code: {{code}} · HTTP: {{status}} · {{message}}",
+  "errorExplanation": {
+    "unavailable": "This means Google’s AI service was unavailable or rejected the request. No changes were made; try again in a minute.",
+    "timeout": "This means the analysis took too long. No changes were made; try again in a minute.",
+    "invalidResponse": "This means the AI returned an unexpected response format. No changes were made; try again.",
+    "notConfigured": "This means the AI service is not configured on the server yet."
+  },
+  "retry": "Try again",
+  "historyCoverage": "Current additions are included. Deleted-item history is collected from this AI release onward.",
+  "ignoredCorrections": "Ignored {{count}} quick add/remove correction(s).",
+  "noSuggestions": "No grounded suggestions found.",
+  "createList": "Create this list",
+  "createConfirm": "Create “{{listName}}” with {{count}} suggested items?",
+  "createSuccess": "Created “{{listName}}” with {{count}} items.",
+  "reviewConfirm": "Apply {{renameCount}} rename(s) and remove {{removeCount}} duplicate item(s)?",
+  "reviewSuccess": "Applied {{renamed}} rename(s), removed {{removed}} duplicate(s), and skipped {{skipped}} item(s) that changed since analysis.",
+  "applySelected": "Apply {{count}} selected changes",
+  "applying": "Applying…",
+  "applyError": "The changes could not be applied. Refresh and try again.",
+  "back": "Back to AI tools"
+}

@@ -5,7 +5,8 @@
     "label": "Primary navigation",
     "shoppingList": "Shopping List",
     "stock": "Stock",
-    "receipts": "Receipts"
+    "receipts": "Receipts",
+    "recipes": "Recipes"
   },
   "auth": {
     "signIn": "Sign in",
@@ -24,6 +25,7 @@
     "viewChangelog": "📝 Changelog",
     "viewWhatsNew": "🆕 What's New",
     "viewPurchaseInsights": "📊 Purchase Insights",
+    "viewAiAssistant": "✨ AI Assistant",
     "viewOnboarding": "🎓 Show tutorial",
     "sendFeedback": "💬 Send feedback",
     "stockSuggestionOn": "📦 Stock suggestion: On",
@@ -67,7 +69,9 @@
     "namePlaceholder": "Item name (e.g. milk, or milk and bread)",
     "nameRequired": "Item name is required",
     "categorizing": "Categorizing...",
-    "addFailed": "Add failed"
+    "addFailed": "Add failed",
+    "aiAssistant": "AI assistant",
+    "aiNoResult": "AI did not return an item suggestion"
   },
   "quantityUnit": {
     "noUnit": "No unit",

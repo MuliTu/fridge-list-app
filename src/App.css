@@ -1344,6 +1344,11 @@ input:focus-visible,
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
 }
 
+.frame:has(.chef-selection-list) {
+  border-color: rgba(89, 174, 255, 0.95);
+  box-shadow: 0 0 0 3px rgba(89, 174, 255, 0.24), 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
 header {
   position: relative;
   margin-bottom: 12px;
@@ -1403,7 +1408,7 @@ h1.site-title {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
   width: 100%;
   margin-top: 14px;
@@ -1482,6 +1487,37 @@ h1.site-title {
   font-weight: 500;
 }
 
+.shopping-top-panel {
+  position: relative;
+}
+
+.shopping-top-toggle {
+  display: flex;
+  min-height: 34px;
+  margin-inline-start: auto;
+  margin-block-end: 6px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 10px;
+  background: var(--surface-strong);
+  color: var(--chalk-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shopping-top-toggle:hover {
+  color: var(--chalk);
+  border-color: var(--brand-accent);
+}
+
+.shopping-top-toggle:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+
 .quick-add {
   position: relative;
   display: grid;
@@ -1545,6 +1581,21 @@ h1.site-title {
   padding: 0 8px 3px;
   color: var(--danger);
   font-size: 12px;
+}
+
+.quick-add-ai {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 3px;
+  color: var(--chalk-dim);
+  font-size: 12px;
+}
+
+.quick-add-ai {
+  width: fit-content;
+  cursor: pointer;
 }
 
 .list-controls-row {
@@ -1626,6 +1677,20 @@ h1.site-title {
   border-radius: 9px;
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   font-size: 16px;
+}
+
+.category-unchecked-count {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  padding-inline: 6px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  color: var(--chalk);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .chevron {
@@ -1787,6 +1852,388 @@ h1.site-title {
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
 }
 
+.fab-chef-btn {
+  position: fixed;
+  right: max(18px, calc((100vw - 640px) / 2 + 18px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid rgba(89, 174, 255, 0.55);
+  border-radius: 50%;
+  background: #59aeff;
+  color: #071827;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+  cursor: pointer;
+}
+
+.fab-chef-btn svg {
+  width: 26px;
+  height: 26px;
+}
+
+.chef-chat {
+  position: fixed;
+  right: max(18px, calc((100vw - 640px) / 2 + 18px));
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  z-index: 18;
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(640px, calc(100dvh - 118px));
+  overflow-y: auto;
+  padding: 14px;
+  border: 1px solid rgba(89, 174, 255, 0.45);
+  border-radius: 18px;
+  background: var(--surface-strong);
+  color: var(--chalk);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+}
+
+.chef-chat-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.chef-chat h2,
+.recipe-slide h3,
+.saved-recipe-card h2 {
+  margin: 0;
+  color: #fff;
+  font-family: 'Secular One', sans-serif;
+  font-weight: 400;
+}
+
+.chef-chat p,
+.recipe-slide p,
+.saved-recipe-card p {
+  margin: 3px 0 0;
+  color: var(--chalk-dim);
+  line-height: 1.45;
+}
+
+.chef-thread {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.chef-message {
+  width: fit-content;
+  max-width: 88%;
+  padding: 9px 11px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 14px;
+  color: var(--chalk);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.chef-message-ai {
+  justify-self: start;
+  border-start-start-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.chef-message-user {
+  justify-self: end;
+  border-start-end-radius: 5px;
+  border-color: rgba(89, 174, 255, 0.48);
+  background: rgba(89, 174, 255, 0.16);
+  color: #d9efff;
+}
+
+.chef-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(89, 174, 255, 0.14);
+  color: #9fd1ff;
+}
+
+.chef-close-btn,
+.recipe-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--chalk);
+  cursor: pointer;
+}
+
+.chef-close-btn svg,
+.recipe-nav-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.chef-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--chalk-dim);
+  font-size: 13px;
+}
+
+.chef-field input[type='number'],
+.chef-field textarea {
+  width: 100%;
+  border: 1px solid var(--border-alpha);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--chalk);
+}
+
+.chef-field input[type='number'] {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.chef-field textarea {
+  min-height: 68px;
+  resize: vertical;
+  padding: 10px;
+}
+
+.chef-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.chef-choice-grid button,
+.chef-product-row button,
+.chef-select-all,
+.chef-primary {
+  border: 1px solid var(--border-alpha);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--chalk);
+  cursor: pointer;
+}
+
+.chef-choice-grid button {
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.chef-choice-grid button.active {
+  border-color: rgba(89, 174, 255, 0.65);
+  background: rgba(89, 174, 255, 0.16);
+  color: #d9efff;
+}
+
+.chef-product-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chef-product-row button,
+.chef-select-all {
+  padding: 7px 11px;
+  font-size: 12px;
+}
+
+.chef-product-list {
+  display: grid;
+  gap: 7px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.chef-product-option,
+.chef-selection-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--chalk);
+}
+
+.chef-product-option {
+  padding: 8px 10px;
+}
+
+.chef-muted,
+.chef-error {
+  margin: 0;
+  font-size: 12px;
+}
+
+.chef-error {
+  margin-top: 10px;
+  color: var(--danger);
+}
+
+.chef-primary {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 14px;
+  border-color: rgba(89, 174, 255, 0.66);
+  background: #59aeff;
+  color: #071827;
+  font-weight: 800;
+}
+
+.chef-primary:disabled,
+.recipe-nav-btn:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.chef-selection-list {
+  padding-bottom: 110px;
+}
+
+.chef-selection-banner {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid rgba(89, 174, 255, 0.42);
+  border-radius: 14px;
+  background: rgba(89, 174, 255, 0.12);
+  color: #d9efff;
+}
+
+.chef-selection-banner span {
+  color: var(--chalk-dim);
+  font-size: 13px;
+}
+
+.chef-selection-card {
+  min-height: 54px;
+  padding: 11px 13px;
+}
+
+.chef-selection-card small {
+  margin-inline-start: auto;
+  color: var(--chalk-dim);
+}
+
+.recipe-suggestion-modal {
+  max-width: min(560px, calc(100vw - 24px));
+}
+
+.recipe-slide {
+  display: grid;
+  gap: 12px;
+}
+
+.recipe-image-frame,
+.saved-recipe-image {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border-alpha);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recipe-image-frame {
+  aspect-ratio: 16 / 9;
+}
+
+.recipe-image-frame img,
+.saved-recipe-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recipe-image-fallback,
+.saved-recipe-image span {
+  padding: 18px;
+  color: var(--chalk-dim);
+  text-align: center;
+}
+
+.recipe-slide-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.recipe-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.recipe-meta-grid span {
+  padding: 6px 9px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--chalk-dim);
+  font-size: 12px;
+}
+
+.recipe-detail-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.recipe-detail-grid h4,
+.saved-recipe-card h3 {
+  margin: 0 0 6px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.recipe-detail-grid ul,
+.recipe-detail-grid ol,
+.saved-recipe-card ul,
+.saved-recipe-card ol {
+  margin: 0;
+  padding-inline-start: 22px;
+  color: var(--chalk-dim);
+  line-height: 1.55;
+}
+
+.recipe-basics,
+.recipe-notes {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recipes-list {
+  padding-bottom: 24px;
+}
+
+.saved-recipe-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.saved-recipe-image {
+  aspect-ratio: 16 / 9;
+}
+
+.saved-recipe-body {
+  display: grid;
+  gap: 12px;
+}
+
 .status {
   margin-top: 8px;
   color: var(--chalk-dim);
@@ -1828,6 +2275,15 @@ h1.site-title {
 
   .fab-add-btn {
     left: 16px;
+  }
+
+  .fab-chef-btn {
+    right: 16px;
+  }
+
+  .chef-chat {
+    right: 14px;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 }
 

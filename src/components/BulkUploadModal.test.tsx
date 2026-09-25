@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BulkUploadModal from './BulkUploadModal'
 import { categorizeItem } from '../lib/firebase'
+import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 import type { Category } from '../types'
 
 jest.mock('react-i18next', () => ({
@@ -12,6 +13,10 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('../lib/firebase', () => ({
   categorizeItem: jest.fn()
+}))
+
+jest.mock('../client/api/aiItemEnrichment', () => ({
+  enrichItemsWithAi: jest.fn()
 }))
 
 const categories: Category[] = [
@@ -180,5 +185,111 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
     expect(onAdd).not.toHaveBeenCalled()
     expect(onUpdateQuantity).not.toHaveBeenCalled()
     expect(await screen.findByText(/common:quantityUnit.invalidQuantity/)).toBeInTheDocument()
+  })
+})
+
+describe('BulkUploadModal — AI assistant', () => {
+  beforeEach(() => {
+    ;(enrichItemsWithAi as jest.Mock).mockReset()
+  })
+
+  it('sends one category dataset for the batch, applies corrections, and creates each new category once', async () => {
+    ;(enrichItemsWithAi as jest.Mock).mockResolvedValue({
+      items: [
+        { id: '0', originalName: 'חללב', correctedName: 'חלב', category: 'מוצרי חלב', categoryStatus: 'existing', correctionReason: 'כתיב' },
+        { id: '1', originalName: 'סושי', correctedName: 'סושי', category: 'אוכל מוכן', categoryStatus: 'suggested', correctionReason: null },
+        { id: '2', originalName: 'פיצה', correctedName: 'פיצה', category: 'אוכל מוכן', categoryStatus: 'suggested', correctionReason: null }
+      ]
+    })
+    const user = userEvent.setup()
+    const onAdd = jest.fn(() => Promise.resolve())
+    const onAddCategory = jest.fn(() => Promise.resolve())
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={onAdd}
+        onUpdateQuantity={jest.fn()}
+        onAddCategory={onAddCategory}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), 'חללב\nסושי\nפיצה')
+    await user.click(screen.getByText('shoppingList:bulkUpload.aiAssistant'))
+    await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+
+    expect(enrichItemsWithAi).toHaveBeenCalledWith(expect.objectContaining({
+      categories: ['מוצרי חלב', 'מאפים', 'אחר'],
+      items: [
+        { id: '0', name: 'חללב' },
+        { id: '1', name: 'סושי' },
+        { id: '2', name: 'פיצה' }
+      ]
+    }))
+    expect(await screen.findByDisplayValue('חלב')).toBeInTheDocument()
+
+    await clickSave(user)
+    expect(onAddCategory).toHaveBeenCalledTimes(1)
+    expect(onAddCategory).toHaveBeenCalledWith(expect.objectContaining({ name: 'אוכל מוכן' }))
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ name: 'חלב', category: 'מוצרי חלב' }))
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ name: 'סושי', category: 'אוכל מוכן' }))
+  })
+
+  it('rechecks corrected names against existing items and updates instead of duplicating', async () => {
+    ;(enrichItemsWithAi as jest.Mock).mockResolvedValue({
+      items: [{ id: '0', originalName: 'חללב', correctedName: 'חלב', category: 'מוצרי חלב', categoryStatus: 'existing', correctionReason: 'כתיב' }]
+    })
+    const user = userEvent.setup()
+    const onAdd = jest.fn()
+    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[{ key: 'milk', name: 'חלב', category: 'מוצרי חלב' }]}
+        onClose={jest.fn()}
+        onAdd={onAdd}
+        onUpdateQuantity={onUpdateQuantity}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), 'חללב')
+    await user.click(screen.getByText('shoppingList:bulkUpload.aiAssistant'))
+    await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+    await clickSave(user)
+
+    expect(onUpdateQuantity).toHaveBeenCalledWith('milk', { quantity: null, unit: null })
+    expect(onAdd).not.toHaveBeenCalled()
+  })
+
+  it('adds repeated corrected products only once within the same batch', async () => {
+    ;(enrichItemsWithAi as jest.Mock).mockResolvedValue({
+      items: [
+        { id: '0', originalName: 'חללב', correctedName: 'חלב', category: 'מוצרי חלב', categoryStatus: 'existing', correctionReason: 'כתיב' },
+        { id: '1', originalName: 'חלב', correctedName: 'חלב', category: 'מוצרי חלב', categoryStatus: 'existing', correctionReason: null }
+      ]
+    })
+    const user = userEvent.setup()
+    const onAdd = jest.fn(() => Promise.resolve())
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={onAdd}
+        onUpdateQuantity={jest.fn()}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), 'חללב\nחלב')
+    await user.click(screen.getByText('shoppingList:bulkUpload.aiAssistant'))
+    await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+    await clickSave(user)
+
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ name: 'חלב' }))
   })
 })

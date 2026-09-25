@@ -14,7 +14,7 @@ import CategoriesModal from './CategoriesModal'
 import ListMembersModal from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
 import WhatsNewModal from './WhatsNewModal'
-import PurchaseInsightsModal from './PurchaseInsightsModal'
+import AiAssistantModal from './AiAssistantModal'
 import FeedbackModal from './FeedbackModal'
 import FeedbackStatusToast from './FeedbackStatusToast'
 import OnboardingModal from './OnboardingModal'
@@ -78,7 +78,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
-  const [showPurchaseInsights, setShowPurchaseInsights] = useState(false)
+  const [showAiAssistant, setShowAiAssistant] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { categories } = useCategories()
@@ -226,9 +226,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                 </button>
                 <button
                   className={sidebarItemClass}
-                  onClick={() => runAfterSidebarCloses(() => setShowPurchaseInsights(true))}
+                  onClick={() => runAfterSidebarCloses(() => setShowAiAssistant(true))}
                 >
-                  {t('menu.viewPurchaseInsights')}
+                  {t('menu.viewAiAssistant')}
                 </button>
                 <button
                   className={sidebarItemClass}
@@ -345,6 +345,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
             <Link to="/receipts" className="tab-btn" activeProps={{ className: 'active' }}>
               🧾 {t('tabs.receipts')}
             </Link>
+            <Link to="/recipes" className="tab-btn" activeProps={{ className: 'active' }}>
+              🍳 {t('tabs.recipes')}
+            </Link>
           </nav>
         )}
       </header>
@@ -393,7 +396,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showMembers && <ListMembersModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
-      {showPurchaseInsights && <PurchaseInsightsModal onClose={() => setShowPurchaseInsights(false)} />}
+      {showAiAssistant && <AiAssistantModal onClose={() => setShowAiAssistant(false)} />}
       {showFeedback && (
         <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={submitFeedbackRequest} />
       )}

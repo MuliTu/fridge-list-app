@@ -4,13 +4,16 @@ import { categorizeItem } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import { rankFuzzyMatches } from '../lib/fuzzyMatch'
+import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 import { NO_UNIT, OTHER_UNIT, UNIT_PRESETS, matchUnitAlias, resolveQuantityUnit } from '../lib/units'
 import type { Category } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
+import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Checkbox } from './ui/checkbox'
 
 // Sentinel for the match-picker's "this is a new item, not an update" option — Radix
 // Select forbids an empty-string item value, same reasoning as units.ts's NO_UNIT.
@@ -40,6 +43,12 @@ interface BulkUploadModalProps {
     key: string,
     fields: { quantity: number | null; unit: string | null }
   ) => Promise<unknown> | PromiseLike<unknown>
+  onAddCategory?: (category: {
+    name: string
+    color: string
+    icon?: string
+    order?: number
+  }) => Promise<unknown> | PromiseLike<unknown>
 }
 
 interface ParsedRow {
@@ -57,6 +66,9 @@ interface ParsedRow {
   // is matchCandidates[0].key, since that's the most plausible one; the user can switch
   // to a different candidate or back to "add as new" via the row's match Select.
   matchKey: string | null
+  originalName?: string
+  correctionReason?: string | null
+  suggestedCategory?: boolean
 }
 
 interface ParsedLine {
@@ -110,15 +122,17 @@ export default function BulkUploadModal({
   existingEntries,
   onClose,
   onAdd,
-  onUpdateQuantity
+  onUpdateQuantity,
+  onAddCategory
 }: BulkUploadModalProps) {
-  const { t } = useTranslation(['shoppingList', 'common', 'stock'])
+  const { t, i18n } = useTranslation(['shoppingList', 'common', 'stock'])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<'input' | 'review'>('input')
   const [raw, setRaw] = useState('')
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiEnabled, setAiEnabled] = useState(false)
 
   const categoryMap = new Map(categories.map((c) => [c.name, c]))
 
@@ -144,6 +158,50 @@ export default function BulkUploadModal({
     setWorking(true)
 
     const matchesFor = (name: string) => rankFuzzyMatches(name, existingEntries)
+
+    try {
+      if (aiEnabled) {
+        const enrichment = await enrichItemsWithAi({
+          language: i18n?.language === 'en' ? 'en' : 'he',
+          categories: categories.length > 0 ? categories.map((entry) => entry.name) : [OTHER_CATEGORY_NAME],
+          items: parsed.map((entry, index) => ({ id: String(index), name: entry.name }))
+        })
+        const enrichedById = new Map(enrichment.items.map((entry) => [entry.id, entry]))
+        const nextRows: ParsedRow[] = parsed.map((entry, index) => {
+          const suggestion = enrichedById.get(String(index))
+          const correctedName = suggestion?.correctedName ?? entry.name
+          const matchCandidates = matchesFor(correctedName)
+          const matchKey = matchCandidates[0]?.key ?? null
+          const { unit, customUnit } = resolveParsedUnit(entry.unitText)
+          const explicitExistingCategory = entry.explicitCategory
+            ? categories.find((candidate) => normalizeName(candidate.name) === normalizeName(entry.explicitCategory!))?.name
+            : undefined
+          const category = matchKey
+            ? matchCandidates[0].category
+            : explicitExistingCategory ?? suggestion?.category ?? OTHER_CATEGORY_NAME
+
+          return {
+            name: correctedName,
+            category,
+            quantityText: entry.quantityText,
+            unit,
+            customUnit,
+            matchCandidates,
+            matchKey,
+            originalName: suggestion && normalizeName(suggestion.originalName) !== normalizeName(correctedName)
+              ? suggestion.originalName
+              : undefined,
+            correctionReason: suggestion?.correctionReason,
+            suggestedCategory: !categories.some(
+              (candidate) => normalizeName(candidate.name) === normalizeName(category)
+            )
+          }
+        })
+        setRows(nextRows)
+        setWorking(false)
+        setStage('review')
+        return
+      }
 
     // Rows that already resolved to an existing product don't need auto-categorization
     // at all (their category comes from the matched item and won't be written) — skip
@@ -186,9 +244,13 @@ export default function BulkUploadModal({
       return { name: p.name, category, quantityText: p.quantityText, unit, customUnit, matchCandidates, matchKey }
     })
 
-    setRows(nextRows)
-    setWorking(false)
-    setStage('review')
+      setRows(nextRows)
+      setWorking(false)
+      setStage('review')
+    } catch (err: any) {
+      setError(`${t('shoppingList:bulkUpload.aiFailed')}: ${err.message}`)
+      setWorking(false)
+    }
   }
 
   const updateRow = (
@@ -196,7 +258,20 @@ export default function BulkUploadModal({
     field: 'name' | 'category' | 'quantityText' | 'unit' | 'customUnit',
     value: string
   ) => {
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+    setRows((prev) => prev.map((row, i) => {
+      if (i !== index) return row
+      if (field === 'name') return { ...row, name: value, originalName: undefined, correctionReason: null }
+      if (field === 'category') {
+        return {
+          ...row,
+          category: value,
+          suggestedCategory: !categories.some(
+            (candidate) => normalizeName(candidate.name) === normalizeName(value)
+          )
+        }
+      }
+      return { ...row, [field]: value }
+    }))
   }
 
   const setRowMatch = (index: number, matchKey: string | null) => {
@@ -244,10 +319,43 @@ export default function BulkUploadModal({
       return
     }
 
+    // Keep one write per active product. This covers duplicates already on the list,
+    // repeated lines in one import, and different spellings corrected to the same name.
+    const seenNewNames = new Set(existingEntries.map((entry) => normalizeName(entry.name)))
+    const seenMatchKeys = new Set<string>()
+    const uniqueToApply = toApply.filter(({ row }) => {
+      if (row.matchKey) {
+        if (seenMatchKeys.has(row.matchKey)) return false
+        seenMatchKeys.add(row.matchKey)
+        return true
+      }
+      const normalized = normalizeName(row.name)
+      if (seenNewNames.has(normalized)) return false
+      seenNewNames.add(normalized)
+      return true
+    })
+
     setWorking(true)
     setError(null)
     try {
-      for (const { row, quantity, unit } of toApply) {
+      const newCategoriesByNormalizedName = new Map<string, string>()
+      for (const { row } of uniqueToApply) {
+        const categoryName = row.category.trim()
+        if (!row.matchKey && row.suggestedCategory && categoryName) {
+          const normalized = normalizeName(categoryName)
+          if (!newCategoriesByNormalizedName.has(normalized)) {
+            newCategoriesByNormalizedName.set(normalized, categoryName)
+          }
+        }
+      }
+      const newCategoryNames = Array.from(newCategoriesByNormalizedName.values())
+      const maxOrder = categories.reduce((max, entry) => Math.max(max, entry.order ?? 0), 0)
+      for (const [index, categoryName] of newCategoryNames.entries()) {
+        if (onAddCategory) {
+          await onAddCategory({ name: categoryName, color: '#94a3b8', icon: '📌', order: maxOrder + index + 1 })
+        }
+      }
+      for (const { row, quantity, unit } of uniqueToApply) {
         if (row.matchKey) {
           await onUpdateQuantity(row.matchKey, { quantity, unit })
         } else {
@@ -293,6 +401,14 @@ export default function BulkUploadModal({
             {error && <div className="text-sm text-destructive">{error}</div>}
 
             <DialogFooter>
+              <Label className="me-auto flex cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={aiEnabled}
+                  disabled={working}
+                  onCheckedChange={(checked) => setAiEnabled(checked === true)}
+                />
+                {t('shoppingList:bulkUpload.aiAssistant')}
+              </Label>
               <Button variant="secondary" onClick={onClose} disabled={working}>
                 {t('common:actions.cancel')}
               </Button>
@@ -323,8 +439,15 @@ export default function BulkUploadModal({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.key} value={c.name}>
+                        {[
+                          ...categories.map((entry) => ({ name: entry.name, icon: entry.icon })),
+                          ...Array.from(new Set(rows
+                            .filter((entry) => entry.suggestedCategory)
+                            .map((entry) => entry.category)))
+                            .filter((name) => !categories.some((entry) => normalizeName(entry.name) === normalizeName(name)))
+                            .map((name) => ({ name, icon: '📌' }))
+                        ].map((c) => (
+                          <SelectItem key={c.name} value={c.name}>
                             {c.icon} {c.name}
                           </SelectItem>
                         ))}
@@ -340,6 +463,20 @@ export default function BulkUploadModal({
                       ✕
                     </Button>
                   </div>
+
+                  {row.originalName && (
+                    <p className="text-xs text-sky-700 dark:text-sky-300">
+                      {t('shoppingList:bulkUpload.aiCorrection', {
+                        original: row.originalName,
+                        corrected: row.name
+                      })}
+                    </p>
+                  )}
+                  {!row.matchKey && row.suggestedCategory && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      {t('shoppingList:bulkUpload.aiNewCategory', { category: row.category })}
+                    </p>
+                  )}
 
                   {row.matchCandidates.length > 0 && (
                     <div className="flex items-center gap-1.5 text-xs">

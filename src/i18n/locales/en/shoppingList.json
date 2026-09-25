@@ -1,4 +1,8 @@
 {
+  "topPanel": {
+    "hide": "Hide top controls",
+    "show": "Show top controls"
+  },
   "listPicker": {
     "sectionLabel": "List",
     "permanentList": "Permanent list",
@@ -25,7 +29,11 @@
     "fileReadFailed": "Failed to read the file: {{message}}",
     "matchFound": "Similar product already on your list:",
     "updateExisting": "Update \"{{name}}\"",
-    "addAsNew": "Add as new item"
+    "addAsNew": "Add as new item",
+    "aiAssistant": "AI assistant",
+    "aiCorrection": "Suggested correction: {{original}} → {{corrected}}",
+    "aiNewCategory": "New category “{{category}}” will be created",
+    "aiFailed": "AI review failed"
   },
   "search": {
     "placeholder": "Search the list…",
@@ -39,7 +47,9 @@
     "placeholder": "What do you need to buy?",
     "button": "Add",
     "adding": "Adding…",
-    "failed": "We couldn't add the item: {{message}}"
+    "failed": "We couldn't add the item: {{message}}",
+    "aiAssistant": "AI assistant",
+    "aiNoResult": "AI did not return an item suggestion"
   },
   "sort": {
     "label": "Sort list",
@@ -63,7 +73,65 @@
     "allPurchased": "All purchased 🎉",
     "sectionLabel": "Purchased items ({{count}})"
   },
+  "category": {
+    "uncheckedCount_one": "{{count}} unchecked item",
+    "uncheckedCount_other": "{{count}} unchecked items"
+  },
   "addItemFab": "Add item to list",
+  "chef": {
+    "open": "Open personal chef",
+    "title": "Personal chef",
+    "greeting": "Hello, I can cook from products already checked off in this list.",
+    "chat": {
+      "productsQuestion": "Hi, what products should we cook with?",
+      "productsAnswer": "Let's use: {{products}}",
+      "startProducts": "Choose products",
+      "productsDone": "Use selected products ({{count}})",
+      "servingsQuestion": "Great. For how many people?",
+      "mealTypeQuestion": "What kind of meal are we making?",
+      "preferencesQuestion": "Anything else I should know?",
+      "noPreferences": "No special preferences",
+      "continue": "Continue",
+      "generating": "Perfect. I am asking the chef for meal ideas now.",
+      "ready": "I have everything I need.",
+      "editAnswers": "Edit answers"
+    },
+    "servings": "People",
+    "mealType": "Meal",
+    "mealTypes": {
+      "quick_dinner": "Quick dinner",
+      "full_dinner": "Full dinner",
+      "breakfast": "Breakfast",
+      "lunch": "Lunch",
+      "snack": "Snack",
+      "meal_prep": "Meal prep",
+      "other": "Other"
+    },
+    "preferences": "Preferences",
+    "preferencesPlaceholder": "No oven, kid friendly, spicy, vegetarian...",
+    "productsTitle": "Products to use",
+    "chooseProducts": "Choose products",
+    "selectionTitle": "Choose products for the chef",
+    "selectionHelp": "Only checked products are shown while this mode is active.",
+    "noProducts": "No checked products are available yet. Mark items as purchased first.",
+    "selectAll": "Select all",
+    "clearAll": "Clear all",
+    "selectAtLeastOne": "Choose at least one product.",
+    "generate": "Suggest meals ({{count}})",
+    "generating": "Thinking...",
+    "generateFailed": "The chef could not create recipes right now.",
+    "suggestionsTitle": "Meal suggestions",
+    "previousRecipe": "Previous recipe",
+    "nextRecipe": "Next recipe",
+    "servingsValue": "{{count}} people",
+    "minutes": "{{count}} min",
+    "timeUnknown": "Time unknown",
+    "ingredients": "Ingredients",
+    "steps": "Steps",
+    "assumedBasics": "Assumed pantry basics",
+    "saveRecipe": "Save recipe",
+    "saveFailed": "Recipe save failed"
+  },
   "item": {
     "info": "Item details",
     "metadataTitle": "Item information",

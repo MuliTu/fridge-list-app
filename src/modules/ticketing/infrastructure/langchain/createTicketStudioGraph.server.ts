@@ -1,21 +1,53 @@
 import { ChatOpenAI } from '@langchain/openai'
+import { AIMessage } from '@langchain/core/messages'
+import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { RunnableLambda } from '@langchain/core/runnables'
 
 import { readCreateTicketConfig } from '../createTicketConfig.server'
-import { createCompiledTicketGraph } from './createTicketGraph'
+import { createCompiledTicketGraph, type ToolCallingModel } from './createTicketGraph'
 import { loadManagedCreateTicketPrompt } from './managedPrompt.server'
 import { FakeTicketProvider } from '../providers/fakeTicketProvider'
 import type { TicketProvider } from '../../application/ticketProvider'
 import { TrelloTicketProvider } from '../providers/trelloTicketProvider'
 
-const config = readCreateTicketConfig(process.env)
-
-if (!config.enabled) {
-  throw new Error(
-    'LangGraph Studio requires AGENT_CREATE_TICKET_ENABLED=true'
-  )
+let config
+try {
+  config = readCreateTicketConfig(process.env)
+} catch {
+  config = null
 }
 
+const createLocalFallbackGraph = () => {
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', 'Local create-ticket Studio fallback for {request}.']
+  ])
+  const model = {
+    bindTools: () =>
+      new RunnableLambda({
+        func: async () =>
+          new AIMessage({
+            content: '',
+            tool_calls: [
+              {
+                name: 'create_ticket',
+                args: {
+                  title: 'Local fallback ticket',
+                  description: 'Created by the local LangGraph Studio fallback.'
+                },
+                id: 'local-fallback-call',
+                type: 'tool_call'
+              }
+            ]
+          })
+      })
+  }
+  return createCompiledTicketGraph(model, prompt, new FakeTicketProvider())
+}
+
+const shouldUseLocalFallback = !config?.enabled
+
 const createStudioProvider = (): TicketProvider => {
+  if (!config) return new FakeTicketProvider()
   if (config.provider.type === 'fake') return new FakeTicketProvider()
 
   if (process.env.LANGGRAPH_STUDIO_ALLOW_TRELLO !== 'true') {
@@ -27,13 +59,6 @@ const createStudioProvider = (): TicketProvider => {
   return new TrelloTicketProvider(config.provider)
 }
 
-const prompt = await loadManagedCreateTicketPrompt(config.langChain)
-const model = new ChatOpenAI({
-  model: config.model.name,
-  apiKey: config.model.openAiApiKey,
-  temperature: 0
-})
-
 /**
  * LangGraph Agent Server / Studio entry point.
  *
@@ -44,8 +69,14 @@ const model = new ChatOpenAI({
  *   "runId": "studio-test-1"
  * }
  */
-export const graph = createCompiledTicketGraph(
-  model,
-  prompt,
-  createStudioProvider()
-)
+export const graph = shouldUseLocalFallback
+  ? createLocalFallbackGraph()
+  : createCompiledTicketGraph(
+      new ChatOpenAI({
+        model: config!.model.name,
+        apiKey: config!.model.openAiApiKey,
+        temperature: 0
+      }) as unknown as ToolCallingModel,
+      await loadManagedCreateTicketPrompt(config!.langChain),
+      createStudioProvider()
+    )

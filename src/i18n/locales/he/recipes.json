@@ -1,0 +1,18 @@
+{
+  "empty": "אין עדיין מתכונים שמורים.",
+  "loadFailed": "טעינת המתכונים נכשלה: {{message}}",
+  "servings": "{{count}} אנשים",
+  "minutes": "{{count}} דק׳",
+  "timeUnknown": "זמן לא ידוע",
+  "ingredients": "מרכיבים",
+  "steps": "שלבים",
+  "mealTypes": {
+    "quick_dinner": "ארוחת ערב מהירה",
+    "full_dinner": "ארוחה מלאה",
+    "breakfast": "ארוחת בוקר",
+    "lunch": "ארוחת צהריים",
+    "snack": "נשנוש",
+    "meal_prep": "הכנה מראש",
+    "other": "אחר"
+  }
+}
