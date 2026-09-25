@@ -3,6 +3,7 @@ import type { DragEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import { normalizeName } from '../lib/normalizeName'
 import { categorizeItem } from '../lib/firebase'
 import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
@@ -28,6 +29,7 @@ import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
 import QuickAddBar from '../components/QuickAddBar'
+import ShoppingListTopPanel from '../components/ShoppingListTopPanel'
 import ListSkeleton from '../components/ListSkeleton'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
 import { partitionGroceryItemsByPlacement } from '../lib/boughtItemsPlacement'
@@ -62,7 +64,9 @@ function ShoppingListPage() {
   // leaks into a later FAB-triggered add.
   const [addModalInitialName, setAddModalInitialName] = useState<string | undefined>(undefined)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const [topCollapsed, setTopCollapsed] = useState(false)
   const quickAddInputRef = useRef<HTMLInputElement>(null)
+  const pendingItemNamesRef = useRef(new Set<string>())
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
   // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
@@ -79,6 +83,43 @@ function ShoppingListPage() {
   const sortedCustomLists = [...customListNames].sort((a, b) => a.localeCompare(b, 'he'))
 
   const visibleEntries = allEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
+  const uncheckedCountByCategory = visibleEntries.reduce<Record<string, number>>((counts, entry) => {
+    if (entry.bought) return counts
+    const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
+    counts[category] = (counts[category] || 0) + 1
+    return counts
+  }, {})
+
+  useEffect(() => {
+    for (const entry of visibleEntries) {
+      if (!entry.bought) {
+        pendingItemNamesRef.current.delete(
+          `${activeList ?? '__permanent__'}::${normalizeName(entry.item)}`
+        )
+      }
+    }
+  }, [activeList, visibleEntries])
+
+  const addGroceryItemUnlessActiveDuplicate = async (item: {
+    name: string
+    category: string
+    quantity?: number | null
+    unit?: string | null
+  }) => {
+    const normalized = normalizeName(item.name)
+    const reservationKey = `${activeList ?? '__permanent__'}::${normalized}`
+    const alreadyActive = visibleEntries.some(
+      (entry) => !entry.bought && normalizeName(entry.item) === normalized
+    )
+    if (alreadyActive || pendingItemNamesRef.current.has(reservationKey)) return
+    pendingItemNamesRef.current.add(reservationKey)
+    try {
+      await listApi.addGroceryItem(item, activeList, user)
+    } catch (error) {
+      pendingItemNamesRef.current.delete(reservationKey)
+      throw error
+    }
+  }
 
   const purchasedCount = visibleEntries.filter((e) => e.bought).length
   const { categoryEntries, completedEntries } = partitionGroceryItemsByPlacement(
@@ -131,7 +172,11 @@ function ShoppingListPage() {
     handleToggleBought(entry)
   }
 
-  const handleQuickAdd = async (name: string) => {
+  const handleQuickAdd = async (name: string, aiCategory?: string) => {
+    if (aiCategory) {
+      await addGroceryItemUnlessActiveDuplicate({ name, category: aiCategory })
+      return
+    }
     let items: { item: string; category: string }[] = []
     try {
       items = await categorizeItem(name)
@@ -141,7 +186,7 @@ function ShoppingListPage() {
     if (items.length === 0) items = [{ item: name, category: OTHER_CATEGORY_NAME }]
 
     for (const item of items) {
-      await listApi.addGroceryItem({ name: item.item, category: item.category }, activeList, user)
+      await addGroceryItemUnlessActiveDuplicate({ name: item.item, category: item.category })
     }
   }
 
@@ -247,27 +292,37 @@ function ShoppingListPage() {
 
   return (
     <>
-      {/* Keep the permanent-list pill visible even before custom lists exist so
-          the context switcher has a stable position and the active context remains
-          explicit at a glance. */}
-      <ListPicker
-        activeList={activeList}
-        customLists={sortedCustomLists}
-        onSelectList={(l) => navigate({ search: { list: l || undefined } })}
-      />
+      <ShoppingListTopPanel
+        onCollapse={() => setSearch('')}
+        onCollapsedChange={setTopCollapsed}
+      >
+        {/* Keep the permanent-list pill visible even before custom lists exist so
+            the context switcher has a stable position and the active context remains
+            explicit at a glance. */}
+        <ListPicker
+          activeList={activeList}
+          customLists={sortedCustomLists}
+          onSelectList={(l) => navigate({ search: { list: l || undefined } })}
+        />
 
-      {/* This second, textual cue keeps the active context unambiguous without
-          relying on the selected pill's color alone. */}
-      <ActiveListLabel activeList={activeList} />
+        <ActiveListLabel activeList={activeList} />
 
-      {canEdit && <QuickAddBar ref={quickAddInputRef} onAdd={handleQuickAdd} />}
+        {canEdit && (
+          <QuickAddBar
+            ref={quickAddInputRef}
+            categories={categories}
+            onAdd={handleQuickAdd}
+            onAddCategory={(category) => listApi.addCategory(category)}
+          />
+        )}
 
-      {visibleEntries.length > 0 && (
-        <div className="list-controls-row">
-          <ShoppingListSearch value={search} onChange={setSearch} />
-          <ShoppingListSort value={sortOption} onChange={setSortOption} />
-        </div>
-      )}
+        {visibleEntries.length > 0 && (
+          <div className="list-controls-row">
+            <ShoppingListSearch value={search} onChange={setSearch} />
+            <ShoppingListSort value={sortOption} onChange={setSortOption} />
+          </div>
+        )}
+      </ShoppingListTopPanel>
 
       {isLoading && visibleEntries.length === 0 ? (
         <ListSkeleton variant="flat" sections={3} rows={3} />
@@ -292,6 +347,10 @@ function ShoppingListPage() {
                   name={name}
                   color={color}
                   icon={icon}
+                  uncheckedCount={uncheckedCountByCategory[name] || 0}
+                  uncheckedCountLabel={t('shoppingList:category.uncheckedCount', {
+                    count: uncheckedCountByCategory[name] || 0
+                  })}
                   collapsed={isCollapsed(name)}
                   onToggle={() => toggle(name)}
                   dragOver={dragOverCategory === name}
@@ -345,7 +404,7 @@ function ShoppingListPage() {
         </>
       )}
 
-      {canEdit && (
+      {canEdit && !topCollapsed && (
         <button
           className="fab-add-btn"
           onClick={() => {
@@ -366,7 +425,7 @@ function ShoppingListPage() {
           onSignIn={onSignIn}
           onClose={() => setSelectedEntry(null)}
           onSave={(key, details) => listApi.saveItemDetails(key, details, user)}
-          onDelete={(key) => listApi.deleteItem(key, selectedEntry.image_ref)}
+          onDelete={(key) => listApi.deleteItem(key, selectedEntry.image_ref, user)}
           onMoveCategory={(key, category) => listApi.updateGroceryItemCategory(key, category, user)}
         />
       )}
@@ -396,11 +455,13 @@ function ShoppingListPage() {
         <GroceryItemModal
           listName={activeList}
           initialName={addModalInitialName}
+          categories={categories}
           onClose={() => {
             setShowAddGrocery(false)
             setAddModalInitialName(undefined)
           }}
-          onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
+          onAdd={addGroceryItemUnlessActiveDuplicate}
+          onAddCategory={(category) => listApi.addCategory(category)}
         />
       )}
 
@@ -412,8 +473,9 @@ function ShoppingListPage() {
             .filter((e) => !e.bought)
             .map((e) => ({ key: e.key, name: e.item, category: e.category }))}
           onClose={() => setShowBulkUpload(false)}
-          onAdd={(item) => listApi.addGroceryItem(item, activeList, user)}
+          onAdd={addGroceryItemUnlessActiveDuplicate}
           onUpdateQuantity={(key, fields) => listApi.updateGroceryItemQuantity(key, fields, user)}
+          onAddCategory={(category) => listApi.addCategory(category)}
         />
       )}
     </>

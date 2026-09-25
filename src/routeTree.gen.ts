@@ -22,6 +22,8 @@ import { Route as ApiPurchaseHabitSummaryRouteImport } from './routes/api/purcha
 import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
 import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
 import { Route as ApiCategorizeItemRouteImport } from './routes/api/categorize-item'
+import { Route as ApiAiEnrichItemsRouteImport } from './routes/api/ai/enrich-items'
+import { Route as ApiAiAnalyzeRouteImport } from './routes/api/ai/analyze'
 import { Route as ApiAgentEntitlementRouteImport } from './routes/api/agent/entitlement'
 import { Route as ApiAgentCreateTicketRouteImport } from './routes/api/agent/create-ticket'
 import { Route as ApiListsListIdReceiptsRouteImport } from './routes/api/lists/$listId/receipts'
@@ -96,6 +98,16 @@ const ApiCategorizeItemRoute = ApiCategorizeItemRouteImport.update({
   path: '/api/categorize-item',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiEnrichItemsRoute = ApiAiEnrichItemsRouteImport.update({
+  id: '/api/ai/enrich-items',
+  path: '/api/ai/enrich-items',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiAnalyzeRoute = ApiAiAnalyzeRouteImport.update({
+  id: '/api/ai/analyze',
+  path: '/api/ai/analyze',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAgentEntitlementRoute = ApiAgentEntitlementRouteImport.update({
   id: '/api/agent/entitlement',
   path: '/api/agent/entitlement',
@@ -157,6 +169,8 @@ export interface FileRoutesByFullPath {
   '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
   '/api/agent/create-ticket': typeof ApiAgentCreateTicketRoute
   '/api/agent/entitlement': typeof ApiAgentEntitlementRoute
+  '/api/ai/analyze': typeof ApiAiAnalyzeRoute
+  '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
@@ -180,6 +194,8 @@ export interface FileRoutesByTo {
   '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
   '/api/agent/create-ticket': typeof ApiAgentCreateTicketRoute
   '/api/agent/entitlement': typeof ApiAgentEntitlementRoute
+  '/api/ai/analyze': typeof ApiAiAnalyzeRoute
+  '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
@@ -204,6 +220,8 @@ export interface FileRoutesById {
   '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
   '/api/agent/create-ticket': typeof ApiAgentCreateTicketRoute
   '/api/agent/entitlement': typeof ApiAgentEntitlementRoute
+  '/api/ai/analyze': typeof ApiAiAnalyzeRoute
+  '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
@@ -229,6 +247,8 @@ export interface FileRouteTypes {
     | '/api/submit-feedback'
     | '/api/agent/create-ticket'
     | '/api/agent/entitlement'
+    | '/api/ai/analyze'
+    | '/api/ai/enrich-items'
     | '/api/lists/$listId/groceries'
     | '/api/lists/$listId/receipts'
     | '/api/lists/$listId/groceries/$itemId'
@@ -252,6 +272,8 @@ export interface FileRouteTypes {
     | '/api/submit-feedback'
     | '/api/agent/create-ticket'
     | '/api/agent/entitlement'
+    | '/api/ai/analyze'
+    | '/api/ai/enrich-items'
     | '/api/lists/$listId/groceries'
     | '/api/lists/$listId/receipts'
     | '/api/lists/$listId/groceries/$itemId'
@@ -275,6 +297,8 @@ export interface FileRouteTypes {
     | '/api/submit-feedback'
     | '/api/agent/create-ticket'
     | '/api/agent/entitlement'
+    | '/api/ai/analyze'
+    | '/api/ai/enrich-items'
     | '/api/lists/$listId/groceries'
     | '/api/lists/$listId/receipts'
     | '/api/lists/$listId/groceries/$itemId'
@@ -299,6 +323,8 @@ export interface RootRouteChildren {
   ApiSubmitFeedbackRoute: typeof ApiSubmitFeedbackRoute
   ApiAgentCreateTicketRoute: typeof ApiAgentCreateTicketRoute
   ApiAgentEntitlementRoute: typeof ApiAgentEntitlementRoute
+  ApiAiAnalyzeRoute: typeof ApiAiAnalyzeRoute
+  ApiAiEnrichItemsRoute: typeof ApiAiEnrichItemsRoute
   ApiListsListIdGroceriesRoute: typeof ApiListsListIdGroceriesRouteWithChildren
   ApiListsListIdReceiptsRoute: typeof ApiListsListIdReceiptsRouteWithChildren
 }
@@ -394,6 +420,20 @@ declare module '@tanstack/react-router' {
       path: '/api/categorize-item'
       fullPath: '/api/categorize-item'
       preLoaderRoute: typeof ApiCategorizeItemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/enrich-items': {
+      id: '/api/ai/enrich-items'
+      path: '/api/ai/enrich-items'
+      fullPath: '/api/ai/enrich-items'
+      preLoaderRoute: typeof ApiAiEnrichItemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/analyze': {
+      id: '/api/ai/analyze'
+      path: '/api/ai/analyze'
+      fullPath: '/api/ai/analyze'
+      preLoaderRoute: typeof ApiAiAnalyzeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/agent/entitlement': {
@@ -531,6 +571,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSubmitFeedbackRoute: ApiSubmitFeedbackRoute,
   ApiAgentCreateTicketRoute: ApiAgentCreateTicketRoute,
   ApiAgentEntitlementRoute: ApiAgentEntitlementRoute,
+  ApiAiAnalyzeRoute: ApiAiAnalyzeRoute,
+  ApiAiEnrichItemsRoute: ApiAiEnrichItemsRoute,
   ApiListsListIdGroceriesRoute: ApiListsListIdGroceriesRouteWithChildren,
   ApiListsListIdReceiptsRoute: ApiListsListIdReceiptsRouteWithChildren,
 }

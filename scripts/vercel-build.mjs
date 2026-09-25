@@ -154,7 +154,12 @@ export default async function (req, res) {
 
 await writeFile(
   `${FUNC}/.vc-config.json`,
-  JSON.stringify({ runtime: 'nodejs24.x', handler: 'index.mjs', launcherType: 'Nodejs' }, null, 2)
+  JSON.stringify({
+    runtime: 'nodejs24.x',
+    handler: 'index.mjs',
+    launcherType: 'Nodejs',
+    maxDuration: 120
+  }, null, 2)
 )
 
 await writeFile(

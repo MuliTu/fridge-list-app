@@ -70,6 +70,21 @@ export interface PurchaseEvent {
   purchasedBy: string | null
 }
 
+// Append-only audit trail used by the AI assistant's structured retrieval step.
+// Keeping removals here is essential: once a grocery record is deleted, the live
+// /groceries projection can no longer explain what changed. A matching add/remove
+// pair for the same item key within one minute is treated as a correction and is
+// filtered before any context is sent to Gemini.
+export interface ListChangeEvent {
+  type: 'added' | 'removed' | 'renamed'
+  itemKey: string
+  itemName: string
+  previousName?: string | null
+  listName?: string | null
+  changedAt: string
+  changedBy: string | null
+}
+
 export interface StockItem {
   key: string
   name: string

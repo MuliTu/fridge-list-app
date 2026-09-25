@@ -251,7 +251,7 @@ describe('auth header attachment on server-route calls', () => {
         context: {
           route: '/stock',
           language: 'en',
-          appVersion: '2.51.0'
+          appVersion: '2.55.0'
         }
       })
       expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
@@ -288,7 +288,7 @@ describe('auth header attachment on server-route calls', () => {
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
-        appVersion: '2.51.0'
+        appVersion: '2.55.0'
       })
       expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
     })
@@ -644,5 +644,124 @@ describe('setBought / purchase history log', () => {
     }
     expect(thrown).toBeNull()
     expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bought: true }))
+  })
+})
+
+describe('AI-reviewed grocery writes', () => {
+  const listApi = createListApi('owner@example.com')
+  const user = { email: 'user@example.com' } as any
+
+  beforeEach(() => {
+    ;(get as jest.Mock).mockReset()
+    ;(push as jest.Mock).mockReset()
+    ;(update as jest.Mock).mockReset()
+  })
+
+  it('creates a suggested custom list and its audit entries in one root update', async () => {
+    ;(get as jest.Mock).mockResolvedValue({ val: () => ({}) })
+    ;(push as jest.Mock)
+      .mockReturnValueOnce({ key: 'grocery-1' })
+      .mockReturnValueOnce({ key: 'history-1' })
+      .mockReturnValueOnce({ key: 'grocery-2' })
+      .mockReturnValueOnce({ key: 'history-2' })
+
+    await expect(listApi.createSuggestedList('סופ״ש', [
+      { name: 'חלב', category: 'מוצרי חלב' },
+      { name: 'לחם', category: 'לחם ומאפים' }
+    ], user)).resolves.toEqual({ created: 2, skipped: 0 })
+
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'users/owner@example_com' }),
+      expect.objectContaining({
+        'groceries/grocery-1': expect.objectContaining({ item: 'חלב', list_name: 'סופ״ש' }),
+        'groceries/grocery-2': expect.objectContaining({ item: 'לחם', list_name: 'סופ״ש' }),
+        'listChangeHistory/history-1': expect.objectContaining({ type: 'added', itemKey: 'grocery-1' }),
+        'listChangeHistory/history-2': expect.objectContaining({ type: 'added', itemKey: 'grocery-2' })
+      })
+    )
+  })
+
+  it('skips active same-list items and duplicates inside the AI proposal', async () => {
+    ;(get as jest.Mock).mockResolvedValue({
+      val: () => ({
+        existing: { item: 'חלב', bought: false, list_name: 'סופ״ש' },
+        bought: { item: 'לחם', bought: true, list_name: 'סופ״ש' },
+        otherList: { item: 'ביצים', bought: false, list_name: 'קבוע' }
+      })
+    })
+    ;(push as jest.Mock)
+      .mockReturnValueOnce({ key: 'grocery-bread' })
+      .mockReturnValueOnce({ key: 'history-bread' })
+      .mockReturnValueOnce({ key: 'grocery-eggs' })
+      .mockReturnValueOnce({ key: 'history-eggs' })
+
+    await expect(listApi.createSuggestedList('סופ״ש', [
+      { name: ' חלב ', category: 'מוצרי חלב' },
+      { name: 'לחם', category: 'לחם ומאפים' },
+      { name: ' לחם ', category: 'לחם ומאפים' },
+      { name: 'ביצים', category: 'מוצרי חלב' }
+    ], user)).resolves.toEqual({ created: 2, skipped: 2 })
+
+    expect(update).toHaveBeenCalledTimes(1)
+    expect((update as jest.Mock).mock.calls[0][1]).toEqual(expect.objectContaining({
+      'groceries/grocery-bread': expect.objectContaining({ item: 'לחם' }),
+      'groceries/grocery-eggs': expect.objectContaining({ item: 'ביצים' })
+    }))
+    expect((update as jest.Mock).mock.calls[0][1]).not.toEqual(expect.objectContaining({
+      'groceries/existing': expect.anything()
+    }))
+  })
+
+  it('does not write when every suggested item already exists in the target list', async () => {
+    ;(get as jest.Mock).mockResolvedValue({
+      val: () => ({ existing: { item: 'חלב', bought: false, list_name: 'סופ״ש' } })
+    })
+
+    await expect(listApi.createSuggestedList('סופ״ש', [
+      { name: 'חלב', category: 'מוצרי חלב' }
+    ], user)).resolves.toEqual({ created: 0, skipped: 1 })
+
+    expect(push).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('applies only review operations whose expected names still match', async () => {
+    ;(get as jest.Mock).mockResolvedValue({
+      val: () => ({
+        keep: { item: 'גבינה צהובה עמק', list_name: null },
+        duplicate: { item: 'חלב', list_name: 'קבוע' },
+        changed: { item: 'שם חדש', list_name: null }
+      })
+    })
+    ;(push as jest.Mock)
+      .mockReturnValueOnce({ key: 'history-remove' })
+      .mockReturnValueOnce({ key: 'history-rename' })
+
+    await expect(listApi.applyAiListReview({
+      removals: [
+        { key: 'duplicate', expectedName: 'חלב' },
+        { key: 'changed', expectedName: 'שם ישן' }
+      ],
+      renames: [{ key: 'keep', expectedName: 'גבינה צהובה עמק', name: 'גבינה צהובה' }]
+    }, user)).resolves.toEqual({
+      removed: 1,
+      renamed: 1,
+      skipped: 1,
+      removedKeys: ['duplicate'],
+      renamedKeys: ['keep'],
+      skippedKeys: ['changed']
+    })
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'users/owner@example_com' }),
+      expect.objectContaining({
+        'groceries/duplicate': null,
+        'groceries/keep/item': 'גבינה צהובה',
+        'listChangeHistory/history-remove': expect.objectContaining({ type: 'removed' }),
+        'listChangeHistory/history-rename': expect.objectContaining({ type: 'renamed' })
+      })
+    )
+    expect((update as jest.Mock).mock.calls[0][1]).not.toHaveProperty('groceries/changed')
   })
 })

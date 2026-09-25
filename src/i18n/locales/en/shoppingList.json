@@ -1,4 +1,8 @@
 {
+  "topPanel": {
+    "hide": "Hide top controls",
+    "show": "Show top controls"
+  },
   "listPicker": {
     "sectionLabel": "List",
     "permanentList": "Permanent list",
@@ -25,7 +29,11 @@
     "fileReadFailed": "Failed to read the file: {{message}}",
     "matchFound": "Similar product already on your list:",
     "updateExisting": "Update \"{{name}}\"",
-    "addAsNew": "Add as new item"
+    "addAsNew": "Add as new item",
+    "aiAssistant": "AI assistant",
+    "aiCorrection": "Suggested correction: {{original}} → {{corrected}}",
+    "aiNewCategory": "New category “{{category}}” will be created",
+    "aiFailed": "AI review failed"
   },
   "search": {
     "placeholder": "Search the list…",
@@ -39,7 +47,9 @@
     "placeholder": "What do you need to buy?",
     "button": "Add",
     "adding": "Adding…",
-    "failed": "We couldn't add the item: {{message}}"
+    "failed": "We couldn't add the item: {{message}}",
+    "aiAssistant": "AI assistant",
+    "aiNoResult": "AI did not return an item suggestion"
   },
   "sort": {
     "label": "Sort list",
@@ -62,6 +72,10 @@
     "hide": "🛒 Hide purchased items",
     "allPurchased": "All purchased 🎉",
     "sectionLabel": "Purchased items ({{count}})"
+  },
+  "category": {
+    "uncheckedCount_one": "{{count}} unchecked item",
+    "uncheckedCount_other": "{{count}} unchecked items"
   },
   "addItemFab": "Add item to list",
   "item": {

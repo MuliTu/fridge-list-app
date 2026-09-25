@@ -8,7 +8,16 @@ import { normalizeName } from './normalizeName'
 import type { HabitChange } from './purchaseHabitChanges'
 import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
-import type { AuthUser, FeedbackRecord, GroceryItem, PurchaseEvent, ReceiptItem, StockItem } from '../types'
+import type {
+  AuthUser,
+  Category,
+  FeedbackRecord,
+  GroceryItem,
+  ListChangeEvent,
+  PurchaseEvent,
+  ReceiptItem,
+  StockItem
+} from '../types'
 import { version as APP_VERSION } from '../../package.json'
 import { CLIENT_EVENT_NAMES, type ClientEventLevel, type ClientEventName } from '../modules/observability'
 
@@ -394,6 +403,22 @@ export function createListApi(ownerEmail: string) {
   const receiptsRef = ref(db, `${base}/receipts`)
   const categoriesRef = ref(db, `${base}/categories`)
   const purchaseHistoryRef = ref(db, `${base}/purchaseHistory`)
+  const listChangeHistoryRef = ref(db, `${base}/listChangeHistory`)
+
+  const recordListChange = async (event: Omit<ListChangeEvent, 'changedAt'>) => {
+    try {
+      await push(listChangeHistoryRef, {
+        ...event,
+        changedAt: new Date().toISOString()
+      })
+    } catch (err: any) {
+      // The grocery mutation remains authoritative. Audit-history failure should
+      // degrade insights, never block the household from editing its list.
+      logger.warn(
+        `[listChangeHistory] record failed: list=${ownerEmail} type=${event.type} key=${event.itemKey} message=${err?.message || err}`
+      )
+    }
+  }
 
   const touchModified = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
     update(ref(db, `${base}/groceries/${key}`), {
@@ -487,6 +512,12 @@ export function createListApi(ownerEmail: string) {
     const fields: Record<string, unknown> = { note: note ?? null, quantity: quantity ?? null, unit: unit ?? null }
     if (name != null) fields.item = name
 
+    let previousEntry: Partial<GroceryItem> | null = null
+    if (name != null) {
+      const previous = await get(ref(db, `${base}/groceries/${key}`))
+      previousEntry = previous.val() as Partial<GroceryItem> | null
+    }
+
     if (imageFile) {
       const resized = await resizeImage(imageFile)
       await saveImageDoc('groceryImages', key, resized)
@@ -496,7 +527,35 @@ export function createListApi(ownerEmail: string) {
     logClientAction(
       `[groceries] saveItemDetails: list=${ownerEmail} key=${key} name=${name != null} note=${note != null} image=${!!imageFile} by=${user?.email || 'anonymous'}`
     )
-    return touchModified(key, fields, user)
+    await touchModified(key, fields, user)
+    if (name != null && previousEntry?.item && normalizeName(previousEntry.item) !== normalizeName(name)) {
+      await recordListChange({
+        type: 'renamed',
+        itemKey: key,
+        itemName: name,
+        previousName: previousEntry.item,
+        listName: previousEntry.list_name ?? null,
+        changedBy: user?.email ?? null
+      })
+    }
+  }
+
+  const updateGroceryItemName = async (key: string, name: string, user?: AuthUser | null) => {
+    const previous = await get(ref(db, `${base}/groceries/${key}`))
+    const entry = previous.val() as Partial<GroceryItem> | null
+    if (!entry?.item || normalizeName(entry.item) === normalizeName(name)) return
+    logClientAction(
+      `[groceries] updateGroceryItemName: list=${ownerEmail} key=${key} by=${user?.email || 'anonymous'}`
+    )
+    await touchModified(key, { item: name }, user)
+    await recordListChange({
+      type: 'renamed',
+      itemKey: key,
+      itemName: name,
+      previousName: entry.item,
+      listName: entry.list_name ?? null,
+      changedBy: user?.email ?? null
+    })
   }
 
   // Narrower sibling of saveItemDetails, for BulkUploadModal's "bulk update" path only:
@@ -516,10 +575,21 @@ export function createListApi(ownerEmail: string) {
     return touchModified(key, { quantity: fields.quantity, unit: fields.unit }, user)
   }
 
-  const deleteItem = async (key: string, imageRef?: string | null) => {
+  const deleteItem = async (key: string, imageRef?: string | null, user?: AuthUser | null) => {
     logClientAction(`[groceries] deleteItem: list=${ownerEmail} key=${key}`)
+    const snapshot = await get(ref(db, `${base}/groceries/${key}`))
+    const entry = snapshot.val() as Partial<GroceryItem> | null
     if (imageRef) await deleteImageDoc('groceryImages', imageRef)
-    return remove(ref(db, `${base}/groceries/${key}`))
+    await remove(ref(db, `${base}/groceries/${key}`))
+    if (entry?.item) {
+      await recordListChange({
+        type: 'removed',
+        itemKey: key,
+        itemName: entry.item,
+        listName: entry.list_name ?? null,
+        changedBy: user?.email ?? null
+      })
+    }
   }
 
   const touchStock = (key: string, fields: Record<string, unknown>, user?: AuthUser | null) =>
@@ -576,7 +646,7 @@ export function createListApi(ownerEmail: string) {
     })
   }
 
-  const addGroceryItem = (
+  const addGroceryItem = async (
     item: { name: string; category: string; quantity?: number | null; unit?: string | null },
     listName: string | null,
     user?: AuthUser | null
@@ -584,7 +654,7 @@ export function createListApi(ownerEmail: string) {
     logClientAction(
       `[groceries] addGroceryItem: list=${ownerEmail} name=${item.name} sublist=${listName || 'permanent'} by=${user?.email || 'anonymous'}`
     )
-    return push(groceriesRef, {
+    const created = await push(groceriesRef, {
       item: item.name,
       category: item.category,
       bought: false,
@@ -595,6 +665,16 @@ export function createListApi(ownerEmail: string) {
       quantity: item.quantity ?? null,
       unit: item.unit ?? null
     })
+    if (created.key) {
+      await recordListChange({
+        type: 'added',
+        itemKey: created.key,
+        itemName: item.name,
+        listName: listName || null,
+        changedBy: user?.email ?? null
+      })
+    }
+    return created
   }
 
   // Deliberately does NOT call recordPurchaseEvent — this writes a grocery item that
@@ -741,6 +821,171 @@ export function createListApi(ownerEmail: string) {
     return Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
   }
 
+  const getAiRetrievalContext = async (): Promise<{
+    items: GroceryItem[]
+    purchases: PurchaseEvent[]
+    changes: ListChangeEvent[]
+    categories: Category[]
+  }> => {
+    const [grocerySnapshot, purchaseSnapshot, changeSnapshot, categorySnapshot] = await Promise.all([
+      get(groceriesRef),
+      get(purchaseHistoryRef),
+      get(listChangeHistoryRef),
+      get(categoriesRef)
+    ])
+    const records = <T>(snapshot: { val(): unknown }): T[] =>
+      Object.entries((snapshot.val() || {}) as Record<string, T>).map(([key, value]) => ({ key, ...value }))
+
+    return {
+      items: records<GroceryItem>(grocerySnapshot),
+      purchases: Object.values((purchaseSnapshot.val() || {}) as Record<string, PurchaseEvent>),
+      changes: Object.values((changeSnapshot.val() || {}) as Record<string, ListChangeEvent>),
+      categories: records<Category>(categorySnapshot)
+    }
+  }
+
+  const createSuggestedList = async (
+    listName: string,
+    items: { name: string; category: string }[],
+    user?: AuthUser | null
+  ): Promise<{ created: number; skipped: number }> => {
+    const trimmedListName = listName.trim()
+    if (!trimmedListName || items.length === 0) return { created: 0, skipped: 0 }
+    const snapshot = await get(groceriesRef)
+    const current = Object.values((snapshot.val() || {}) as Record<string, GroceryItem>)
+    const existingNames = new Set(
+      current
+        .filter((item) =>
+          !item.bought && normalizeName(item.list_name) === normalizeName(trimmedListName)
+        )
+        .map((item) => normalizeName(item.item))
+        .filter(Boolean)
+    )
+    const seenNames = new Set(existingNames)
+    const newItems = items.filter((item) => {
+      const normalized = normalizeName(item.name)
+      if (!normalized || seenNames.has(normalized)) return false
+      seenNames.add(normalized)
+      return true
+    })
+    const now = new Date().toISOString()
+    const writes: Record<string, unknown> = {}
+    newItems.forEach((item) => {
+      const key = push(groceriesRef).key as string
+      const historyKey = push(listChangeHistoryRef).key as string
+      writes[`groceries/${key}`] = {
+        item: item.name,
+        category: item.category,
+        bought: false,
+        added_at: now,
+        raw_text: 'הצעת AI',
+        list_name: trimmedListName,
+        created_by: user?.email ?? null,
+        quantity: null,
+        unit: null
+      }
+      writes[`listChangeHistory/${historyKey}`] = {
+        type: 'added',
+        itemKey: key,
+        itemName: item.name,
+        listName: trimmedListName,
+        changedAt: now,
+        changedBy: user?.email ?? null
+      } satisfies ListChangeEvent
+    })
+    logClientAction(
+      `[groceries] createSuggestedList: list=${ownerEmail} sublist=${trimmedListName} items=${newItems.length} skipped=${items.length - newItems.length} by=${user?.email || 'anonymous'}`
+    )
+    if (newItems.length > 0) await update(ref(db, base), writes)
+    return { created: newItems.length, skipped: items.length - newItems.length }
+  }
+
+  const applyAiListReview = async (
+    operations: {
+      removals: { key: string; expectedName: string }[]
+      renames: { key: string; expectedName: string; name: string }[]
+    },
+    user?: AuthUser | null
+  ): Promise<{
+    removed: number
+    renamed: number
+    skipped: number
+    removedKeys: string[]
+    renamedKeys: string[]
+    skippedKeys: string[]
+  }> => {
+    const snapshot = await get(groceriesRef)
+    const current = (snapshot.val() || {}) as Record<string, GroceryItem>
+    const now = new Date().toISOString()
+    const writes: Record<string, unknown> = {}
+    const imageRefs: string[] = []
+    let removed = 0
+    let renamed = 0
+    let skipped = 0
+    const removedKeys: string[] = []
+    const renamedKeys: string[] = []
+    const skippedKeys: string[] = []
+
+    operations.removals.forEach((operation) => {
+      const item = current[operation.key]
+      if (!item || normalizeName(item.item) !== normalizeName(operation.expectedName)) {
+        skipped += 1
+        skippedKeys.push(operation.key)
+        return
+      }
+      writes[`groceries/${operation.key}`] = null
+      const historyKey = push(listChangeHistoryRef).key as string
+      writes[`listChangeHistory/${historyKey}`] = {
+        type: 'removed',
+        itemKey: operation.key,
+        itemName: item.item,
+        listName: item.list_name ?? null,
+        changedAt: now,
+        changedBy: user?.email ?? null
+      } satisfies ListChangeEvent
+      if (item.image_ref) imageRefs.push(item.image_ref)
+      removed += 1
+      removedKeys.push(operation.key)
+    })
+    operations.renames.forEach((operation) => {
+      const item = current[operation.key]
+      if (
+        !item ||
+        normalizeName(item.item) !== normalizeName(operation.expectedName) ||
+        normalizeName(item.item) === normalizeName(operation.name) ||
+        writes[`groceries/${operation.key}`] === null
+      ) {
+        skipped += 1
+        skippedKeys.push(operation.key)
+        return
+      }
+      writes[`groceries/${operation.key}/item`] = operation.name
+      writes[`groceries/${operation.key}/modified_at`] = now
+      writes[`groceries/${operation.key}/modified_by`] = user?.email ?? null
+      const historyKey = push(listChangeHistoryRef).key as string
+      writes[`listChangeHistory/${historyKey}`] = {
+        type: 'renamed',
+        itemKey: operation.key,
+        itemName: operation.name,
+        previousName: item.item,
+        listName: item.list_name ?? null,
+        changedAt: now,
+        changedBy: user?.email ?? null
+      } satisfies ListChangeEvent
+      renamed += 1
+      renamedKeys.push(operation.key)
+    })
+
+    const result = { removed, renamed, skipped, removedKeys, renamedKeys, skippedKeys }
+    if (removed + renamed === 0) return result
+    logClientAction(
+      `[groceries] applyAiListReview: list=${ownerEmail} removed=${removed} renamed=${renamed} skipped=${skipped} by=${user?.email || 'anonymous'}`
+    )
+    await update(ref(db, base), writes)
+    await Promise.all(imageRefs.map((imageRef) => deleteImageDoc('groceryImages', imageRef)))
+    return result
+  }
+
   const saveReceipt = async (
     receipt: { source_url?: string | null; store_name?: string | null; items: ReceiptItem[]; total: number | null },
     imageBlob: Blob | null,
@@ -839,10 +1084,12 @@ export function createListApi(ownerEmail: string) {
     receiptsRef,
     categoriesRef,
     purchaseHistoryRef,
+    listChangeHistoryRef,
     setBought,
     recordPurchaseEvent,
     updateGroceryItemCategory,
     saveItemDetails,
+    updateGroceryItemName,
     updateGroceryItemQuantity,
     deleteItem,
     addStockItem,
@@ -858,6 +1105,10 @@ export function createListApi(ownerEmail: string) {
     findUnboughtGroceryItemByName,
     getAllStockItems,
     getAllGroceryItems,
+    getAiRetrievalContext,
+    recordListChange,
+    createSuggestedList,
+    applyAiListReview,
     saveReceipt,
     deleteReceipt,
     getReceiptPriceHistory,

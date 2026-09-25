@@ -1,4 +1,8 @@
 {
+  "topPanel": {
+    "hide": "הסתרת החלק העליון",
+    "show": "הצגת החלק העליון"
+  },
   "listPicker": {
     "sectionLabel": "רשימה",
     "permanentList": "הרשימה הקבועה",
@@ -25,7 +29,11 @@
     "fileReadFailed": "קריאת הקובץ נכשלה: {{message}}",
     "matchFound": "מוצר דומה כבר ברשימה:",
     "updateExisting": "עדכון \"{{name}}\"",
-    "addAsNew": "הוספה כמוצר חדש"
+    "addAsNew": "הוספה כמוצר חדש",
+    "aiAssistant": "עוזר AI",
+    "aiCorrection": "תיקון מוצע: {{original}} ← {{corrected}}",
+    "aiNewCategory": "תיווצר קטגוריה חדשה „{{category}}”",
+    "aiFailed": "בדיקת ה-AI נכשלה"
   },
   "search": {
     "placeholder": "חיפוש ברשימה…",
@@ -39,7 +47,9 @@
     "placeholder": "מה צריך לקנות?",
     "button": "הוספה",
     "adding": "מוסיף…",
-    "failed": "לא הצלחנו להוסיף את הפריט: {{message}}"
+    "failed": "לא הצלחנו להוסיף את הפריט: {{message}}",
+    "aiAssistant": "עוזר AI",
+    "aiNoResult": "ה-AI לא החזיר הצעה לפריט"
   },
   "sort": {
     "label": "מיון הרשימה",
@@ -62,6 +72,9 @@
     "hide": "🛒 הסתרת פריטים שנקנו",
     "allPurchased": "הכול נקנה 🎉",
     "sectionLabel": "פריטים שנקנו ({{count}})"
+  },
+  "category": {
+    "uncheckedCount": "{{count}} פריטים שלא סומנו"
   },
   "addItemFab": "הוספת פריט לרשימה",
   "item": {
