@@ -114,6 +114,64 @@ export interface Receipt {
   scanned_by?: string | null
 }
 
+export type RecipeMealType =
+  | 'quick_dinner'
+  | 'full_dinner'
+  | 'breakfast'
+  | 'lunch'
+  | 'snack'
+  | 'meal_prep'
+  | 'other'
+
+export interface RecipeProduct {
+  groceryKey: string
+  name: string
+  category: string
+  quantity?: number | null
+  unit?: string | null
+}
+
+export interface RecipeIngredient {
+  name: string
+  quantity: string | null
+  fromSelectedProducts: boolean
+  pantryBasic: boolean
+}
+
+export interface RecipeImage {
+  url: string | null
+  sourceUrl?: string | null
+  sourceName?: string | null
+  alt: string
+}
+
+export interface RecipeRecord {
+  key: string
+  title: string
+  description: string
+  servings: number
+  mealType: RecipeMealType
+  estimatedTimeMinutes: number | null
+  selectedProducts: RecipeProduct[]
+  assumedBasics: string[]
+  ingredients: RecipeIngredient[]
+  steps: string[]
+  image: RecipeImage
+  chefNotes?: string | null
+  createdAt: string
+  createdBy: string | null
+  listId: string
+  source: {
+    kind: 'personal_chef'
+    graphRunId: string
+    model?: string
+  }
+}
+
+export type RecipeCandidate = Omit<RecipeRecord, 'key' | 'createdAt' | 'createdBy' | 'listId'> & {
+  id: string
+}
+
 // Global, not per-list — lives at the RTDB root (`/feedbacks`), same tier as `/users`/
 // `/whats_new`, since feedback isn't owned by any particular household list. This is a
 // durability/observability layer over the existing submit → n8n → Gemini → Trello flow

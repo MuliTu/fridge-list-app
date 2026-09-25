@@ -6,6 +6,7 @@ import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
 import { logger } from './logger'
 import { normalizeName } from './normalizeName'
 import type { HabitChange } from './purchaseHabitChanges'
+import { recipeWithDisplayImage } from './recipeImages'
 import { isSafeHttpUrl } from './safeUrl'
 import { StockUnit } from './units'
 import type {
@@ -15,6 +16,8 @@ import type {
   GroceryItem,
   ListChangeEvent,
   PurchaseEvent,
+  RecipeCandidate,
+  RecipeRecord,
   ReceiptItem,
   StockItem
 } from '../types'
@@ -402,6 +405,7 @@ export function createListApi(ownerEmail: string) {
   const stockRef = ref(db, `${base}/stock`)
   const receiptsRef = ref(db, `${base}/receipts`)
   const categoriesRef = ref(db, `${base}/categories`)
+  const recipesRef = ref(db, `${base}/recipes`)
   const purchaseHistoryRef = ref(db, `${base}/purchaseHistory`)
   const listChangeHistoryRef = ref(db, `${base}/listChangeHistory`)
 
@@ -1046,6 +1050,53 @@ export function createListApi(ownerEmail: string) {
       .sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''))
   }
 
+  const suggestRecipes = async (request: {
+    servings: number
+    mealType: RecipeCandidate['mealType']
+    preferences?: string
+    products: Array<{
+      groceryKey: string
+      name: string
+      category: string
+      quantity?: number | null
+      unit?: string | null
+    }>
+    language?: 'he' | 'en'
+  }): Promise<{ runId: string; recipes: RecipeCandidate[]; warnings: string[] }> => {
+    const response = await fetch('/api/personal-chef/suggest-recipes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+      body: JSON.stringify({
+        listId: sanitizeEmailKey(ownerEmail),
+        ...request
+      })
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error(data?.message || 'personal chef failed (' + response.status + ')')
+    }
+    const data = await response.json()
+    return {
+      runId: data.runId,
+      recipes: (data.recipes || []).map(recipeWithDisplayImage),
+      warnings: data.warnings || []
+    }
+  }
+
+  const saveRecipe = async (recipe: RecipeCandidate): Promise<{ key: string }> => {
+    const response = await fetch('/api/recipes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+      body: JSON.stringify({
+        listId: sanitizeEmailKey(ownerEmail),
+        recipe: recipeWithDisplayImage(recipe)
+      })
+    })
+    if (!response.ok) throw new Error('recipe save failed (' + response.status + ')')
+    logClientAction(`[recipes] saveRecipe: list=${ownerEmail} title=${recipe.title}`)
+    return response.json()
+  }
+
   // Defensive one-time seed: only writes if this list's /categories is currently
   // empty, so this never clobbers real edits made after the first run. Every new
   // list starts from the same DEFAULT_CATEGORIES a fresh household would expect.
@@ -1083,6 +1134,7 @@ export function createListApi(ownerEmail: string) {
     stockRef,
     receiptsRef,
     categoriesRef,
+    recipesRef,
     purchaseHistoryRef,
     listChangeHistoryRef,
     setBought,
@@ -1112,6 +1164,8 @@ export function createListApi(ownerEmail: string) {
     saveReceipt,
     deleteReceipt,
     getReceiptPriceHistory,
+    suggestRecipes,
+    saveRecipe,
     seedCategoriesIfEmpty,
     addCategory,
     updateCategory,

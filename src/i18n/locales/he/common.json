@@ -5,7 +5,8 @@
     "label": "ניווט ראשי",
     "shoppingList": "רשימת קניות",
     "stock": "מלאי",
-    "receipts": "קבלות"
+    "receipts": "קבלות",
+    "recipes": "מתכונים"
   },
   "auth": {
     "signIn": "התחברות",

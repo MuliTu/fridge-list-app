@@ -60,6 +60,10 @@
           ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
           ".write": false
         },
+        "recipes": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && (root.child('users').child($listId).child('ownerUid').val() === auth.uid || root.child('users').child($listId).child('members').child(auth.uid).child('status').val() === 'approved')",
+          ".write": false
+        },
 
         "invites": {
           ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",

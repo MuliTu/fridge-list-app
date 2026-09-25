@@ -2,7 +2,9 @@
   "node_version": "22",
   "dependencies": ["."],
   "graphs": {
-    "ai_assistant": "./src/modules/ai/infrastructure/aiAssistantStudioGraph.server.ts:graph"
+    "ai_assistant": "./src/modules/ai/infrastructure/aiAssistantStudioGraph.server.ts:graph",
+    "create_ticket": "./src/modules/ticketing/infrastructure/langchain/createTicketStudioGraph.server.ts:graph",
+    "personal_chef": "./src/modules/recipes/infrastructure/langchain/personalChefStudioGraph.server.ts:graph"
   },
   "env": ".env.local"
 }

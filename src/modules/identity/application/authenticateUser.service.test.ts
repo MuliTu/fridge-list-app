@@ -6,6 +6,18 @@ const createVerifier = (): jest.Mocked<UserTokenVerifier> => ({
 })
 
 describe('AuthenticateUserService', () => {
+  const originalNodeEnv = process.env.NODE_ENV
+  const originalDevBypass = process.env.VITE_DEV_AUTH_BYPASS
+  const originalDevEmail = process.env.VITE_DEV_AUTH_EMAIL
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv
+    if (originalDevBypass === undefined) delete process.env.VITE_DEV_AUTH_BYPASS
+    else process.env.VITE_DEV_AUTH_BYPASS = originalDevBypass
+    if (originalDevEmail === undefined) delete process.env.VITE_DEV_AUTH_EMAIL
+    else process.env.VITE_DEV_AUTH_EMAIL = originalDevEmail
+  })
+
   it('creates a user principal from a verified bearer token', async () => {
     const verifier = createVerifier()
     verifier.verifyIdToken.mockResolvedValue({
@@ -23,6 +35,21 @@ describe('AuthenticateUserService', () => {
       email: 'user@example.com',
       emailVerified: true
     })
+  })
+
+  it('uses the configured local dev principal when auth bypass is enabled', async () => {
+    process.env.NODE_ENV = 'development'
+    process.env.VITE_DEV_AUTH_BYPASS = 'true'
+    process.env.VITE_DEV_AUTH_EMAIL = 'dev@example.com'
+    const verifier = createVerifier()
+
+    await expect(new AuthenticateUserService(verifier).execute(null)).resolves.toEqual({
+      kind: 'user',
+      uid: 'dev-bypass',
+      email: 'dev@example.com',
+      emailVerified: true
+    })
+    expect(verifier.verifyIdToken).not.toHaveBeenCalled()
   })
 
   it.each([null, '', 'Basic value', 'Bearer '])('rejects a missing or malformed header: %p', async (header) => {
