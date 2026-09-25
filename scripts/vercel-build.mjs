@@ -113,7 +113,7 @@ export default async function (req, res) {
 
 await writeFile(
   `${FUNC}/.vc-config.json`,
-  JSON.stringify({ runtime: 'nodejs22.x', handler: 'index.mjs', launcherType: 'Nodejs' }, null, 2)
+  JSON.stringify({ runtime: 'nodejs24.x', handler: 'index.mjs', launcherType: 'Nodejs' }, null, 2)
 )
 
 await writeFile(
@@ -157,6 +157,11 @@ await writeFile(
       version: 3,
       routes: [
         { src: '/(.*)', headers: SECURITY_HEADERS, continue: true },
+        // Vercel's filesystem handler treats the root path as eligible for the
+        // `index.func` function, so "/" can hit the Lambda instead of static
+        // index.html when both exist. Pin "/" to the SPA shell before filesystem
+        // routing; other client routes still use the fallback below.
+        { src: '/', dest: '/index.html' },
         { handle: 'filesystem' },
         { src: '/api/(.*)', dest: '/index' },
         { src: '/(.*)', dest: '/index.html' }
