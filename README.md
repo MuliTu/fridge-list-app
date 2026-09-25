@@ -22,7 +22,7 @@ a fridge tablet.
 
 ## Running the web app
 
-Requires [Node.js](https://nodejs.org/).
+Requires [Node.js](https://nodejs.org/) 22.12 or newer.
 
 ```bash
 npm install
@@ -71,8 +71,32 @@ change if it restarts. If Siri suddenly stops working, that's the most likely re
 check with whoever manages the n8n instance for the current URL. A more permanent
 solution (Cloudflare Tunnel or Tailscale Funnel) is on the list of future improvements.
 
+## Project structure
+
+```text
+src/routes/          TanStack Start pages and API route adapters
+src/components/      Reusable React UI components
+src/components/ui/   shadcn/Radix design-system primitives used by the app
+src/hooks/           React contexts and feature hooks
+src/client/api/      Browser-safe wrappers for same-origin API calls
+src/lib/             Shared client-safe utilities and Firebase helpers
+src/modules/         Server-side feature modules with application/infrastructure layers
+src/i18n/            Hebrew and English translation resources
+src/test/            Shared Jest test setup and mocks
+e2e/                 Playwright end-to-end tests
+scripts/             Build, deploy, and architecture-check scripts
+docs/                Architecture notes, specs, and implementation plans
+public/              Static app assets, icons, manifest, and service worker
+```
+
+The server module boundary is intentional: browser-safe contracts are exported from
+`src/modules/<module>/index.ts`, server-only composition from
+`src/modules/<module>/server.ts`, and provider SDKs stay in infrastructure adapters.
+Run `npm run architecture:check` before larger backend changes to catch accidental
+cross-module or client/server boundary leaks.
+
 ## For developers / AI assistants picking this up
 
-See `CLAUDE.md` in this same folder for the full technical architecture, the exact
-n8n workflow structure, Firebase configuration, and a list of known gaps / in-progress
-work.
+Start with `CLAUDE.md` for operational project context and current product behavior.
+Use `docs/README.md` as the index for durable architecture docs, specs, audits, and
+implementation plans.

@@ -1,7 +1,7 @@
 # Plan: LangGraph Create-Ticket Agent
 
 Status: Draft
-Related spec: `../.specs/spec-agent-create-ticket.md`
+Related spec: `../specs/spec-agent-create-ticket.md`
 
 ## Ticket checklist
 
