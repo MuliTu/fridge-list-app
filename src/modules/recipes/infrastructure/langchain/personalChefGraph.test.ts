@@ -2,8 +2,10 @@ import {
   PersonalChefModelError,
   createDeterministicChefGenerator,
   createJsonTextChefGenerator,
+  createJsonTextNutritionEstimator,
   personalChefGraph,
-  type PersonalChefGenerator
+  type PersonalChefGenerator,
+  type PersonalChefNutritionEstimator
 } from './personalChefGraph'
 import { AIMessage } from '@langchain/core/messages'
 import { RunnableLambda } from '@langchain/core/runnables'
@@ -44,6 +46,11 @@ describe('personalChefGraph', () => {
           servings: 2,
           mealType: 'quick_dinner',
           selectedProducts: input.products,
+          nutrition: {
+            calories: expect.any(Number),
+            proteinGrams: expect.any(Number),
+            fatGrams: expect.any(Number)
+          },
           image: {
             url: expect.stringContaining('https://source.unsplash.com/featured/900x600/?')
           }
@@ -76,6 +83,11 @@ describe('personalChefGraph', () => {
                 }
               ],
               steps: ['Cook chicken.'],
+              nutrition: {
+                calories: null,
+                proteinGrams: null,
+                fatGrams: null
+              },
               image: { url: null, alt: 'Chicken skillet' },
               source: { kind: 'personal_chef', graphRunId: runId }
             }
@@ -150,9 +162,115 @@ describe('personalChefGraph', () => {
             { name: 'eggs', quantity: '6', fromSelectedProducts: true },
             { name: 'tomatoes', quantity: '4', fromSelectedProducts: true },
             { name: 'salt', quantity: 'to taste', pantryBasic: true }
-          ]
+          ],
+          nutrition: {
+            calories: expect.any(Number),
+            proteinGrams: expect.any(Number),
+            fatGrams: expect.any(Number)
+          }
         }
       ]
+    })
+  })
+
+  it('uses a separate JSON text nutrition node to enrich generated recipes', async () => {
+    const recipeModel = new RunnableLambda({
+      func: async () =>
+        new AIMessage({
+          content: JSON.stringify({
+            recipes: [
+              {
+                id: 'recipe-1',
+                title: 'Egg and tomato skillet',
+                description: 'Fast skillet dinner.',
+                servings: 2,
+                mealType: 'quick_dinner',
+                estimatedTimeMinutes: 18,
+                selectedProducts: input.products,
+                assumedBasics: ['salt', 'pepper', 'oil'],
+                ingredients: [
+                  { ingredient: 'eggs', amount: 6 },
+                  { item: 'tomatoes', qty: 4 },
+                  { product: 'salt', quantity: 'to taste' }
+                ],
+                steps: ['Cook tomatoes.', 'Add eggs.', 'Serve warm.'],
+                image: { url: null, alt: 'Egg and tomato skillet' },
+                chefNotes: null,
+                source: { kind: 'personal_chef', graphRunId: 'run-1', model: 'groq' }
+              }
+            ],
+            warnings: []
+          })
+        })
+    })
+    const nutritionModel = new RunnableLambda({
+      func: async () =>
+        new AIMessage({
+          content: JSON.stringify({
+            estimates: [
+              {
+                recipeId: 'recipe-1',
+                nutrition: {
+                  calories: 310,
+                  proteinGrams: 18,
+                  fatGrams: 14,
+                  carbsGrams: 22,
+                  fiberGrams: 4,
+                  sugarGrams: 8,
+                  sodiumMg: 540
+                }
+              }
+            ],
+            warnings: []
+          })
+        })
+    })
+
+    await expect(
+      personalChefGraph(
+        createJsonTextChefGenerator(recipeModel),
+        createJsonTextNutritionEstimator(nutritionModel)
+      )(input)
+    ).resolves.toMatchObject({
+      recipes: [
+        {
+          id: 'recipe-1',
+          nutrition: {
+            calories: 310,
+            proteinGrams: 18,
+            fatGrams: 14,
+            carbsGrams: 22
+          }
+        }
+      ]
+    })
+  })
+
+  it('uses local nutrition estimates when the nutrition node fails', async () => {
+    const nutritionEstimator: PersonalChefNutritionEstimator = {
+      async invoke() {
+        throw new PersonalChefModelError(new Error('nutrition unavailable'))
+      }
+    }
+
+    await expect(
+      personalChefGraph(
+        createDeterministicChefGenerator(),
+        nutritionEstimator
+      )(input)
+    ).resolves.toMatchObject({
+      recipes: [
+        {
+          nutrition: {
+            calories: expect.any(Number),
+            proteinGrams: expect.any(Number),
+            fatGrams: expect.any(Number)
+          }
+        }
+      ],
+      warnings: expect.arrayContaining([
+        'Nutrition AI was unavailable, so local nutrition estimates were used.'
+      ])
     })
   })
 })

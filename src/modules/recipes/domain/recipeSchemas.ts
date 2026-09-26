@@ -27,6 +27,26 @@ export const recipeIngredientSchema = z.object({
   pantryBasic: z.boolean()
 })
 
+export const recipeNutritionSchema = z.object({
+  calories: z.number().finite().nonnegative().max(10_000).nullable(),
+  proteinGrams: z.number().finite().nonnegative().max(1_000).nullable(),
+  fatGrams: z.number().finite().nonnegative().max(1_000).nullable(),
+  carbsGrams: z.number().finite().nonnegative().max(1_000).nullable().optional(),
+  fiberGrams: z.number().finite().nonnegative().max(1_000).nullable().optional(),
+  sugarGrams: z.number().finite().nonnegative().max(1_000).nullable().optional(),
+  sodiumMg: z.number().finite().nonnegative().max(100_000).nullable().optional()
+})
+
+export const emptyRecipeNutrition = {
+  calories: null,
+  proteinGrams: null,
+  fatGrams: null,
+  carbsGrams: null,
+  fiberGrams: null,
+  sugarGrams: null,
+  sodiumMg: null
+} satisfies z.infer<typeof recipeNutritionSchema>
+
 export const recipeImageSchema = z.object({
   url: z.string().url().nullable(),
   sourceUrl: z.string().url().nullable().optional(),
@@ -51,6 +71,7 @@ export const recipeCandidateSchema = z.object({
   assumedBasics: z.array(z.string().trim().min(1).max(80)).max(20),
   ingredients: z.array(recipeIngredientSchema).min(1).max(80),
   steps: z.array(z.string().trim().min(1).max(800)).min(1).max(30),
+  nutrition: recipeNutritionSchema.default(emptyRecipeNutrition),
   image: recipeImageSchema,
   chefNotes: z.string().trim().min(1).max(800).nullable().optional(),
   source: recipeSourceSchema
@@ -73,8 +94,19 @@ export const suggestRecipesInputSchema = z.object({
   servings: z.number().int().min(1).max(20),
   mealType: recipeMealTypeSchema,
   preferences: z.string().trim().max(1_000).optional(),
+  chefMessage: z.string().trim().max(1_500).optional(),
   products: z.array(recipeProductSchema).min(1).max(MAX_RECIPE_PRODUCTS),
   language: z.enum(['he', 'en']).optional()
+})
+
+export const recipeNutritionEstimateSchema = z.object({
+  recipeId: z.string().trim().min(1).max(80),
+  nutrition: recipeNutritionSchema
+})
+
+export const recipeNutritionResponseSchema = z.object({
+  estimates: z.array(recipeNutritionEstimateSchema).min(1).max(5),
+  warnings: z.array(z.string().trim().min(1).max(300)).max(10).default([])
 })
 
 export const recipeSuggestionResponseSchema = z.object({
@@ -84,6 +116,9 @@ export const recipeSuggestionResponseSchema = z.object({
 
 export type RecipeMealType = z.infer<typeof recipeMealTypeSchema>
 export type RecipeProductInput = z.infer<typeof recipeProductSchema>
+export type RecipeNutritionInput = z.infer<typeof recipeNutritionSchema>
+export type RecipeNutritionEstimateInput = z.infer<typeof recipeNutritionEstimateSchema>
+export type RecipeNutritionResponse = z.infer<typeof recipeNutritionResponseSchema>
 export type RecipeCandidateInput = z.infer<typeof recipeCandidateSchema>
 export type RecipeRecordInput = z.infer<typeof recipeRecordSchema>
 export type SaveRecipeInput = z.infer<typeof saveRecipeInputSchema>

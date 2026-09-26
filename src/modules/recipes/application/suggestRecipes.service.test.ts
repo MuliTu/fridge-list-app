@@ -48,6 +48,11 @@ describe('SuggestRecipesService', () => {
               }
             ],
             steps: ['Cook.'],
+            nutrition: {
+              calories: null,
+              proteinGrams: null,
+              fatGrams: null
+            },
             image: { url: null, alt: 'Pantry dinner' },
             source: { kind: 'personal_chef' as const, graphRunId: runId }
           }

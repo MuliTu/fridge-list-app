@@ -4,9 +4,13 @@ import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 
 import { ApplicationError } from '../../../shared'
 import {
+  emptyRecipeNutrition,
+  recipeNutritionResponseSchema,
   recipeSuggestionResponseSchema,
   suggestRecipesInputSchema,
   type RecipeCandidateInput,
+  type RecipeNutritionInput,
+  type RecipeNutritionResponse,
   type RecipeSuggestionResponse,
   type SuggestRecipesInput
 } from '../../domain/recipeSchemas'
@@ -31,6 +35,15 @@ export interface PersonalChefGenerator {
     pantryBasics: string[]
     runId: string
   }): Promise<RecipeSuggestionResponse>
+}
+
+export interface PersonalChefNutritionEstimator {
+  invoke(input: {
+    request: SuggestRecipesInput
+    pantryBasics: string[]
+    recipes: RecipeCandidateInput[]
+    runId: string
+  }): Promise<RecipeNutritionResponse>
 }
 
 export class PersonalChefModelError extends Error {
@@ -119,6 +132,35 @@ const recipeFallbackImageUrl = (
 ): string =>
   `https://source.unsplash.com/featured/900x600/?${fallbackImageTerms(title, products)}`
 
+const normalizeNutrition = (
+  nutrition: Partial<RecipeNutritionInput> | null | undefined
+): RecipeNutritionInput => ({
+  ...emptyRecipeNutrition,
+  ...nutrition
+})
+
+const recipeWithNutrition = (
+  recipe: RecipeCandidateInput,
+  nutrition: Partial<RecipeNutritionInput> | null | undefined
+): RecipeCandidateInput => ({
+  ...recipe,
+  nutrition: normalizeNutrition(nutrition)
+})
+
+const deterministicNutritionFor = (recipe: RecipeCandidateInput): RecipeNutritionInput => {
+  const selectedCount = Math.max(1, recipe.selectedProducts.length)
+  const ingredientCount = Math.max(selectedCount, recipe.ingredients.length)
+  return {
+    calories: 160 + selectedCount * 70 + ingredientCount * 20,
+    proteinGrams: Math.round((selectedCount * 5 + ingredientCount * 1.5) * 10) / 10,
+    fatGrams: Math.round((selectedCount * 3 + ingredientCount * 1.2) * 10) / 10,
+    carbsGrams: Math.round((selectedCount * 9 + ingredientCount * 2) * 10) / 10,
+    fiberGrams: Math.round(selectedCount * 1.5 * 10) / 10,
+    sugarGrams: Math.round(selectedCount * 1.8 * 10) / 10,
+    sodiumMg: 320 + ingredientCount * 35
+  }
+}
+
 export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
   async invoke({ request, pantryBasics, runId }) {
     const mainProducts = request.products.slice(0, 4)
@@ -157,6 +199,7 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
             'Cook the selected products until tender and season with salt and pepper.',
             'Taste, adjust seasoning, and serve warm.'
           ],
+          nutrition: emptyRecipeNutrition,
           image: {
             url: recipeFallbackImageUrl(`${mealName} with ${titleProducts}`, request.products),
             alt: `${mealName} with ${titleProducts}`
@@ -176,6 +219,18 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
   }
 })
 
+export const createDeterministicNutritionEstimator = (): PersonalChefNutritionEstimator => ({
+  async invoke({ recipes }) {
+    return recipeNutritionResponseSchema.parse({
+      estimates: recipes.map((recipe) => ({
+        recipeId: recipe.id,
+        nutrition: deterministicNutritionFor(recipe)
+      })),
+      warnings: []
+    })
+  }
+})
+
 export const createStructuredModelChefGenerator = (
   model: Runnable<unknown, unknown>
 ): PersonalChefGenerator => {
@@ -187,7 +242,8 @@ export const createStructuredModelChefGenerator = (
         'Create 1-5 recipes using only selected products plus pantry basics.',
         'Do not require unselected non-basic products.',
         'Return structured data in the requested language.',
-        'Mention pantry basics only when used.'
+        'Mention pantry basics only when used.',
+        'Do not estimate nutrition in this step; a separate nutrition node will add per-serving nutrition.'
       ].join('\n')
     ],
     [
@@ -198,6 +254,7 @@ export const createStructuredModelChefGenerator = (
         'Meal type: {mealType}',
         'Language: {language}',
         'Preferences: {preferences}',
+        'Free chef message: {chefMessage}',
         'Selected products JSON: {products}',
         'Allowed pantry basics JSON: {pantryBasics}'
       ].join('\n')
@@ -213,6 +270,7 @@ export const createStructuredModelChefGenerator = (
           mealType: request.mealType,
           language: request.language ?? 'en',
           preferences: request.preferences ?? '',
+          chefMessage: request.chefMessage ?? '',
           products: JSON.stringify(request.products),
           pantryBasics: JSON.stringify(pantryBasics)
         })
@@ -383,7 +441,12 @@ const normalizeLooseRecipeResponse = (
               model: typeof source.model === 'string' && source.model.trim()
                 ? source.model
                 : 'groq'
-            }
+            },
+            nutrition: normalizeNutrition(
+              recipe.nutrition && typeof recipe.nutrition === 'object'
+                ? recipe.nutrition as Partial<RecipeNutritionInput>
+                : null
+            )
           }
         })
       : [],
@@ -406,6 +469,7 @@ export const createJsonTextChefGenerator = (
         'Create 1-5 recipes using only selected products plus pantry basics.',
         'Do not require unselected non-basic products.',
         'Each recipe must include id, title, description, servings, mealType, estimatedTimeMinutes, selectedProducts, assumedBasics, ingredients, steps, image, chefNotes, and source.',
+        'Do not estimate nutrition in this step; a separate nutrition node will add per-serving nutrition.',
         'For image use {{"url":null,"alt":"descriptive alt text"}} unless you know a safe URL.',
         'For source use {{"kind":"personal_chef","graphRunId":"the provided run id","model":"groq"}}.'
       ].join('\n')
@@ -418,6 +482,7 @@ export const createJsonTextChefGenerator = (
         'Meal type: {mealType}',
         'Language: {language}',
         'Preferences: {preferences}',
+        'Free chef message: {chefMessage}',
         'Selected products JSON: {products}',
         'Allowed pantry basics JSON: {pantryBasics}'
       ].join('\n')
@@ -433,6 +498,7 @@ export const createJsonTextChefGenerator = (
           mealType: request.mealType,
           language: request.language ?? 'en',
           preferences: request.preferences ?? '',
+          chefMessage: request.chefMessage ?? '',
           products: JSON.stringify(request.products),
           pantryBasics: JSON.stringify(pantryBasics)
         })
@@ -453,8 +519,123 @@ export const createJsonTextChefGenerator = (
   }
 }
 
+const nutritionPromptRecipes = (recipes: RecipeCandidateInput[]) =>
+  recipes.map((recipe) => ({
+    id: recipe.id,
+    title: recipe.title,
+    description: recipe.description,
+    servings: recipe.servings,
+    selectedProducts: recipe.selectedProducts,
+    assumedBasics: recipe.assumedBasics,
+    ingredients: recipe.ingredients,
+    steps: recipe.steps
+  }))
+
+export const createStructuredModelNutritionEstimator = (
+  model: Runnable<unknown, unknown>
+): PersonalChefNutritionEstimator => {
+  const prompt = ChatPromptTemplate.fromMessages([
+    [
+      'system',
+      [
+        'You estimate recipe nutrition for a household cooking app.',
+        'Return per-serving nutrition estimates only.',
+        'Use the recipe ingredients, servings, selected products, and pantry basics.',
+        'If a value cannot be estimated, return null for that field.',
+        'Do not change recipe ids or recipe content.'
+      ].join('\n')
+    ],
+    [
+      'human',
+      [
+        'Run id: {runId}',
+        'Servings: {servings}',
+        'Meal type: {mealType}',
+        'Language: {language}',
+        'Selected products JSON: {products}',
+        'Allowed pantry basics JSON: {pantryBasics}',
+        'Recipes JSON: {recipes}'
+      ].join('\n')
+    ]
+  ])
+
+  return {
+    async invoke({ request, pantryBasics, recipes, runId }) {
+      try {
+        const messages = await prompt.invoke({
+          runId,
+          servings: String(request.servings),
+          mealType: request.mealType,
+          language: request.language ?? 'en',
+          products: JSON.stringify(request.products),
+          pantryBasics: JSON.stringify(pantryBasics),
+          recipes: JSON.stringify(nutritionPromptRecipes(recipes))
+        })
+        return recipeNutritionResponseSchema.parse(
+          await model.invoke(messages.toChatMessages())
+        )
+      } catch (error) {
+        throw new PersonalChefModelError(error)
+      }
+    }
+  }
+}
+
+export const createJsonTextNutritionEstimator = (
+  model: Runnable<unknown, unknown>
+): PersonalChefNutritionEstimator => {
+  const prompt = ChatPromptTemplate.fromMessages([
+    [
+      'system',
+      [
+        'You estimate recipe nutrition for a household cooking app.',
+        'Return only valid JSON. Do not wrap it in markdown.',
+        'Return an object with estimates and warnings. Each estimate must include recipeId and nutrition.',
+        'Nutrition must include calories, proteinGrams, fatGrams, carbsGrams, fiberGrams, sugarGrams, and sodiumMg.',
+        'Nutrition values are per serving.',
+        'Use numbers when you can estimate confidently; otherwise use null.',
+        'Do not change recipe ids or recipe content.'
+      ].join('\n')
+    ],
+    [
+      'human',
+      [
+        'Run id: {runId}',
+        'Servings: {servings}',
+        'Meal type: {mealType}',
+        'Language: {language}',
+        'Selected products JSON: {products}',
+        'Allowed pantry basics JSON: {pantryBasics}',
+        'Recipes JSON: {recipes}'
+      ].join('\n')
+    ]
+  ])
+
+  return {
+    async invoke({ request, pantryBasics, recipes, runId }) {
+      try {
+        const messages = await prompt.invoke({
+          runId,
+          servings: String(request.servings),
+          mealType: request.mealType,
+          language: request.language ?? 'en',
+          products: JSON.stringify(request.products),
+          pantryBasics: JSON.stringify(pantryBasics),
+          recipes: JSON.stringify(nutritionPromptRecipes(recipes))
+        })
+        const response = await model.invoke(messages.toChatMessages())
+        const content = stringifyModelContent((response as { content?: unknown })?.content)
+        return recipeNutritionResponseSchema.parse(parseJsonObject(content))
+      } catch (error) {
+        throw new PersonalChefModelError(error)
+      }
+    }
+  }
+}
+
 export const createCompiledPersonalChefGraph = (
   generator: PersonalChefGenerator,
+  nutritionEstimator: PersonalChefNutritionEstimator = createDeterministicNutritionEstimator(),
   options: PersonalChefGraphOptions = {}
 ) => {
   const recursionLimit =
@@ -496,6 +677,41 @@ export const createCompiledPersonalChefGraph = (
     }
   }
 
+  const estimateNutrition = async (state: typeof PersonalChefState.State) => {
+    const request = validatedRequestFromState(state)
+    try {
+      const result = await nutritionEstimator.invoke({
+        request,
+        pantryBasics: state.pantryBasics,
+        recipes: state.finalRecipes,
+        runId: state.runId
+      })
+      const byRecipeId = new Map(
+        result.estimates.map((estimate) => [estimate.recipeId, estimate.nutrition])
+      )
+      return {
+        finalRecipes: state.finalRecipes.map((recipe) =>
+          recipeWithNutrition(
+            recipe,
+            byRecipeId.get(recipe.id) ?? deterministicNutritionFor(recipe)
+          )
+        ),
+        warnings: [...state.warnings, ...result.warnings]
+      }
+    } catch (error) {
+      if (error instanceof ApplicationError) throw error
+      return {
+        finalRecipes: state.finalRecipes.map((recipe) =>
+          recipeWithNutrition(recipe, deterministicNutritionFor(recipe))
+        ),
+        warnings: [
+          ...state.warnings,
+          'Nutrition AI was unavailable, so local nutrition estimates were used.'
+        ]
+      }
+    }
+  }
+
   const finalize = (state: typeof PersonalChefState.State) => ({
     runId: state.runId,
     recipes: state.finalRecipes,
@@ -506,20 +722,23 @@ export const createCompiledPersonalChefGraph = (
     .addNode('validate_cooking_request', validateRequest)
     .addNode('generate_recipe_candidates', generateCandidates)
     .addNode('normalize_and_guardrail_recipes', normalizeAndGuardrailRecipes)
+    .addNode('estimate_recipe_nutrition', estimateNutrition)
     .addNode('finalize_response', finalize)
     .addEdge(START, 'validate_cooking_request')
     .addEdge('validate_cooking_request', 'generate_recipe_candidates')
     .addEdge('generate_recipe_candidates', 'normalize_and_guardrail_recipes')
-    .addEdge('normalize_and_guardrail_recipes', 'finalize_response')
+    .addEdge('normalize_and_guardrail_recipes', 'estimate_recipe_nutrition')
+    .addEdge('estimate_recipe_nutrition', 'finalize_response')
     .addEdge('finalize_response', END)
     .compile()
 }
 
 export const personalChefGraph = (
   generator: PersonalChefGenerator,
+  nutritionEstimator: PersonalChefNutritionEstimator = createDeterministicNutritionEstimator(),
   options: PersonalChefGraphOptions = {}
 ) => {
-  const graph = createCompiledPersonalChefGraph(generator, options)
+  const graph = createCompiledPersonalChefGraph(generator, nutritionEstimator, options)
   return async (input: PersonalChefAgentInput): Promise<PersonalChefAgentResult> => {
     try {
       const initialState = {

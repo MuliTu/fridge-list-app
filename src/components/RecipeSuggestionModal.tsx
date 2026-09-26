@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { RecipeCandidate } from '../types'
 import { recipeDisplayImageUrl } from '../lib/recipeImages'
+import { RecipeNutritionSummary } from './RecipeNutritionSummary'
 import {
   Dialog,
   DialogContent,
@@ -96,6 +97,8 @@ export default function RecipeSuggestionModal({
             <span>{recipe.estimatedTimeMinutes ? t('shoppingList:chef.minutes', { count: recipe.estimatedTimeMinutes }) : t('shoppingList:chef.timeUnknown')}</span>
             <span>{t(`shoppingList:chef.mealTypes.${recipe.mealType}`)}</span>
           </div>
+
+          <RecipeNutritionSummary nutrition={recipe.nutrition} />
 
           <div className="recipe-detail-grid">
             <section>

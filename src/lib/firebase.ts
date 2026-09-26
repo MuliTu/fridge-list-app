@@ -1054,6 +1054,7 @@ export function createListApi(ownerEmail: string) {
     servings: number
     mealType: RecipeCandidate['mealType']
     preferences?: string
+    chefMessage?: string
     products: Array<{
       groceryKey: string
       name: string

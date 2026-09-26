@@ -1,6 +1,9 @@
 export type {
   RecipeCandidateInput,
   RecipeMealType,
+  RecipeNutritionEstimateInput,
+  RecipeNutritionInput,
+  RecipeNutritionResponse,
   RecipeProductInput,
   RecipeRecordInput,
   RecipeSuggestionResponse,
@@ -10,6 +13,9 @@ export type {
 export {
   recipeCandidateSchema,
   recipeMealTypeSchema,
+  recipeNutritionEstimateSchema,
+  recipeNutritionResponseSchema,
+  recipeNutritionSchema,
   recipeProductSchema,
   recipeRecordSchema,
   recipeSuggestionResponseSchema,

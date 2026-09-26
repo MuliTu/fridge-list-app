@@ -9,6 +9,7 @@ interface PersonalChefChatProps {
   servings: number
   mealType: RecipeMealType
   preferences: string
+  chefMessage: string
   availableProducts: GroceryItem[]
   selectedKeys: Set<string>
   selectionMode: boolean
@@ -19,6 +20,7 @@ interface PersonalChefChatProps {
   onServingsChange: (servings: number) => void
   onMealTypeChange: (mealType: RecipeMealType) => void
   onPreferencesChange: (preferences: string) => void
+  onChefMessageChange: (message: string) => void
   onStartSelection: () => void
   onCancelSelection: () => void
   onToggleProduct: (key: string) => void
@@ -42,6 +44,7 @@ export default function PersonalChefChat({
   servings,
   mealType,
   preferences,
+  chefMessage,
   availableProducts,
   selectedKeys,
   selectionMode,
@@ -52,6 +55,7 @@ export default function PersonalChefChat({
   onServingsChange,
   onMealTypeChange,
   onPreferencesChange,
+  onChefMessageChange,
   onStartSelection,
   onCancelSelection,
   onToggleProduct,
@@ -149,6 +153,11 @@ export default function PersonalChefChat({
                 <div className="chef-message chef-message-user">
                   {preferences.trim() || t('shoppingList:chef.chat.noPreferences')}
                 </div>
+                {chefMessage.trim() && (
+                  <div className="chef-message chef-message-user">
+                    {chefMessage.trim()}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -164,7 +173,7 @@ export default function PersonalChefChat({
               {selectionMode && (
                 <>
                   {availableProducts.length === 0 ? (
-                    <p className="chef-muted">{t('shoppingList:chef.noProducts')}</p>
+                    <p className="chef-muted">{t('shoppingList:chef.noFoodProducts')}</p>
                   ) : (
                     <>
                       <button className="chef-select-all" onClick={onSelectAll}>
@@ -245,6 +254,13 @@ export default function PersonalChefChat({
                 onChange={(event) => onPreferencesChange(event.target.value)}
                 placeholder={t('shoppingList:chef.preferencesPlaceholder')}
               />
+              <label htmlFor="chef-message">{t('shoppingList:chef.chefMessage')}</label>
+              <textarea
+                id="chef-message"
+                value={chefMessage}
+                onChange={(event) => onChefMessageChange(event.target.value)}
+                placeholder={t('shoppingList:chef.chefMessagePlaceholder')}
+              />
               {error && <div className="chef-error">{error}</div>}
               <button
                 className="chef-primary"
@@ -260,11 +276,16 @@ export default function PersonalChefChat({
 
           {step === 'ready' && (
             <>
-              <div className="chef-message chef-message-ai">
-                {isGenerating
-                  ? t('shoppingList:chef.chat.generating')
-                  : t('shoppingList:chef.chat.ready')}
-              </div>
+              {isGenerating ? (
+                <div className="chef-loading" role="status" aria-live="polite">
+                  <span className="chef-spinner" aria-hidden="true" />
+                  <span>{t('shoppingList:chef.chat.generating')}</span>
+                </div>
+              ) : (
+                <div className="chef-message chef-message-ai">
+                  {t('shoppingList:chef.chat.ready')}
+                </div>
+              )}
               {error && <div className="chef-error">{error}</div>}
               {!isGenerating && (
                 <button className="chef-primary" onClick={() => setStep('preferences')}>

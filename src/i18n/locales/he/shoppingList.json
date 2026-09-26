@@ -66,11 +66,10 @@
     "customTitle": "רשימת קניות – {{listName}}",
     "itemLine": "• {{item}}"
   },
-  "empty": "הרשימה ריקה 🎉",
+  "empty": "הרשימה ריקה",
   "purchased": {
     "show": "🛒 הצגת פריטים שנקנו ({{count}})",
     "hide": "🛒 הסתרת פריטים שנקנו",
-    "allPurchased": "הכול נקנה 🎉",
     "sectionLabel": "פריטים שנקנו ({{count}})"
   },
   "category": {
@@ -108,11 +107,14 @@
     },
     "preferences": "העדפות",
     "preferencesPlaceholder": "בלי תנור, לילדים, חריף, צמחוני...",
+    "chefMessage": "הודעה לשף",
+    "chefMessagePlaceholder": "אופציונלי: בקשה לסגנון, אווירה, שיטת הכנה או כל דבר נוסף...",
     "productsTitle": "מוצרים לשימוש",
     "chooseProducts": "בחירת מוצרים",
     "selectionTitle": "בחרו מוצרים לשף",
-    "selectionHelp": "במצב הזה מוצגים רק מוצרים שסומנו כנקנו.",
+    "selectionHelp": "במצב הזה מוצגים רק מוצרי אוכל שסומנו כנקנו.",
     "noProducts": "אין עדיין מוצרים מסומנים כנקנו. סמנו קודם פריטים שנקנו.",
+    "noFoodProducts": "אין עדיין מוצרי אוכל שסומנו כנקנו. סמנו קודם פריטי אוכל שנקנו.",
     "selectAll": "בחירת הכול",
     "clearAll": "ניקוי הבחירה",
     "selectAtLeastOne": "בחרו לפחות מוצר אחד.",

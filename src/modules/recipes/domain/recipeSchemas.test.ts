@@ -50,7 +50,12 @@ describe('recipe schemas', () => {
   it('accepts an image-less chef recipe candidate', () => {
     expect(recipeCandidateSchema.parse(recipe)).toMatchObject({
       title: 'Egg skillet',
-      image: { url: null }
+      image: { url: null },
+      nutrition: {
+        calories: null,
+        proteinGrams: null,
+        fatGrams: null
+      }
     })
   })
 
@@ -89,5 +94,20 @@ describe('recipe schemas', () => {
         products
       }).products
     ).toHaveLength(203)
+  })
+
+  it('accepts an optional free chef message for suggestions', () => {
+    expect(
+      suggestRecipesInputSchema.parse({
+        listId: 'owner_email_com',
+        servings: 2,
+        mealType: 'quick_dinner',
+        preferences: 'vegetarian',
+        chefMessage: 'Make it feel like a quick cafe lunch.',
+        products: [product]
+      })
+    ).toMatchObject({
+      chefMessage: 'Make it feel like a quick cafe lunch.'
+    })
   })
 })

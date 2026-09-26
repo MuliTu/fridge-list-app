@@ -11,10 +11,12 @@ import {
 import type { ChefGroceryRepository } from './recipeRepository'
 import type {
   PersonalChefAgentResult,
-  PersonalChefGenerator
+  PersonalChefGenerator,
+  PersonalChefNutritionEstimator
 } from '../infrastructure/langchain/personalChefGraph'
 import {
   createDeterministicChefGenerator,
+  createDeterministicNutritionEstimator,
   PersonalChefModelError,
   personalChefGraph
 } from '../infrastructure/langchain/personalChefGraph'
@@ -36,7 +38,8 @@ export class SuggestRecipesService {
     private readonly groceries: ChefGroceryRepository,
     private readonly authorization: ListAuthorizationRepository,
     private readonly generator: PersonalChefGenerator,
-    private readonly createRunId: () => string = randomUUID
+    private readonly createRunId: () => string = randomUUID,
+    private readonly nutritionEstimator: PersonalChefNutritionEstimator = createDeterministicNutritionEstimator()
   ) {}
 
   async execute(
@@ -101,7 +104,7 @@ export class SuggestRecipesService {
     })
 
     try {
-      const result = await personalChefGraph(this.generator)({
+      const result = await personalChefGraph(this.generator, this.nutritionEstimator)({
         ...parsed,
         products: modelProducts,
         runId
@@ -109,7 +112,10 @@ export class SuggestRecipesService {
       return withWarnings(result)
     } catch (error) {
       if (error instanceof PersonalChefModelError) {
-        const result = await personalChefGraph(createDeterministicChefGenerator())({
+        const result = await personalChefGraph(
+          createDeterministicChefGenerator(),
+          createDeterministicNutritionEstimator()
+        )({
           ...parsed,
           products: modelProducts,
           runId
