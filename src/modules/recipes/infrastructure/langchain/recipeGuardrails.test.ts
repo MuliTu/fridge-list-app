@@ -30,6 +30,11 @@ const recipe = (ingredientName: string): RecipeCandidateInput => ({
     }
   ],
   steps: ['Cook it.'],
+  nutrition: {
+    calories: null,
+    proteinGrams: null,
+    fatGrams: null
+  },
   image: { url: null, alt: 'Egg skillet' },
   source: { kind: 'personal_chef', graphRunId: 'run-1' }
 })

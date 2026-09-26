@@ -66,11 +66,10 @@
     "customTitle": "Shopping list – {{listName}}",
     "itemLine": "• {{item}}"
   },
-  "empty": "The list is empty 🎉",
+  "empty": "The list is empty",
   "purchased": {
     "show": "🛒 Show purchased items ({{count}})",
     "hide": "🛒 Hide purchased items",
-    "allPurchased": "All purchased 🎉",
     "sectionLabel": "Purchased items ({{count}})"
   },
   "category": {
@@ -109,11 +108,14 @@
     },
     "preferences": "Preferences",
     "preferencesPlaceholder": "No oven, kid friendly, spicy, vegetarian...",
+    "chefMessage": "Message to the chef",
+    "chefMessagePlaceholder": "Optional: ask for a style, mood, method, or anything else...",
     "productsTitle": "Products to use",
     "chooseProducts": "Choose products",
     "selectionTitle": "Choose products for the chef",
-    "selectionHelp": "Only checked products are shown while this mode is active.",
+    "selectionHelp": "Only checked food products are shown while this mode is active.",
     "noProducts": "No checked products are available yet. Mark items as purchased first.",
+    "noFoodProducts": "No checked food products are available yet. Mark food items as purchased first.",
     "selectAll": "Select all",
     "clearAll": "Clear all",
     "selectAtLeastOne": "Choose at least one product.",

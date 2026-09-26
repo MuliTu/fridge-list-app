@@ -6,6 +6,16 @@
   "timeUnknown": "זמן לא ידוע",
   "ingredients": "מרכיבים",
   "steps": "שלבים",
+  "nutrition": {
+    "title": "ערכים תזונתיים",
+    "perServing": "הערכה למנה",
+    "calories": "קלוריות",
+    "protein": "חלבון",
+    "fat": "שומן",
+    "carbs": "פחמימות",
+    "kcalValue": "{{count}} קל׳",
+    "gramsSuffix": " גרם"
+  },
   "mealTypes": {
     "quick_dinner": "ארוחת ערב מהירה",
     "full_dinner": "ארוחה מלאה",

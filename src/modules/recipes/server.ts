@@ -6,8 +6,11 @@ export {
 } from './infrastructure/firebaseAdminRecipeRepository.server'
 export {
   createDeterministicChefGenerator,
+  createDeterministicNutritionEstimator,
   createJsonTextChefGenerator,
+  createJsonTextNutritionEstimator,
   createStructuredModelChefGenerator,
+  createStructuredModelNutritionEstimator,
   PersonalChefModelError,
   personalChefGraph
 } from './infrastructure/langchain/personalChefGraph'

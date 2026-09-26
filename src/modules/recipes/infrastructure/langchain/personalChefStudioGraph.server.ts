@@ -2,12 +2,18 @@ import '@tanstack/react-start/server-only'
 
 import { ChatOpenAI } from '@langchain/openai'
 
-import { recipeSuggestionResponseSchema } from '../../domain/recipeSchemas'
+import {
+  recipeNutritionResponseSchema,
+  recipeSuggestionResponseSchema
+} from '../../domain/recipeSchemas'
 import {
   createCompiledPersonalChefGraph,
   createDeterministicChefGenerator,
+  createDeterministicNutritionEstimator,
   createJsonTextChefGenerator,
-  createStructuredModelChefGenerator
+  createJsonTextNutritionEstimator,
+  createStructuredModelChefGenerator,
+  createStructuredModelNutritionEstimator
 } from './personalChefGraph'
 
 const provider = process.env.PERSONAL_CHEF_PROVIDER || 'openai'
@@ -54,6 +60,17 @@ const generator = chatModel
       )
   : createDeterministicChefGenerator()
 
+const nutritionEstimator = chatModel
+  ? provider === 'groq'
+    ? createJsonTextNutritionEstimator(chatModel)
+    : createStructuredModelNutritionEstimator(
+        chatModel.withStructuredOutput(recipeNutritionResponseSchema, {
+          name: 'personal_chef_recipe_nutrition',
+          strict: true
+        })
+      )
+  : createDeterministicNutritionEstimator()
+
 /**
  * LangGraph Studio entry point.
  *
@@ -73,4 +90,4 @@ const generator = chatModel
  *   }
  * }
  */
-export const graph = createCompiledPersonalChefGraph(generator)
+export const graph = createCompiledPersonalChefGraph(generator, nutritionEstimator)

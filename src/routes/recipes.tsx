@@ -7,6 +7,7 @@ import { recipeDisplayImageUrl } from '../lib/recipeImages'
 import { useListApi } from '../hooks/ListContext'
 import type { RecipeRecord } from '../types'
 import ListSkeleton from '../components/ListSkeleton'
+import { RecipeNutritionSummary } from '../components/RecipeNutritionSummary'
 
 function RecipeImage({ recipe }: { recipe: RecipeRecord }) {
   const [failed, setFailed] = useState(false)
@@ -84,6 +85,7 @@ function RecipesPage() {
               </span>
               <span>{t(`recipes:mealTypes.${recipe.mealType}`)}</span>
             </div>
+            <RecipeNutritionSummary nutrition={recipe.nutrition} />
             <section>
               <h3>{t('recipes:ingredients')}</h3>
               <ul>

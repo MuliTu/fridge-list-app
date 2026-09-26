@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import { categorizeItem } from '../lib/firebase'
+import { isChefFoodProduct } from '../lib/chefProducts'
 import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
 import { useCollapsedSections } from '../hooks/useCollapsedSections'
@@ -79,6 +80,7 @@ function ShoppingListPage() {
   const [chefServings, setChefServings] = useState(2)
   const [chefMealType, setChefMealType] = useState<RecipeMealType>('quick_dinner')
   const [chefPreferences, setChefPreferences] = useState('')
+  const [chefMessage, setChefMessage] = useState('')
   const [chefSelectedKeys, setChefSelectedKeys] = useState<Set<string>>(() => new Set())
   const [chefSuggestions, setChefSuggestions] = useState<RecipeCandidate[]>([])
   const [chefSuggestionsOpen, setChefSuggestionsOpen] = useState(false)
@@ -103,7 +105,9 @@ function ShoppingListPage() {
     counts[category] = (counts[category] || 0) + 1
     return counts
   }, {})
-  const chefAvailableProducts = visibleEntries.filter((entry) => entry.bought)
+  const chefAvailableProducts = visibleEntries.filter(
+    (entry) => entry.bought && isChefFoodProduct(entry)
+  )
 
   useEffect(() => {
     for (const entry of visibleEntries) {
@@ -319,6 +323,7 @@ function ShoppingListPage() {
         servings: chefServings,
         mealType: chefMealType,
         preferences: chefPreferences,
+        chefMessage,
         products: selectedProducts,
         language: i18n.language === 'he' ? 'he' : 'en'
       })
@@ -430,7 +435,7 @@ function ShoppingListPage() {
                 <span>{t('shoppingList:chef.selectionHelp')}</span>
               </div>
               {chefAvailableProducts.length === 0 ? (
-                <div className="shopping-empty-card">{t('shoppingList:chef.noProducts')}</div>
+                <div className="shopping-empty-card">{t('shoppingList:chef.noFoodProducts')}</div>
               ) : (
                 chefAvailableProducts.map((entry) => (
                   <label key={entry.key} className="chef-selection-card">
@@ -456,11 +461,9 @@ function ShoppingListPage() {
             <div className="all-empty">{t('shoppingList:empty')}</div>
           ) : (
             <div className="shopping-list-scroll">
-              {activeResultsEmpty && (
+              {activeResultsEmpty && query && (
                 <div className="shopping-empty-card">
-                  {query
-                    ? t('shoppingList:search.noResults', { query: search.trim() })
-                    : t('shoppingList:purchased.allPurchased')}
+                  {t('shoppingList:search.noResults', { query: search.trim() })}
                 </div>
               )}
               {visibleCategories.map(({ name, color, icon }) => (
@@ -545,6 +548,7 @@ function ShoppingListPage() {
           servings={chefServings}
           mealType={chefMealType}
           preferences={chefPreferences}
+          chefMessage={chefMessage}
           availableProducts={chefAvailableProducts}
           selectedKeys={chefSelectedKeys}
           selectionMode={chefSelectionMode}
@@ -558,6 +562,7 @@ function ShoppingListPage() {
           onServingsChange={setChefServings}
           onMealTypeChange={setChefMealType}
           onPreferencesChange={setChefPreferences}
+          onChefMessageChange={setChefMessage}
           onStartSelection={handleChefStartSelection}
           onCancelSelection={handleChefCancelSelection}
           onToggleProduct={handleChefToggleProduct}

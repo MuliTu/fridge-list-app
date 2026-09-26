@@ -138,6 +138,16 @@ export interface RecipeIngredient {
   pantryBasic: boolean
 }
 
+export interface RecipeNutrition {
+  calories: number | null
+  proteinGrams: number | null
+  fatGrams: number | null
+  carbsGrams?: number | null
+  fiberGrams?: number | null
+  sugarGrams?: number | null
+  sodiumMg?: number | null
+}
+
 export interface RecipeImage {
   url: string | null
   sourceUrl?: string | null
@@ -156,6 +166,7 @@ export interface RecipeRecord {
   assumedBasics: string[]
   ingredients: RecipeIngredient[]
   steps: string[]
+  nutrition?: RecipeNutrition | null
   image: RecipeImage
   chefNotes?: string | null
   createdAt: string

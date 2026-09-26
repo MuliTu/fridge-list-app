@@ -6,6 +6,16 @@
   "timeUnknown": "Time unknown",
   "ingredients": "Ingredients",
   "steps": "Steps",
+  "nutrition": {
+    "title": "Nutrition",
+    "perServing": "Estimated per serving",
+    "calories": "Calories",
+    "protein": "Protein",
+    "fat": "Fat",
+    "carbs": "Carbs",
+    "kcalValue": "{{count}} kcal",
+    "gramsSuffix": "g"
+  },
   "mealTypes": {
     "quick_dinner": "Quick dinner",
     "full_dinner": "Full dinner",

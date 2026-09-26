@@ -33,12 +33,15 @@ import { GitHubReleaseRepository } from './releases/server'
 import { RecipeCommandService, SuggestRecipesService } from './recipes/server'
 import {
   createDeterministicChefGenerator,
+  createDeterministicNutritionEstimator,
   createFirebaseAdminListAuthorizationRepository,
   createFirebaseAdminRecipeRepository,
   createJsonTextChefGenerator,
-  createStructuredModelChefGenerator
+  createJsonTextNutritionEstimator,
+  createStructuredModelChefGenerator,
+  createStructuredModelNutritionEstimator
 } from './recipes/server'
-import { recipeSuggestionResponseSchema } from './recipes'
+import { recipeNutritionResponseSchema, recipeSuggestionResponseSchema } from './recipes'
 import { ReceiptCommandService, ScanReceiptFileService, ScanReceiptUrlService } from './receipts'
 import { FirebaseAdminReceiptImageRepository, FirebaseAdminReceiptRepository, N8nReceiptScanner, SafeReceiptUrlFetcher } from './receipts/server'
 import { ApplicationError } from './shared'
@@ -418,12 +421,23 @@ export class ServerComposition {
               })
             )
         : createDeterministicChefGenerator()
+      const nutritionEstimator = chatModel
+        ? provider === 'groq'
+          ? createJsonTextNutritionEstimator(chatModel)
+          : createStructuredModelNutritionEstimator(
+              chatModel.withStructuredOutput(recipeNutritionResponseSchema, {
+                name: 'personal_chef_recipe_nutrition',
+                strict: true
+              })
+            )
+        : createDeterministicNutritionEstimator()
 
       this.suggestRecipesService = new SuggestRecipesService(
         recipeRepository,
         createFirebaseAdminListAuthorizationRepository(app, databaseUrl),
         generator,
-        this.generateRequestId
+        this.generateRequestId,
+        nutritionEstimator
       )
     }
     return this.suggestRecipesService
