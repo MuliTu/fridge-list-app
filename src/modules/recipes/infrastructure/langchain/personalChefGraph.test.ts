@@ -60,6 +60,38 @@ describe('personalChefGraph', () => {
     })
   })
 
+  it('returns multiple localized deterministic recipes when enough products are selected', async () => {
+    const hebrewInput = {
+      ...input,
+      language: 'he' as const,
+      products: [
+        { groceryKey: '-tuna', name: 'טונה בשמן סטארקיסט 4', category: 'Pantry' },
+        { groceryKey: '-olives', name: 'זית חרוזית בית השיטה', category: 'Pantry' },
+        { groceryKey: '-parmesan', name: 'פרמזן', category: 'Dairy' },
+        { groceryKey: '-bulgur', name: 'בורגול', category: 'Pantry' },
+        { groceryKey: '-pasta', name: 'פסטה', category: 'Pantry' },
+        { groceryKey: '-pepper', name: 'גמבה', category: 'Vegetables' },
+        { groceryKey: '-onion', name: 'בצל סגול', category: 'Vegetables' },
+        { groceryKey: '-mushrooms', name: 'פטריות', category: 'Vegetables' }
+      ]
+    }
+
+    const result = await personalChefGraph(createDeterministicChefGenerator())(hebrewInput)
+
+    expect(result.recipes).toHaveLength(2)
+    expect(result.recipes[0]).toMatchObject({
+      title: expect.stringContaining('אפשרות 1'),
+      steps: expect.arrayContaining([expect.stringContaining('שטפו')]),
+      chefNotes: 'מותאם להעדפות: no oven.'
+    })
+    expect(result.recipes[1]).toMatchObject({
+      title: expect.stringContaining('אפשרות 2'),
+      ingredients: expect.arrayContaining([
+        { name: 'פסטה', quantity: null, pantryBasic: false, fromSelectedProducts: true }
+      ])
+    })
+  })
+
   it('rejects generated recipes that require unselected ingredients', async () => {
     const generator: PersonalChefGenerator = {
       async invoke({ request, runId }) {
