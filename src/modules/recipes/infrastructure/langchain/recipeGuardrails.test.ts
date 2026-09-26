@@ -40,15 +40,21 @@ const recipe = (ingredientName: string): RecipeCandidateInput => ({
 })
 
 describe('recipe guardrails', () => {
-  it('allows selected products and pantry basics', () => {
-    expect(applyRecipeGuardrails([recipe('eggs'), recipe('salt')], products)).toHaveLength(2)
+  it('allows selected products and clears assumed basics', () => {
+    expect(applyRecipeGuardrails([recipe('eggs')], products)).toMatchObject([
+      {
+        assumedBasics: [],
+        ingredients: [{ name: 'eggs', pantryBasic: false, fromSelectedProducts: true }]
+      }
+    ])
   })
 
-  it('allows Hebrew pantry basics', () => {
-    expect(applyRecipeGuardrails([recipe('מלח'), recipe('פלפל שחור')], products)).toHaveLength(2)
+  it('rejects pantry basics that were not selected', () => {
+    expect(() => applyRecipeGuardrails([recipe('salt')], products)).toThrow(ApplicationError)
+    expect(() => applyRecipeGuardrails([recipe('מלח')], products)).toThrow(ApplicationError)
   })
 
-  it('rejects non-basic ingredients that were not selected', () => {
+  it('rejects other ingredients that were not selected', () => {
     expect(() => applyRecipeGuardrails([recipe('chicken')], products)).toThrow(ApplicationError)
   })
 })

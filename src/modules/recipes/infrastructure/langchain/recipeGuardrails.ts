@@ -1,6 +1,5 @@
 import { ApplicationError } from '../../../shared'
 import type { RecipeCandidateInput, RecipeProductInput } from '../../domain/recipeSchemas'
-import { isPantryBasic } from './pantryBasics'
 
 const normalize = (value: string): string =>
   value.trim().toLocaleLowerCase().replace(/\s+/g, ' ')
@@ -31,7 +30,6 @@ export const assertRecipeUsesOnlySelectedProducts = (
 ): void => {
   const selectedNames = productNameSet(selectedProducts)
   const missing = recipe.ingredients.filter((ingredient) => {
-    if (ingredient.pantryBasic || isPantryBasic(ingredient.name)) return false
     return !isSelectedProductIngredient(ingredient.name, selectedNames)
   })
 
@@ -56,10 +54,11 @@ export const applyRecipeGuardrails = (
   return recipes.map((recipe, index) => ({
     ...recipe,
     id: recipe.id || `recipe-${index + 1}`,
+    assumedBasics: [],
     selectedProducts: selectedProducts.map((product) => ({ ...product })),
     ingredients: recipe.ingredients.map((ingredient) => ({
       ...ingredient,
-      pantryBasic: ingredient.pantryBasic || isPantryBasic(ingredient.name),
+      pantryBasic: false,
       fromSelectedProducts:
         ingredient.fromSelectedProducts ||
         isSelectedProductIngredient(ingredient.name, productNameSet(selectedProducts))

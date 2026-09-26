@@ -3,6 +3,7 @@ import { AIMessage } from '@langchain/core/messages'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { RunnableLambda } from '@langchain/core/runnables'
 
+import createTicketStudioSystemPrompt from '../../../../prompts/agents/createTicketStudioPrompts/system.md?raw'
 import { readCreateTicketConfig } from '../createTicketConfig.server'
 import { createCompiledTicketGraph, type ToolCallingModel } from './createTicketGraph'
 import { loadManagedCreateTicketPrompt } from './managedPrompt.server'
@@ -19,7 +20,7 @@ try {
 
 const createLocalFallbackGraph = () => {
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', 'Local create-ticket Studio fallback for {request}.']
+    ['system', createTicketStudioSystemPrompt]
   ])
   const model = {
     bindTools: () =>

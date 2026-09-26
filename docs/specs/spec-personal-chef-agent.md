@@ -473,9 +473,9 @@ Then test graph input:
 The chef prompt must require:
 
 - Answer in the requested UI language.
-- Create only recipes that can be made with selected products plus pantry basics.
-- Pantry basics may include salt, pepper, oil, water, common dry spices, sugar, and small amounts of flour.
-- Do not require unselected non-basic products.
+- Create only recipes that can be made with selected products.
+- Do not require pantry basics, spices, oils, or outside ingredients of any kind.
+- Do not require any product that was not explicitly selected.
 - If the selected products cannot make a coherent meal, return the closest simple preparation and clearly say it is limited.
 - Produce practical steps for a home cook.
 - Prefer safe food handling language for raw eggs, meat, chicken, or fish.

@@ -2,6 +2,14 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 import type { Runnable } from '@langchain/core/runnables'
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 
+import chefHumanPrompt from '../../../../prompts/agents/chefPrompts/human.md?raw'
+import chefSystemPrompt from '../../../../prompts/agents/chefPrompts/system.md?raw'
+import chefJsonHumanPrompt from '../../../../prompts/agents/chefJsonPrompts/human.md?raw'
+import chefJsonSystemPrompt from '../../../../prompts/agents/chefJsonPrompts/system.md?raw'
+import chefNutritionHumanPrompt from '../../../../prompts/agents/chefNutritionPrompts/human.md?raw'
+import chefNutritionSystemPrompt from '../../../../prompts/agents/chefNutritionPrompts/system.md?raw'
+import chefJsonNutritionHumanPrompt from '../../../../prompts/agents/chefJsonNutritionPrompts/human.md?raw'
+import chefJsonNutritionSystemPrompt from '../../../../prompts/agents/chefJsonNutritionPrompts/system.md?raw'
 import { ApplicationError } from '../../../shared'
 import {
   emptyRecipeNutrition,
@@ -162,13 +170,13 @@ const deterministicNutritionFor = (recipe: RecipeCandidateInput): RecipeNutritio
 }
 
 export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
-  async invoke({ request, pantryBasics, runId }) {
+  async invoke({ request, runId }) {
     const mainProducts = request.products.slice(0, 4)
     const titleProducts = mainProducts.map((product) => product.name).join(', ')
     const mealName = request.mealType === 'breakfast'
       ? 'Simple breakfast plate'
       : request.mealType === 'snack'
-        ? 'Quick pantry snack plate'
+        ? 'Quick selected-products snack plate'
         : 'Simple skillet meal'
 
     return recipeSuggestionResponseSchema.parse({
@@ -176,28 +184,23 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
         {
           id: 'recipe-1',
           title: `${mealName} with ${titleProducts}`,
-          description: `A practical ${request.mealType.replace('_', ' ')} using the selected products and basic pantry seasoning.`,
+          description: `A practical ${request.mealType.replace('_', ' ')} using only the selected products.`,
           servings: request.servings,
           mealType: request.mealType,
           estimatedTimeMinutes: request.mealType === 'quick_dinner' ? 20 : 35,
           selectedProducts: request.products,
-          assumedBasics: pantryBasics.slice(0, 4),
-          ingredients: [
-            ...mainProducts.map((product) => ({
-              name: product.name,
-              quantity: product.quantity && product.unit ? `${product.quantity} ${product.unit}` : null,
-              fromSelectedProducts: true,
-              pantryBasic: false
-            })),
-            { name: 'salt', quantity: 'to taste', fromSelectedProducts: false, pantryBasic: true },
-            { name: 'pepper', quantity: 'to taste', fromSelectedProducts: false, pantryBasic: true },
-            { name: 'oil', quantity: '1 tbsp', fromSelectedProducts: false, pantryBasic: true }
-          ],
+          assumedBasics: [],
+          ingredients: mainProducts.map((product) => ({
+            name: product.name,
+            quantity: product.quantity && product.unit ? `${product.quantity} ${product.unit}` : null,
+            fromSelectedProducts: true,
+            pantryBasic: false
+          })),
           steps: [
             'Wash, trim, and prepare the selected products.',
-            'Warm a pan with a little oil over medium heat.',
-            'Cook the selected products until tender and season with salt and pepper.',
-            'Taste, adjust seasoning, and serve warm.'
+            'Prepare each selected product using the simplest suitable method.',
+            'Combine the prepared products and portion them for the target servings.',
+            'Serve warm or at room temperature, depending on the selected products.'
           ],
           nutrition: emptyRecipeNutrition,
           image: {
@@ -206,7 +209,7 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
           },
           chefNotes: request.preferences
             ? `Adapted for: ${request.preferences}.`
-            : 'Use the selected products first and keep pantry basics minimal.',
+            : 'Uses only the selected products.',
           source: {
             kind: 'personal_chef',
             graphRunId: runId,
@@ -235,30 +238,8 @@ export const createStructuredModelChefGenerator = (
   model: Runnable<unknown, unknown>
 ): PersonalChefGenerator => {
   const prompt = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      [
-        'You are a practical household chef.',
-        'Create 1-5 recipes using only selected products plus pantry basics.',
-        'Do not require unselected non-basic products.',
-        'Return structured data in the requested language.',
-        'Mention pantry basics only when used.',
-        'Do not estimate nutrition in this step; a separate nutrition node will add per-serving nutrition.'
-      ].join('\n')
-    ],
-    [
-      'human',
-      [
-        'Run id: {runId}',
-        'Servings: {servings}',
-        'Meal type: {mealType}',
-        'Language: {language}',
-        'Preferences: {preferences}',
-        'Free chef message: {chefMessage}',
-        'Selected products JSON: {products}',
-        'Allowed pantry basics JSON: {pantryBasics}'
-      ].join('\n')
-    ]
+    ['system', chefSystemPrompt],
+    ['human', chefHumanPrompt]
   ])
 
   return {
@@ -460,33 +441,8 @@ export const createJsonTextChefGenerator = (
   model: Runnable<unknown, unknown>
 ): PersonalChefGenerator => {
   const prompt = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      [
-        'You are a practical household chef.',
-        'Return only valid JSON. Do not wrap it in markdown.',
-        'The JSON must have this shape: {{"recipes":[...],"warnings":[]}}.',
-        'Create 1-5 recipes using only selected products plus pantry basics.',
-        'Do not require unselected non-basic products.',
-        'Each recipe must include id, title, description, servings, mealType, estimatedTimeMinutes, selectedProducts, assumedBasics, ingredients, steps, image, chefNotes, and source.',
-        'Do not estimate nutrition in this step; a separate nutrition node will add per-serving nutrition.',
-        'For image use {{"url":null,"alt":"descriptive alt text"}} unless you know a safe URL.',
-        'For source use {{"kind":"personal_chef","graphRunId":"the provided run id","model":"groq"}}.'
-      ].join('\n')
-    ],
-    [
-      'human',
-      [
-        'Run id: {runId}',
-        'Servings: {servings}',
-        'Meal type: {mealType}',
-        'Language: {language}',
-        'Preferences: {preferences}',
-        'Free chef message: {chefMessage}',
-        'Selected products JSON: {products}',
-        'Allowed pantry basics JSON: {pantryBasics}'
-      ].join('\n')
-    ]
+    ['system', chefJsonSystemPrompt],
+    ['human', chefJsonHumanPrompt]
   ])
 
   return {
@@ -535,28 +491,8 @@ export const createStructuredModelNutritionEstimator = (
   model: Runnable<unknown, unknown>
 ): PersonalChefNutritionEstimator => {
   const prompt = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      [
-        'You estimate recipe nutrition for a household cooking app.',
-        'Return per-serving nutrition estimates only.',
-        'Use the recipe ingredients, servings, selected products, and pantry basics.',
-        'If a value cannot be estimated, return null for that field.',
-        'Do not change recipe ids or recipe content.'
-      ].join('\n')
-    ],
-    [
-      'human',
-      [
-        'Run id: {runId}',
-        'Servings: {servings}',
-        'Meal type: {mealType}',
-        'Language: {language}',
-        'Selected products JSON: {products}',
-        'Allowed pantry basics JSON: {pantryBasics}',
-        'Recipes JSON: {recipes}'
-      ].join('\n')
-    ]
+    ['system', chefNutritionSystemPrompt],
+    ['human', chefNutritionHumanPrompt]
   ])
 
   return {
@@ -585,30 +521,8 @@ export const createJsonTextNutritionEstimator = (
   model: Runnable<unknown, unknown>
 ): PersonalChefNutritionEstimator => {
   const prompt = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      [
-        'You estimate recipe nutrition for a household cooking app.',
-        'Return only valid JSON. Do not wrap it in markdown.',
-        'Return an object with estimates and warnings. Each estimate must include recipeId and nutrition.',
-        'Nutrition must include calories, proteinGrams, fatGrams, carbsGrams, fiberGrams, sugarGrams, and sodiumMg.',
-        'Nutrition values are per serving.',
-        'Use numbers when you can estimate confidently; otherwise use null.',
-        'Do not change recipe ids or recipe content.'
-      ].join('\n')
-    ],
-    [
-      'human',
-      [
-        'Run id: {runId}',
-        'Servings: {servings}',
-        'Meal type: {mealType}',
-        'Language: {language}',
-        'Selected products JSON: {products}',
-        'Allowed pantry basics JSON: {pantryBasics}',
-        'Recipes JSON: {recipes}'
-      ].join('\n')
-    ]
+    ['system', chefJsonNutritionSystemPrompt],
+    ['human', chefJsonNutritionHumanPrompt]
   ])
 
   return {
