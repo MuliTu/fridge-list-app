@@ -131,11 +131,10 @@ describe('personalChefGraph', () => {
                   { groceryKey: '-eggs', name: 'eggs', quantity: 6, unit: 'pcs' },
                   { groceryKey: '-tomato', name: 'tomatoes', quantity: 4, unit: 'pcs' }
                 ],
-                assumedBasics: ['salt', 'pepper', 'oil'],
+                assumedBasics: [],
                 ingredients: [
                   { ingredient: 'eggs', amount: 6 },
-                  { item: 'tomatoes', qty: 4 },
-                  { product: 'salt', quantity: 'to taste' }
+                  { item: 'tomatoes', qty: 4 }
                 ],
                 steps: ['Cook tomatoes.', 'Add eggs.', 'Serve warm.'],
                 image: { url: null, alt: 'Egg and tomato skillet' },
@@ -160,8 +159,7 @@ describe('personalChefGraph', () => {
           selectedProducts: input.products,
           ingredients: [
             { name: 'eggs', quantity: '6', fromSelectedProducts: true },
-            { name: 'tomatoes', quantity: '4', fromSelectedProducts: true },
-            { name: 'salt', quantity: 'to taste', pantryBasic: true }
+            { name: 'tomatoes', quantity: '4', fromSelectedProducts: true }
           ],
           nutrition: {
             calories: expect.any(Number),
@@ -187,11 +185,10 @@ describe('personalChefGraph', () => {
                 mealType: 'quick_dinner',
                 estimatedTimeMinutes: 18,
                 selectedProducts: input.products,
-                assumedBasics: ['salt', 'pepper', 'oil'],
+                assumedBasics: [],
                 ingredients: [
                   { ingredient: 'eggs', amount: 6 },
-                  { item: 'tomatoes', qty: 4 },
-                  { product: 'salt', quantity: 'to taste' }
+                  { item: 'tomatoes', qty: 4 }
                 ],
                 steps: ['Cook tomatoes.', 'Add eggs.', 'Serve warm.'],
                 image: { url: null, alt: 'Egg and tomato skillet' },

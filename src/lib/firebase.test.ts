@@ -53,6 +53,7 @@ import {
   submitFeedback
 } from './firebase'
 import { logger } from './logger'
+import { version as APP_VERSION } from '../../package.json'
 
 // Pulls out the single fetch call made to `urlSubstring` (ignoring the fire-and-forget
 // /api/client-log calls logClientAction makes alongside some of these).
@@ -251,7 +252,7 @@ describe('auth header attachment on server-route calls', () => {
         context: {
           route: '/stock',
           language: 'en',
-          appVersion: '2.55.0'
+          appVersion: APP_VERSION
         }
       })
       expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
@@ -288,7 +289,7 @@ describe('auth header attachment on server-route calls', () => {
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
-        appVersion: '2.55.0'
+        appVersion: APP_VERSION
       })
       expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
     })

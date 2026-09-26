@@ -7,9 +7,11 @@ module.exports = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.jest.json' }]
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.jest.json' }],
+    '^.+\\.md$': '<rootDir>/src/test/transforms/rawTextTransform.cjs'
   },
   moduleNameMapper: {
+    '^(.*\\.md)\\?raw$': '$1',
     '\\.css$': '<rootDir>/src/test/mocks/fileMock.ts',
     // jose ships pure ESM with no CJS build — Jest's CJS module registry can't load
     // it directly ("Unexpected token 'export'"). See src/test/mocks/joseMock.ts for
