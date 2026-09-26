@@ -13,6 +13,10 @@ const requestBody = {
 const logger = { success: jest.fn(), warn: jest.fn(), error: jest.fn() }
 
 describe('AI item enrichment server', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
   it('authenticates before parsing or model execution', async () => {
     const enricher = { enrich: jest.fn() }
     const handler = createItemEnrichmentPostHandler({
@@ -43,7 +47,8 @@ describe('AI item enrichment server', () => {
       environment: {},
       authenticate: jest.fn().mockResolvedValue({ ok: true, uid: 'user-1' }),
       logger,
-      enricher
+      enricher,
+      now: () => new Date('2026-09-03T12:00:00Z')
     })
 
     const response = await handler({
@@ -62,6 +67,28 @@ describe('AI item enrichment server', () => {
           categoryStatus: 'existing', correctionReason: 'תיקון'
         }]
       }
+    })
+    expect(logger.success).toHaveBeenCalledWith(expect.stringContaining('[ai-endpoint]'))
+    const endpointLog = logger.success.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.startsWith('[ai-endpoint] '))
+    expect(endpointLog).toBeTruthy()
+    expect(JSON.parse(endpointLog!.replace('[ai-endpoint] ', ''))).toEqual({
+      user: 'user-1',
+      action: 'ai_item_enrichment',
+      route: '/api/ai/enrich-items',
+      request: {
+        language: 'he',
+        itemCount: 1,
+        categoryCount: 2
+      },
+      response: {
+        ok: true,
+        itemCount: 1,
+        existingCategoryCount: 1,
+        suggestedCategoryCount: 0
+      },
+      date: '2026-09-03T12:00:00.000Z'
     })
   })
 

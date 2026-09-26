@@ -3,6 +3,10 @@ import { z } from 'zod'
 const shortText = z.string().trim().min(1).max(200)
 const itemKey = z.string().trim().min(1).max(200)
 
+export const AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT = 12
+export const AI_LIST_REVIEW_REMOVE_KEYS_LIMIT = 10
+export const AI_LIST_REVIEW_RENAME_LIMIT = 15
+
 export const aiListItemSchema = z.object({
   key: itemKey,
   name: shortText,
@@ -66,11 +70,11 @@ export const aiListReviewResultSchema = z.object({
     .array(
       z.object({
         keepKey: itemKey,
-        removeKeys: z.array(itemKey).min(1).max(10),
+        removeKeys: z.array(itemKey).min(1).max(AI_LIST_REVIEW_REMOVE_KEYS_LIMIT),
         reason: z.string().trim().min(1).max(300)
       })
     )
-    .max(30),
+    .max(AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT),
   renames: z
     .array(
       z.object({
@@ -80,7 +84,7 @@ export const aiListReviewResultSchema = z.object({
         reason: z.string().trim().min(1).max(300)
       })
     )
-    .max(50)
+    .max(AI_LIST_REVIEW_RENAME_LIMIT)
 })
 
 export const aiAssistantResultSchema = z.discriminatedUnion('mode', [
