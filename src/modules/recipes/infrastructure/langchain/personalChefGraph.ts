@@ -169,25 +169,48 @@ const deterministicNutritionFor = (recipe: RecipeCandidateInput): RecipeNutritio
   }
 }
 
+const deterministicRecipeProductGroups = (
+  products: SuggestRecipesInput['products']
+): SuggestRecipesInput['products'][] => {
+  const recipeCount = Math.min(3, Math.max(1, Math.ceil(products.length / 4)))
+  return Array.from({ length: recipeCount }, (_, index) => {
+    const start = index * 4
+    const group = products.slice(start, start + 4)
+    return group.length > 0 ? group : products.slice(0, 4)
+  })
+}
+
+const shortProductList = (products: SuggestRecipesInput['products']): string =>
+  products
+    .slice(0, 3)
+    .map((product) => product.name)
+    .join(', ')
+
 export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
   async invoke({ request, runId }) {
-    const mainProducts = request.products.slice(0, 4)
-    const titleProducts = mainProducts.map((product) => product.name).join(', ')
-    const mealName = request.mealType === 'breakfast'
-      ? 'Simple breakfast plate'
-      : request.mealType === 'snack'
-        ? 'Quick selected-products snack plate'
-        : 'Simple skillet meal'
+    const hebrew = request.language === 'he'
+    const recipeGroups = deterministicRecipeProductGroups(request.products)
 
     return recipeSuggestionResponseSchema.parse({
-      recipes: [
-        {
-          id: 'recipe-1',
-          title: `${mealName} with ${titleProducts}`,
-          description: `A practical ${request.mealType.replace('_', ' ')} using only the selected products.`,
+      recipes: recipeGroups.map((mainProducts, index) => {
+        const titleProducts = shortProductList(mainProducts)
+        const mealName = hebrew
+          ? `אפשרות ${index + 1}: ${titleProducts}`
+          : request.mealType === 'breakfast'
+            ? `Simple breakfast plate with ${titleProducts}`
+            : request.mealType === 'snack'
+              ? `Quick selected-products snack with ${titleProducts}`
+              : `Simple selected-products meal with ${titleProducts}`
+
+        return {
+          id: `recipe-${index + 1}`,
+          title: mealName,
+          description: hebrew
+            ? `מנה ביתית פשוטה מסוג ${request.mealType.replace('_', ' ')} שמבוססת רק על המוצרים שנבחרו.`
+            : `A practical ${request.mealType.replace('_', ' ')} using only the selected products.`,
           servings: request.servings,
           mealType: request.mealType,
-          estimatedTimeMinutes: request.mealType === 'quick_dinner' ? 20 : 35,
+          estimatedTimeMinutes: request.mealType === 'quick_dinner' ? 20 + index * 5 : 35 + index * 5,
           selectedProducts: request.products,
           assumedBasics: [],
           ingredients: mainProducts.map((product) => ({
@@ -196,27 +219,38 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
             fromSelectedProducts: true,
             pantryBasic: false
           })),
-          steps: [
-            'Wash, trim, and prepare the selected products.',
-            'Prepare each selected product using the simplest suitable method.',
-            'Combine the prepared products and portion them for the target servings.',
-            'Serve warm or at room temperature, depending on the selected products.'
-          ],
+          steps: hebrew
+            ? [
+                'שטפו, חתכו והכינו רק את המוצרים שנבחרו למנה הזו.',
+                'הכינו כל מוצר בדרך הפשוטה והמתאימה לו.',
+                'חברו את המוצרים המוכנים וחלקו למספר המנות המבוקש.',
+                'הגישו חם או בטמפרטורת החדר לפי סוג המוצרים.'
+              ]
+            : [
+                'Wash, trim, and prepare only the selected products for this recipe.',
+                'Prepare each selected product using the simplest suitable method.',
+                'Combine the prepared products and portion them for the target servings.',
+                'Serve warm or at room temperature, depending on the selected products.'
+              ],
           nutrition: emptyRecipeNutrition,
           image: {
-            url: recipeFallbackImageUrl(`${mealName} with ${titleProducts}`, request.products),
-            alt: `${mealName} with ${titleProducts}`
+            url: recipeFallbackImageUrl(mealName, mainProducts),
+            alt: mealName
           },
           chefNotes: request.preferences
-            ? `Adapted for: ${request.preferences}.`
-            : 'Uses only the selected products.',
+            ? hebrew
+              ? `מותאם להעדפות: ${request.preferences}.`
+              : `Adapted for: ${request.preferences}.`
+            : hebrew
+              ? 'משתמש רק במוצרים שנבחרו.'
+              : 'Uses only the selected products.',
           source: {
             kind: 'personal_chef',
             graphRunId: runId,
             model: 'deterministic-local'
           }
         }
-      ],
+      }),
       warnings: []
     })
   }
