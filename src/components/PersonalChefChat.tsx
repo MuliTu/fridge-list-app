@@ -12,7 +12,7 @@ interface PersonalChefChatProps {
   chefMessage: string
   availableProducts: GroceryItem[]
   selectedKeys: Set<string>
-  selectionMode: boolean
+  selectionCompleteToken: number
   isGenerating: boolean
   error: string | null
   onOpen: () => void
@@ -22,9 +22,6 @@ interface PersonalChefChatProps {
   onPreferencesChange: (preferences: string) => void
   onChefMessageChange: (message: string) => void
   onStartSelection: () => void
-  onCancelSelection: () => void
-  onToggleProduct: (key: string) => void
-  onSelectAll: () => void
   onGenerate: () => void
 }
 
@@ -47,7 +44,7 @@ export default function PersonalChefChat({
   chefMessage,
   availableProducts,
   selectedKeys,
-  selectionMode,
+  selectionCompleteToken,
   isGenerating,
   error,
   onOpen,
@@ -57,28 +54,24 @@ export default function PersonalChefChat({
   onPreferencesChange,
   onChefMessageChange,
   onStartSelection,
-  onCancelSelection,
-  onToggleProduct,
-  onSelectAll,
   onGenerate
 }: PersonalChefChatProps) {
   const { t } = useTranslation()
   const [step, setStep] = useState<ChefChatStep>('products')
-  const allSelected = availableProducts.length > 0 && selectedKeys.size === availableProducts.length
   const selectedProducts = availableProducts.filter((product) => selectedKeys.has(product.key))
 
   useEffect(() => {
     if (open) setStep('products')
   }, [open])
 
-  const handleProductStep = () => {
-    if (!selectionMode) {
-      onStartSelection()
-      return
-    }
-    if (selectedKeys.size > 0) {
+  useEffect(() => {
+    if (selectionCompleteToken > 0 && selectedKeys.size > 0) {
       setStep('servings')
     }
+  }, [selectionCompleteToken, selectedKeys.size])
+
+  const handleProductStep = () => {
+    onStartSelection()
   }
 
   const handleClose = () => {
@@ -164,45 +157,16 @@ export default function PersonalChefChat({
 
           {step === 'products' && (
             <div className="chef-field">
-              <div className="chef-product-row">
-                <span>{t('shoppingList:chef.productsTitle')}</span>
-                {selectionMode && (
-                  <button onClick={onCancelSelection}>{t('actions.cancel')}</button>
-                )}
-              </div>
-              {selectionMode && (
-                <>
-                  {availableProducts.length === 0 ? (
-                    <p className="chef-muted">{t('shoppingList:chef.noFoodProducts')}</p>
-                  ) : (
-                    <>
-                      <button className="chef-select-all" onClick={onSelectAll}>
-                        {allSelected ? t('shoppingList:chef.clearAll') : t('shoppingList:chef.selectAll')}
-                      </button>
-                      <div className="chef-product-list">
-                        {availableProducts.map((product) => (
-                          <label key={product.key} className="chef-product-option">
-                            <input
-                              type="checkbox"
-                              checked={selectedKeys.has(product.key)}
-                              onChange={() => onToggleProduct(product.key)}
-                            />
-                            <span>{product.item}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </>
+              <span>{t('shoppingList:chef.productsTitle')}</span>
+              {availableProducts.length === 0 && (
+                <p className="chef-muted">{t('shoppingList:chef.noFoodProducts')}</p>
               )}
               <button
                 className="chef-primary"
-                disabled={selectionMode && selectedKeys.size === 0}
+                disabled={availableProducts.length === 0}
                 onClick={handleProductStep}
               >
-                {selectionMode
-                  ? t('shoppingList:chef.chat.productsDone', { count: selectedKeys.size })
-                  : t('shoppingList:chef.chat.startProducts')}
+                {t('shoppingList:chef.chat.startProducts')}
               </button>
             </div>
           )}

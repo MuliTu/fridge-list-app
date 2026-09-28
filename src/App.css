@@ -2019,8 +2019,6 @@ h1.site-title {
 }
 
 .chef-choice-grid button,
-.chef-product-row button,
-.chef-select-all,
 .chef-primary {
   border: 1px solid var(--border-alpha);
   border-radius: 999px;
@@ -2041,27 +2039,6 @@ h1.site-title {
   color: #d9efff;
 }
 
-.chef-product-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.chef-product-row button,
-.chef-select-all {
-  padding: 7px 11px;
-  font-size: 12px;
-}
-
-.chef-product-list {
-  display: grid;
-  gap: 7px;
-  max-height: 136px;
-  overflow-y: auto;
-}
-
-.chef-product-option,
 .chef-selection-card {
   display: flex;
   align-items: center;
@@ -2072,11 +2049,6 @@ h1.site-title {
   color: var(--chalk);
 }
 
-.chef-product-option {
-  padding: 8px 10px;
-}
-
-.chef-product-option span,
 .chef-selection-card span {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2154,6 +2126,36 @@ h1.site-title {
 .chef-selection-banner span {
   color: var(--chalk-dim);
   font-size: 13px;
+}
+
+.chef-selection-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chef-selection-actions button {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-alpha);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--chalk);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chef-selection-actions button:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.chef-selection-actions .chef-selection-submit {
+  border-color: rgba(89, 174, 255, 0.66);
+  background: #59aeff;
+  color: #071827;
 }
 
 .chef-selection-card {

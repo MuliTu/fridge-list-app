@@ -6,6 +6,7 @@ import type {
   AiListChange,
   AiListReviewResult
 } from '../domain/aiSchemas'
+import { AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT } from '../domain/aiSchemas'
 
 const MINUTE_MS = 60_000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -196,7 +197,7 @@ export const groundAiResult = (
     duplicates.flatMap((group) => [group.keepKey, ...group.removeKeys])
   )
   const knownAliasDuplicates = knownAliasDuplicateGroups(context, reservedKeys)
-    .slice(0, Math.max(0, 30 - duplicates.length))
+    .slice(0, Math.max(0, AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT - duplicates.length))
 
   return {
     mode: 'list_review',

@@ -69,8 +69,8 @@ describe('Gemini AI analyzer', () => {
 
     expect(result.mode).toBe('list_review')
     if (result.mode === 'list_review') {
-      expect(result.duplicates).toHaveLength(30)
-      expect(result.renames).toHaveLength(50)
+      expect(result.duplicates).toHaveLength(12)
+      expect(result.renames).toHaveLength(15)
     }
   })
 })

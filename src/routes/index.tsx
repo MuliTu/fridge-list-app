@@ -88,6 +88,7 @@ function ShoppingListPage() {
   const [chefSaving, setChefSaving] = useState(false)
   const [chefError, setChefError] = useState<string | null>(null)
   const [chefSaveError, setChefSaveError] = useState<string | null>(null)
+  const [chefSelectionCompleteToken, setChefSelectionCompleteToken] = useState(0)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
   const { sortOption, setSortOption } = useListSort(activeList || '__permanent__', user?.email)
@@ -272,7 +273,7 @@ function ShoppingListPage() {
   }
 
   const handleChefStartSelection = () => {
-    setChefOpen(true)
+    setChefOpen(false)
     setChefError(null)
     setChefSelectionMode(true)
     setChefSelectedKeys(new Set())
@@ -281,6 +282,7 @@ function ShoppingListPage() {
   const handleChefCancelSelection = () => {
     setChefSelectionMode(false)
     setChefSelectedKeys(new Set())
+    setChefOpen(true)
   }
 
   const handleChefToggleProduct = (key: string) => {
@@ -298,6 +300,18 @@ function ShoppingListPage() {
         ? new Set()
         : new Set(chefAvailableProducts.map((entry) => entry.key))
     )
+  }
+
+  const handleChefSubmitSelection = () => {
+    if (chefSelectedKeys.size === 0) {
+      setChefError(t('shoppingList:chef.selectAtLeastOne'))
+      setChefOpen(true)
+      return
+    }
+    setChefError(null)
+    setChefSelectionMode(false)
+    setChefOpen(true)
+    setChefSelectionCompleteToken((current) => current + 1)
   }
 
   const handleChefGenerate = async () => {
@@ -433,6 +447,28 @@ function ShoppingListPage() {
               <div className="chef-selection-banner">
                 <strong>{t('shoppingList:chef.selectionTitle')}</strong>
                 <span>{t('shoppingList:chef.selectionHelp')}</span>
+                <div className="chef-selection-actions">
+                  <button type="button" onClick={handleChefCancelSelection}>
+                    {t('actions.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleChefSelectAll}
+                    disabled={chefAvailableProducts.length === 0}
+                  >
+                    {chefSelectedKeys.size === chefAvailableProducts.length && chefAvailableProducts.length > 0
+                      ? t('shoppingList:chef.clearAll')
+                      : t('shoppingList:chef.selectAll')}
+                  </button>
+                  <button
+                    type="button"
+                    className="chef-selection-submit"
+                    onClick={handleChefSubmitSelection}
+                    disabled={chefSelectedKeys.size === 0}
+                  >
+                    {t('shoppingList:chef.chat.productsDone', { count: chefSelectedKeys.size })}
+                  </button>
+                </div>
               </div>
               {chefAvailableProducts.length === 0 ? (
                 <div className="shopping-empty-card">{t('shoppingList:chef.noFoodProducts')}</div>
@@ -542,7 +578,7 @@ function ShoppingListPage() {
         </button>
       )}
 
-      {canEdit && (
+      {canEdit && !chefSelectionMode && (
         <PersonalChefChat
           open={chefOpen}
           servings={chefServings}
@@ -551,7 +587,7 @@ function ShoppingListPage() {
           chefMessage={chefMessage}
           availableProducts={chefAvailableProducts}
           selectedKeys={chefSelectedKeys}
-          selectionMode={chefSelectionMode}
+          selectionCompleteToken={chefSelectionCompleteToken}
           isGenerating={chefGenerating}
           error={chefError}
           onOpen={() => setChefOpen(true)}
@@ -564,9 +600,6 @@ function ShoppingListPage() {
           onPreferencesChange={setChefPreferences}
           onChefMessageChange={setChefMessage}
           onStartSelection={handleChefStartSelection}
-          onCancelSelection={handleChefCancelSelection}
-          onToggleProduct={handleChefToggleProduct}
-          onSelectAll={handleChefSelectAll}
           onGenerate={handleChefGenerate}
         />
       )}
