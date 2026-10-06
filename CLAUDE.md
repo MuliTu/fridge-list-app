@@ -1,57 +1,20 @@
-# Fridge contributor guide
+# Contributor entry point
 
-Fridge is a Hebrew/English household grocery application built with React,
-TypeScript, TanStack Start and Firebase. Its flagship slice turns explicitly selected
-purchased inventory into reviewed recipe suggestions and explicitly saved recipes.
+Read [README](README.md) for the product and [docs](docs/README.md) for decisions,
+setup, verification and the active spec → plan → tasks workflow.
 
-## Start here
+- Follow [AGENTS.md](AGENTS.md); inspect impact before editing code.
+- Keep changes small and preserve unrelated local edits.
+- Verify against synthetic data using [demo setup](docs/demo-setup.md).
+- Keep authorization, inventory grounding and persistence deterministic; AI proposes.
+- Require user review before AI-proposed mutations; preserve honest failure states.
+- Keep Hebrew RTL, English LTR and keyboard access part of the core journey.
+- Do not log personal payloads or commit local configuration, credentials or transcripts.
+- Commit/push only within the user's authorized scope; production changes need their
+  own scope. Passing local tests is not proof of production readiness.
 
-- [Project overview and capability status](README.md)
-- [Documentation index](docs/README.md)
-- [Isolated synthetic setup](docs/demo-setup.md)
-- [Product spec](docs/specs/spec-flagship-readiness.md), [implementation plan](docs/plans/plan-flagship-readiness.md), [tasks](docs/specs/tasks-flagship-readiness.md)
-- [Dated verification evidence](docs/plans/flagship-progress.md)
-- [Module boundaries](docs/architecture/module-boundaries.md)
-
-The verification log distinguishes source implementation, local checks and remaining
-release gates. Older specs are historical design inputs, not proof of deployed behavior.
-Do not infer live Firebase rules, workflow state, credentials or production health
-from source code or past conversations.
-
-## Working conventions
-
-Work in small reviewable tasks on a feature branch. Preserve unrelated local edits.
-Use relevant repository skills, with the user's explicit scope taking precedence.
-Run GitNexus impact before edits and applicable tests after them. Commit only when
-requested; use a reviewed PR for integration and do not merge your own PR without
-human review or an explicit waiver. Publication, deployment, history rewriting,
-credential changes, paid services and production data changes require scoped approval.
-
-Version changes belong to the approved release task; consult the release-bump skill.
-Release notes use GitHub Releases. Do not publish a release merely because local tests
-pass. TanStack Start APIs require a server runtime; a static file server is insufficient.
-
-## Engineering contracts
-
-- Keep provider SDKs and credentials server-side; use browser-safe module contracts.
-- Authenticate and check current approved UID membership on every privileged action.
-  Firebase Admin bypasses client rules, so application authorization is essential.
-- AI proposes content. Deterministic validation controls inventory grounding, schema,
-  authorization, call budgets and persistence. Users review mutations before approval.
-- Preserve unknown nutrition values. Estimates need source/basis and explicit weights.
-- Keep Hebrew RTL and English LTR behavior accessible at mobile/tablet/desktop widths.
-- Use structured bounded diagnostics without names, emails, prompts, receipts or tokens.
-- Start from synthetic emulator data. Optional integrations remain disabled in the
-  isolated demo; live receiver authentication and failure behavior are unverified.
-- Keep operational endpoints in server configuration, never examples or browser code.
-  Knowing a URL is not authorization to invoke its workflow.
-
-## Historical notes and privacy
-
-[Design context](CONVERSATION.md) points to durable decisions. Private discussion,
-contact details and deployment identifiers do not belong in contributor guidance.
-Local cleanup does not remove earlier public commits or copies; see the
-[external remediation proposal](docs/plans/external-remediation-proposal.md).
+Personal agent skills and workstation settings are local. GitNexus guidance remains
+versioned because AGENTS.md references it as the project's code-review workflow.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
