@@ -29,7 +29,7 @@ describe('GroceryCommandService', () => {
       unit: ' l '
     })
 
-    expect(access.assertAccessible).toHaveBeenCalledWith(context.principal, 'owner_email_com')
+    expect(access.assertAccessible).toHaveBeenCalledWith(context.principal, 'owner_email_com', 'write')
     expect(repo.insert).toHaveBeenCalledWith('owner_email_com', {
       item: 'Milk', category: 'Dairy', bought: false, added_at: '2026-08-02T10:30:00.000Z',
       raw_text: 'נוסף ידנית', list_name: null, created_by: 'user@example.com', quantity: 2, unit: 'l'

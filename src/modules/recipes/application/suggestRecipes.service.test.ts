@@ -95,7 +95,7 @@ describe('SuggestRecipesService', () => {
     expect(result.warnings[0]).toContain('Using 20 of 203 selected products')
   })
 
-  it('returns a deterministic fallback recipe when the model is unavailable', async () => {
+  it('returns a recoverable error without inventing a fallback when the model is unavailable', async () => {
     const groceries = [grocery(1), grocery(2)]
     const generator: PersonalChefGenerator = {
       invoke: jest.fn(async () => {
@@ -113,7 +113,7 @@ describe('SuggestRecipesService', () => {
       () => 'run-fallback'
     )
 
-    const result = await service.execute(context, {
+    await expect(service.execute(context, {
       listId: 'owner@example_com',
       servings: 2,
       mealType: 'quick_dinner',
@@ -122,13 +122,9 @@ describe('SuggestRecipesService', () => {
         name: entry.item,
         category: entry.category
       }))
-    })
+    })).rejects.toMatchObject({ code: 'unavailable' })
 
-    expect(result.runId).toBe('run-fallback')
-    expect(result.recipes).toHaveLength(1)
-    expect(result.recipes[0].source.model).toBe('deterministic-local')
-    expect(result.warnings).toContain(
-      'Chef AI was unavailable, so a local fallback suggestion was used.'
-    )
+    expect(generator.invoke).toHaveBeenCalledTimes(1)
+
   })
 })

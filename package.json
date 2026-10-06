@@ -18,7 +18,15 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "architecture:check": "node scripts/check-architecture.mjs",
-    "test:architecture": "node --test scripts/check-architecture.test.mjs"
+    "test:architecture": "node --test scripts/check-architecture.test.mjs",
+    "demo:check": "node scripts/check-demo-config.mjs",
+    "test:demo-config": "node --test scripts/check-demo-config.test.mjs scripts/demo-server-safety.test.mjs",
+    "demo:dev": "node scripts/run-demo.mjs",
+    "demo:build": "node scripts/build-demo.mjs",
+    "test:demo-build": "node --test scripts/demo-build-network.test.mjs",
+    "demo:emulators": "firebase emulators:start --project demo-fridge-list --config firebase.demo.json --only auth,database,firestore",
+    "demo:seed": "node scripts/demo-seed.mjs",
+    "demo:smoke": "node scripts/demo-smoke.mjs"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",

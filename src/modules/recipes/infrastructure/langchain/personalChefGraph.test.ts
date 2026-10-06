@@ -35,28 +35,32 @@ const input = {
   ]
 }
 
+const demoInput = { ...input, products: [input.products[1]] }
+const weightedInput = { ...input, products: input.products.map((product) => ({ ...product, quantity: 200, unit: 'g' })) }
+const weightedDemoInput = { ...demoInput, products: demoInput.products.map((product) => ({ ...product, quantity: 200, unit: 'g' })) }
+
 describe('personalChefGraph', () => {
   it('returns deterministic local recipes without network access', async () => {
     await expect(
-      personalChefGraph(createDeterministicChefGenerator())(input)
+      personalChefGraph(createDeterministicChefGenerator())(demoInput)
     ).resolves.toMatchObject({
       runId: 'run-1',
       recipes: [
         {
           servings: 2,
           mealType: 'quick_dinner',
-          selectedProducts: input.products,
+          selectedProducts: demoInput.products,
           nutrition: {
-            calories: expect.any(Number),
-            proteinGrams: expect.any(Number),
-            fatGrams: expect.any(Number)
+            calories: null,
+            proteinGrams: null,
+            fatGrams: null
           },
           image: {
-            url: expect.stringContaining('https://source.unsplash.com/featured/900x600/?')
+            url: null
           }
         }
       ],
-      warnings: []
+      warnings: expect.arrayContaining(['Nutrition is unavailable without explicit ingredient weights.'])
     })
   })
 
@@ -154,7 +158,7 @@ describe('personalChefGraph', () => {
         {
           title: 'Egg and tomato skillet',
           image: {
-            url: expect.stringContaining('https://source.unsplash.com/featured/900x600/?')
+            url: null
           },
           selectedProducts: input.products,
           ingredients: [
@@ -162,9 +166,9 @@ describe('personalChefGraph', () => {
             { name: 'tomatoes', quantity: '4', fromSelectedProducts: true }
           ],
           nutrition: {
-            calories: expect.any(Number),
-            proteinGrams: expect.any(Number),
-            fatGrams: expect.any(Number)
+            calories: null,
+            proteinGrams: null,
+            fatGrams: null
           }
         }
       ]
@@ -227,7 +231,7 @@ describe('personalChefGraph', () => {
       personalChefGraph(
         createJsonTextChefGenerator(recipeModel),
         createJsonTextNutritionEstimator(nutritionModel)
-      )(input)
+      )(weightedInput)
     ).resolves.toMatchObject({
       recipes: [
         {
@@ -243,7 +247,7 @@ describe('personalChefGraph', () => {
     })
   })
 
-  it('uses local nutrition estimates when the nutrition node fails', async () => {
+  it('keeps nutrition unknown when enrichment fails', async () => {
     const nutritionEstimator: PersonalChefNutritionEstimator = {
       async invoke() {
         throw new PersonalChefModelError(new Error('nutrition unavailable'))
@@ -254,20 +258,78 @@ describe('personalChefGraph', () => {
       personalChefGraph(
         createDeterministicChefGenerator(),
         nutritionEstimator
-      )(input)
+      )(weightedDemoInput)
     ).resolves.toMatchObject({
       recipes: [
         {
           nutrition: {
-            calories: expect.any(Number),
-            proteinGrams: expect.any(Number),
-            fatGrams: expect.any(Number)
+            calories: null,
+            proteinGrams: null,
+            fatGrams: null
           }
         }
       ],
       warnings: expect.arrayContaining([
-        'Nutrition AI was unavailable, so local nutrition estimates were used.'
+        'Nutrition estimates are unavailable; no values were invented.'
       ])
     })
   })
+})
+
+
+describe('chef execution budget', () => {
+  it('aborts a hanging provider and returns a bounded unavailable error', async () => {
+    let signal: AbortSignal | undefined
+    const invoke = jest.fn((request) => {
+      signal = request.signal
+      return new Promise<never>(() => {})
+    })
+    await expect(personalChefGraph({ invoke }, undefined, { timeoutMs: 25 })(input))
+      .rejects.toMatchObject({ code: 'unavailable' })
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(signal?.aborted).toBe(true)
+  })
+
+  it('does not call a provider for an already cancelled request', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const invoke = jest.fn()
+    await expect(personalChefGraph({ invoke }, undefined, { signal: controller.signal })(input))
+      .rejects.toMatchObject({ code: 'unavailable' })
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('passes no implicit pantry items and calls each provider at most once', async () => {
+    const local = createDeterministicChefGenerator()
+    const invoke = jest.fn(local.invoke)
+    const nutrition = jest.fn(async () => ({ estimates: [{ recipeId: 'recipe-1', nutrition: { calories: null, proteinGrams: null, fatGrams: null } }], warnings: [] }))
+    await personalChefGraph({ invoke }, { invoke: nutrition })(weightedDemoInput)
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(invoke.mock.calls[0][0].pantryBasics).toEqual([])
+    expect(nutrition).toHaveBeenCalledTimes(1)
+  })
+})
+
+it.each(['bleach', 'raw chicken', 'eggs', 'unknown ingredient', 'אקונומיקה', 'בשר נא'])(
+  'does not turn unsupported demo product %s into cooking instructions', async (name) => {
+    await expect(personalChefGraph(createDeterministicChefGenerator())({
+      ...demoInput, products: [{ groceryKey: 'unsafe', name, category: 'Vegetables' }]
+    })).rejects.toMatchObject({ code: 'invalid_input' })
+  }
+)
+
+it('does not call nutrition enrichment for ambiguous piece units', async () => {
+  const invoke = jest.fn()
+  const result = await personalChefGraph(createDeterministicChefGenerator(), { invoke })(demoInput)
+  expect(invoke).not.toHaveBeenCalled()
+  expect(result.recipes[0].nutrition).toMatchObject({ calories: null, estimateSource: 'unavailable' })
+})
+
+it('discards nutrition estimates with unknown recipe IDs', async () => {
+  const invoke = jest.fn(async () => ({
+    estimates: [{ recipeId: 'wrong-id', nutrition: { calories: 500, proteinGrams: 10, fatGrams: 10 } }], warnings: []
+  }))
+  const result = await personalChefGraph(createDeterministicChefGenerator(), { invoke })(weightedDemoInput)
+  expect(result.recipes[0].nutrition).toMatchObject({ calories: null, estimateSource: 'unavailable' })
+  expect(result.warnings).toContain('Nutrition estimates are unavailable; no values were invented.')
 })

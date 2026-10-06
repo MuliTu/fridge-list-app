@@ -1,18 +1,18 @@
 import { ApplicationError, type UserPrincipal } from '../../shared'
 import type { UserTokenVerifier } from './tokenVerifier'
 
-const isDevBypassActive = (): boolean =>
-  process.env.NODE_ENV !== 'production' && process.env.VITE_DEV_AUTH_BYPASS === 'true'
-
 export class AuthenticateUserService {
-  constructor(private readonly tokenVerifier: UserTokenVerifier) {}
+  constructor(
+    private readonly tokenVerifier: UserTokenVerifier,
+    private readonly developmentIdentity: { email: string } | null = null
+  ) {}
 
   async execute(authorizationHeader: string | null): Promise<UserPrincipal> {
-    if (isDevBypassActive()) {
+    if (this.developmentIdentity) {
       return {
         kind: 'user',
         uid: 'dev-bypass',
-        email: process.env.VITE_DEV_AUTH_EMAIL || 'dev@example.com',
+        email: this.developmentIdentity.email,
         emailVerified: true
       }
     }

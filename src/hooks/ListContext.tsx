@@ -14,14 +14,14 @@ import { createGroceryApiClient } from '../client/api/groceries'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useAuth } from './AuthContext'
 import type { AuthUser, UserList } from '../types'
-import { normalizeName } from '../lib/normalizeName'
+import { DEMO_CLIENT_MODE } from '../lib/demoRuntime'
 
 const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
 // MM19's list-membership adapter is the final runtime dependency for server
 // grocery commands. This build-time switch supports a safe staged rollout and
 // immediate rollback while the realtime Firebase read projection remains intact.
 const GROCERY_COMMAND_API_ENABLED =
-  import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
+  DEMO_CLIENT_MODE || import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
 
 type ActiveListApi = Omit<ListApi, 'addGroceryItem'> & {
   addGroceryItem(
@@ -289,55 +289,16 @@ export function ListProvider({ children }: { children: ReactNode }) {
             imageFile?: File | null
             quantity?: number | null
             unit?: string | null
-          },
-          mutationUser?: AuthUser | null
+          }
         ) => {
-          if (details.imageFile) return legacy.saveItemDetails(key, details, mutationUser)
-          const previous = details.name == null
-            ? null
-            : (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
+          if (details.imageFile) throw new Error('Image uploads are unavailable for server grocery commands')
           await commands.update(resolvedActiveListId, key, details)
-          if (
-            details.name != null &&
-            previous &&
-            normalizeName(previous.item) !== normalizeName(details.name)
-          ) {
-            await legacy.recordListChange({
-              type: 'renamed',
-              itemKey: key,
-              itemName: details.name,
-              previousName: previous.item,
-              listName: previous.list_name ?? null,
-              changedBy: mutationUser?.email ?? null
-            })
-          }
         },
-        updateGroceryItemName: async (key: string, name: string, mutationUser?: AuthUser | null) => {
-          const entry = (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
-          if (!entry || normalizeName(entry.item) === normalizeName(name)) return
-          await commands.update(resolvedActiveListId, key, { name })
-          await legacy.recordListChange({
-            type: 'renamed',
-            itemKey: key,
-            itemName: name,
-            previousName: entry.item,
-            listName: entry.list_name ?? null,
-            changedBy: mutationUser?.email ?? null
-          })
-        },
-        deleteItem: async (key: string, imageRef?: string | null, mutationUser?: AuthUser | null) => {
-          if (imageRef) return legacy.deleteItem(key, imageRef, mutationUser)
-          const entry = (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
+        updateGroceryItemName: (key: string, name: string) =>
+          commands.update(resolvedActiveListId, key, { name }),
+        deleteItem: async (key: string, imageRef?: string | null) => {
+          if (imageRef) throw new Error('Deleting items with stored images is not available yet')
           await commands.delete(resolvedActiveListId, key)
-          if (entry) {
-            await legacy.recordListChange({
-              type: 'removed',
-              itemKey: key,
-              itemName: entry.item,
-              listName: entry.list_name ?? null,
-              changedBy: mutationUser?.email ?? null
-            })
-          }
         },
         addGroceryItem: async (
           item: {
@@ -350,13 +311,6 @@ export function ListProvider({ children }: { children: ReactNode }) {
           mutationUser?: AuthUser | null
         ) => {
           const created = await commands.add(resolvedActiveListId, { ...item, listName })
-          await legacy.recordListChange({
-            type: 'added',
-            itemKey: created.key,
-            itemName: item.name,
-            listName,
-            changedBy: mutationUser?.email ?? null
-          })
           return created
         }
       }

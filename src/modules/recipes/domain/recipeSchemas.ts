@@ -21,6 +21,7 @@ export const recipeProductSchema = z.object({
 })
 
 export const recipeIngredientSchema = z.object({
+  groceryKey: z.string().trim().min(1).max(200).optional(),
   name: z.string().trim().min(1).max(120),
   quantity: z.string().trim().min(1).max(80).nullable(),
   fromSelectedProducts: z.boolean(),
@@ -28,6 +29,8 @@ export const recipeIngredientSchema = z.object({
 })
 
 export const recipeNutritionSchema = z.object({
+  estimateSource: z.enum(['model', 'unavailable']).optional(),
+  estimateBasis: z.literal('selected-weights-per-serving').optional(),
   calories: z.number().finite().nonnegative().max(10_000).nullable(),
   proteinGrams: z.number().finite().nonnegative().max(1_000).nullable(),
   fatGrams: z.number().finite().nonnegative().max(1_000).nullable(),
@@ -85,6 +88,7 @@ export const recipeRecordSchema = recipeCandidateSchema.omit({ id: true }).exten
 })
 
 export const saveRecipeInputSchema = z.object({
+  operationId: z.string().uuid(),
   listId: z.string().trim().min(1).max(200),
   recipe: recipeCandidateSchema
 })

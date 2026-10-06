@@ -54,7 +54,29 @@ describe('recipe guardrails', () => {
     expect(() => applyRecipeGuardrails([recipe('מלח')], products)).toThrow(ApplicationError)
   })
 
+  it('rejects compound ingredient names that smuggle in unselected products', () => {
+    expect(() => applyRecipeGuardrails([recipe('eggs with butter')], products)).toThrow(ApplicationError)
+  })
+
   it('rejects other ingredients that were not selected', () => {
     expect(() => applyRecipeGuardrails([recipe('chicken')], products)).toThrow(ApplicationError)
   })
+})
+
+it('binds an accepted ingredient to the authoritative grocery key', () => {
+  expect(applyRecipeGuardrails([recipe('eggs')], products)[0].ingredients[0].groceryKey).toBe('-eggs')
+})
+
+it('rejects a forged key even when the ingredient name matches', () => {
+  const candidate = recipe('eggs')
+  candidate.ingredients[0].groceryKey = 'forged'
+  expect(() => applyRecipeGuardrails([candidate], products)).toThrow(ApplicationError)
+})
+
+it('requires an explicit key to disambiguate equal product names', () => {
+  const duplicated = [...products, { ...products[0], groceryKey: 'second' }]
+  expect(() => applyRecipeGuardrails([recipe('eggs')], duplicated)).toThrow(ApplicationError)
+  const candidate = recipe('eggs')
+  candidate.ingredients[0].groceryKey = 'second'
+  expect(applyRecipeGuardrails([candidate], duplicated)[0].ingredients[0].groceryKey).toBe('second')
 })

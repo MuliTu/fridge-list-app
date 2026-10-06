@@ -111,6 +111,23 @@ function ShoppingListPage() {
   )
 
   useEffect(() => {
+    let cancelled = false
+    setChefSuggestions([])
+    setChefSuggestionsOpen(false)
+    if (user && listApi?.getPendingRecipeSaves) {
+      listApi.getPendingRecipeSaves().then((recipes) => {
+        if (cancelled || !recipes.length) return
+        setChefSuggestions(recipes)
+        setChefSuggestionsOpen(true)
+        setChefSaveError(t('shoppingList:chef.pendingSave'))
+      }).catch(() => {
+        if (!cancelled) setChefSaveError(t('shoppingList:chef.restoreFailed'))
+      })
+    }
+    return () => { cancelled = true }
+  }, [user, listApi, t])
+
+  useEffect(() => {
     for (const entry of visibleEntries) {
       if (!entry.bought) {
         pendingItemNamesRef.current.delete(

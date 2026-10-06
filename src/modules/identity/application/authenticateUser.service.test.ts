@@ -43,13 +43,19 @@ describe('AuthenticateUserService', () => {
     process.env.VITE_DEV_AUTH_EMAIL = 'dev@example.com'
     const verifier = createVerifier()
 
-    await expect(new AuthenticateUserService(verifier).execute(null)).resolves.toEqual({
+    await expect(new AuthenticateUserService(verifier, { email: 'dev@example.com' }).execute(null)).resolves.toEqual({
       kind: 'user',
       uid: 'dev-bypass',
       email: 'dev@example.com',
       emailVerified: true
     })
     expect(verifier.verifyIdToken).not.toHaveBeenCalled()
+  })
+
+  it('ignores ambient bypass flags unless a development identity is injected', async () => {
+    process.env.VITE_DEV_AUTH_BYPASS = 'true'
+    await expect(new AuthenticateUserService(createVerifier()).execute(null))
+      .rejects.toMatchObject({ code: 'unauthenticated' })
   })
 
   it.each([null, '', 'Basic value', 'Bearer '])('rejects a missing or malformed header: %p', async (header) => {

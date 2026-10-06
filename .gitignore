@@ -13,6 +13,7 @@ playwright-report
 # LangGraph API
 .langgraph_api
 .env*
+!.env.demo.example
 
 # Local analysis and generated media
 /graphify-out/
@@ -21,3 +22,9 @@ playwright-report
 
 # Machine-specific assistant tooling
 .claude/mcp.json
+
+# Isolated build verification artifacts
+/dist-demo/
+
+# Local-only recoverable originals; never force-add this directory
+/.local-private/

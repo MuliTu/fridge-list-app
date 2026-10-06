@@ -3,7 +3,6 @@
 jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
 
 import {
-  CATEGORIZE_ITEM_WEBHOOK_URL,
   N8nCategorizationProvider
 } from './n8nCategorizationProvider.server'
 
@@ -16,10 +15,10 @@ describe('N8nCategorizationProvider', () => {
       ]
     }))
 
-    await expect(new N8nCategorizationProvider(fetchMock).categorize('חלב')).resolves.toEqual({
+    await expect(new N8nCategorizationProvider('https://workflow.example.test/hook', fetchMock).categorize('חלב')).resolves.toEqual({
       items: [{ item: 'חלב', category: 'מוצרי חלב' }]
     })
-    expect(fetchMock).toHaveBeenCalledWith(CATEGORIZE_ITEM_WEBHOOK_URL, {
+    expect(fetchMock).toHaveBeenCalledWith('https://workflow.example.test/hook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: 'חלב' })
@@ -32,8 +31,14 @@ describe('N8nCategorizationProvider', () => {
     jest.fn().mockResolvedValue(new Response('not-json')),
     jest.fn().mockResolvedValue(Response.json({ unexpected: true }))
   ])('maps provider failure without exposing its payload', async (fetchMock) => {
-    await expect(new N8nCategorizationProvider(fetchMock).categorize('milk')).rejects.toEqual(
+    await expect(new N8nCategorizationProvider('https://workflow.example.test/hook', fetchMock).categorize('milk')).rejects.toEqual(
       expect.objectContaining({ code: 'upstream_failed' })
     )
   })
+})
+
+it.each([undefined, '', 'http://workflow.example.test/hook', 'https://user:password@workflow.example.test/hook'])('rejects unavailable configuration without fetching (%s)', async (endpoint) => {
+  const fetchMock = jest.fn()
+  await expect(new N8nCategorizationProvider(endpoint, fetchMock).categorize('milk')).rejects.toEqual(expect.objectContaining({ code: 'unavailable' }))
+  expect(fetchMock).not.toHaveBeenCalled()
 })

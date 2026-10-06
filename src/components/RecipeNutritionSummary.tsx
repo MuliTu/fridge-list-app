@@ -39,7 +39,9 @@ export function RecipeNutritionSummary({ nutrition }: RecipeNutritionSummaryProp
   ]
 
   const visibleValues = values.filter((item) => item.value)
-  if (visibleValues.length === 0) return null
+  if (visibleValues.length === 0 || nutrition?.estimateSource !== 'model' || nutrition?.estimateBasis !== 'selected-weights-per-serving') {
+    return <p className="recipe-nutrition">{t('nutrition.unavailable')}</p>
+  }
 
   return (
     <section className="recipe-nutrition" aria-label={t('nutrition.title')}>
@@ -52,7 +54,7 @@ export function RecipeNutritionSummary({ nutrition }: RecipeNutritionSummaryProp
           </span>
         ))}
       </div>
-      <p>{t('nutrition.perServing')}</p>
+      <p>{t('nutrition.modelEstimate')}</p>
     </section>
   )
 }

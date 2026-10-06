@@ -1,125 +1,68 @@
-# Family Grocery List — Siri → n8n → Firebase
+# Fridge
 
-A shared, voice-driven shopping list for the family. Anyone can add items by talking to
-Siri in Hebrew; an AI step figures out what's actually groceries (vs. small talk),
-sorts each item into a category, and the whole household sees a live-updating list on
-a fridge tablet.
+A Hebrew/English household grocery app with inventory-grounded recipe suggestions.
+Built with React, TypeScript, TanStack Start, Firebase and a LangGraph recipe workflow.
 
-## How it works
+The flagship journey is deliberately small: manage a shared grocery list, mark items
+purchased, select available ingredients, review suggestions, then explicitly save a
+recipe. AI proposes content; deterministic code enforces access, selected inventory,
+output shape, time budgets and idempotent persistence.
 
-1. **Say it to Siri** — e.g. "תוסיף חלב, ביצים ולחם" ("add milk, eggs and bread").
-   An iOS Shortcut dictates your speech and sends it to an n8n webhook.
-2. **Gemini extracts and categorizes** — it pulls out only the actual shopping items
-   (ignoring reminders, small talk, etc.) and assigns each one a category (vegetables,
-   dairy, cleaning supplies, and so on — 17 categories total).
-3. **Smart de-duplication** — if an item is already on the list and not yet bought,
-   it won't be added twice. If it was already checked off as bought, adding it again
-   un-checks it (so "we need milk again" doesn't get lost behind an old checkmark).
-4. **Firebase stores the list** in real time.
-5. **The web app** (this repo) displays it, grouped by category, on any screen —
-   a tablet stuck on the fridge works great. Checking an item off syncs instantly to
-   every other device looking at the list.
+## Try the isolated demo
 
-## Running the web app
+Follow the [verified setup guide](docs/demo-setup.md) for prerequisites, synthetic
+configuration, local Firebase emulators, seeding and startup. It uses curated offline
+recipes without provider credentials or real household data. Do not substitute a
+personal Firebase project for the demo project.
 
-Requires [Node.js](https://nodejs.org/) 22.12 or newer.
+The isolated build uses `npm run demo:build` and writes ignored `dist-demo/` artifacts.
+TanStack Start API features require a server runtime; serving a static `dist/` folder
+is insufficient. Production runtime and deployment validation remain open.
 
-```bash
-npm install
-npm run dev
-```
+## What is verified
 
-Open the URL it prints (typically `http://localhost:5173`).
+| Capability | Evidence and limits |
+| --- | --- |
+| Grocery commands and household roles | Local API/emulator role and replay checks pass; complete browser journey pending |
+| Recipe grounding and bounded generation | Local guards, deadlines and synthetic evaluations pass; live-model quality unverified |
+| Explicit recipe save | Atomic replay/conflict and scoped draft recovery tests pass; full browser reload/sign-out check pending |
+| Nutrition | Unknown stays unknown; enrichment is opt-in with weights and provenance; live accuracy unverified |
+| Siri/n8n, receipts, assistant, feedback | Existing optional code; disabled in isolated demo and not production-validated here |
+| Build and setup | Isolated build and clean-install working-tree snapshot pass; not a fresh clone of published changes |
+| Accessibility and release | Full Hebrew/English, responsive, keyboard and browser e2e gates remain open |
 
-### AI assistant
+See [dated verification evidence](docs/plans/flagship-progress.md) and
+[remaining tasks](docs/specs/tasks-flagship-readiness.md). Local tests do not establish
+production readiness. Current changes have not been published.
 
-The menu's AI section uses LangGraph and LangChain with Gemini to summarize recent
-list activity, propose next steps or a new list, and review the current list for
-duplicates and overly specific product names. The app retrieves a small, structured
-context from Firebase (current items, recent list changes, recent purchases, and
-categories), filters quick add/remove corrections locally, and sends that context to
-Gemini. Suggested writes are shown for review and require confirmation.
+## Architecture and tradeoffs
 
-Configure the Gemini key only in the server environment; never expose it through a
-`VITE_` variable:
+Server module contracts separate application behavior from Firebase/provider adapters.
+Browser-safe exports live in module `index.ts` files; server composition uses `server.ts`.
+Firebase Admin authorization checks approved UID membership independently of client rules.
 
-```bash
-GOOGLE_API_KEY=your-gemini-api-key
-# Optional; defaults to gemini-2.5-flash
-AI_LIST_MODEL=gemini-2.5-flash
-```
+The recipe graph uses bounded selected inventory, rather than a vector database: exact
+household records are sufficient for this scope. Nutrition is a separate optional step.
+Real-provider failure is recoverable; offline suggestions are explicitly curated.
+Recipe saves bind an operation ID to the actor, list and validated payload in one atomic
+record. See the [save decision](docs/plans/recipe-save-idempotency-decision.md) and
+[fallback decision](docs/plans/chef-fallback-decision.md) for tradeoffs and limitations.
 
-The current structured retrieval is the app's RAG layer. It intentionally does not
-need a vector database yet: exact list records and bounded time windows are more
-reliable for this household-sized dataset. A vector index can be added later for a
-large product catalog, receipt corpus, or household preference documents.
+## Development map
 
-To deploy it somewhere permanent (e.g. a fridge tablet or a home server):
+| Location | Responsibility |
+| --- | --- |
+| `src/routes/` | Pages and API adapters |
+| `src/modules/` | Feature contracts, application services and infrastructure |
+| `src/client/api/` | Same-origin browser API clients |
+| `src/components/`, `src/hooks/` | UI, contexts and feature hooks |
+| `src/i18n/` | Hebrew and English translations |
+| `scripts/` | Isolated setup, build and architecture checks |
+| `docs/` | Specs, plans, decisions and verification evidence |
 
-```bash
-npm run build      # builds into dist/
-npx serve dist      # or any static file host
-```
-
-> **Note:** don't just double-click `index.html` to open it — it needs to be served
-> over `http://` or `https://`, not opened directly from disk (`file://`), or the
-> Firebase connection won't load.
-
-## Setting up the Siri Shortcut
-
-1. Shortcuts app → new shortcut → add **Dictate Text**.
-2. Add **Get Contents of URL**:
-   - URL: the n8n webhook (ask whoever set this up for the current one — see the
-     "known issue" below about it changing).
-   - Method: POST
-   - Headers: `Content-Type: application/json`
-   - Request Body (JSON): `{"text": "Dictated Text", "person": "Muli"}` — set `person`
-     to whoever owns *this* phone (hardcode their name in each person's own copy of the
-     Shortcut, don't make it dynamic). This is what lets the web app show "added by
-     Muli" instead of just "Siri" for items added by voice. Optional — if you skip it,
-     everything still works exactly as before, items just show as added by "Siri" with
-     no individual attribution.
-3. Add **Get Dictionary from Input** → **Get Dictionary Value** for key `response`.
-4. Add **Speak Text** using that value.
-5. Name the shortcut something like "תוסיף למכולת" and say "Hey Siri, [name]".
-6. **If more than one person uses this**: each family member should have their own
-   copy of the Shortcut on their own phone, with their own name hardcoded in step 2 —
-   that's the only way n8n can tell who said what, since Siri itself doesn't identify
-   the speaker to the Shortcut.
-
-## Known issue: the webhook URL isn't permanent
-
-The n8n instance is currently exposed via a free ngrok tunnel, which means the URL can
-change if it restarts. If Siri suddenly stops working, that's the most likely reason —
-check with whoever manages the n8n instance for the current URL. A more permanent
-solution (Cloudflare Tunnel or Tailscale Funnel) is on the list of future improvements.
-
-## Project structure
-
-```text
-src/routes/          TanStack Start pages and API route adapters
-src/components/      Reusable React UI components
-src/components/ui/   shadcn/Radix design-system primitives used by the app
-src/hooks/           React contexts and feature hooks
-src/client/api/      Browser-safe wrappers for same-origin API calls
-src/lib/             Shared client-safe utilities and Firebase helpers
-src/modules/         Server-side feature modules with application/infrastructure layers
-src/i18n/            Hebrew and English translation resources
-src/test/            Shared Jest test setup and mocks
-e2e/                 Playwright end-to-end tests
-scripts/             Build, deploy, and architecture-check scripts
-docs/                Architecture notes, specs, and implementation plans
-public/              Static app assets, icons, manifest, and service worker
-```
-
-The server module boundary is intentional: browser-safe contracts are exported from
-`src/modules/<module>/index.ts`, server-only composition from
-`src/modules/<module>/server.ts`, and provider SDKs stay in infrastructure adapters.
-Run `npm run architecture:check` before larger backend changes to catch accidental
-cross-module or client/server boundary leaks.
-
-## For developers / AI assistants picking this up
-
-Start with `CLAUDE.md` for operational project context and current product behavior.
-Use `docs/README.md` as the index for durable architecture docs, specs, audits, and
-implementation plans.
+Start with the [contributor guide](CLAUDE.md) and [documentation index](docs/README.md).
+The [spec](docs/specs/spec-flagship-readiness.md) leads to a
+[phased plan](docs/plans/plan-flagship-readiness.md) and
+[small reviewable tasks](docs/specs/tasks-flagship-readiness.md).
+Optional webhook configuration and separate approval gates are documented in the
+[external remediation proposal](docs/plans/external-remediation-proposal.md).

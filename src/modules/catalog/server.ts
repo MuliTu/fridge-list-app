@@ -1,7 +1,6 @@
 import '@tanstack/react-start/server-only'
 
 export {
-  CATEGORIZE_ITEM_WEBHOOK_URL,
   N8nCategorizationProvider
 } from './infrastructure/n8nCategorizationProvider.server'
 export {

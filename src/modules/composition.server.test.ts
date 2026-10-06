@@ -2,6 +2,10 @@
 
 jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
 
+import * as identityServer from './identity/server'
+import * as groceryServer from './groceries/server'
+import * as recipeServer from './recipes/server'
+
 import { ServerComposition, type ServerEnvironment } from './composition.server'
 
 const serviceAccount = JSON.stringify({
@@ -28,25 +32,24 @@ describe('ServerComposition', () => {
     expect(second.service).toBe(first.service)
   })
 
-  it('fails browser grocery commands closed until MM19 supplies list authorization', async () => {
-    const composition = new ServerComposition({ environment: completeEnvironment })
-    const context = {
-      principal: {
-        kind: 'user' as const,
-        uid: 'user-1',
-        email: 'user@example.test',
-        emailVerified: true
-      },
-      requestId: 'request-1',
-      now: new Date('2026-08-02T12:00:00.000Z')
+  it('wires grocery commands through the shared Admin app and write authorization', async () => {
+    const app = {} as any
+    const insert = jest.fn().mockResolvedValue('key')
+    const assertAccessible = jest.fn()
+    const appSpy = jest.spyOn(identityServer, 'getFirebaseAdminApp').mockReturnValue(app)
+    const repoSpy = jest.spyOn(groceryServer, 'createFirebaseSdkGroceryRepository').mockReturnValue({ insert } as any)
+    const authSpy = jest.spyOn(recipeServer, 'createFirebaseAdminListAuthorizationRepository').mockReturnValue({ assertAccessible } as any)
+    try {
+      const composition = new ServerComposition({ environment: completeEnvironment })
+      const principal = { kind: 'user' as const, uid: 'user-1', email: null, emailVerified: true }
+      await expect(composition.getGroceryCommandService().add({ principal, requestId: 'r', now: new Date() }, 'list-1', {
+        name: 'Milk', category: 'Dairy'
+      })).resolves.toEqual({ key: 'key' })
+      expect(assertAccessible).toHaveBeenCalledWith(principal, 'list-1', 'write')
+      expect(repoSpy).toHaveBeenCalledWith(app, completeEnvironment.FIREBASE_DATABASE_URL)
+    } finally {
+      appSpy.mockRestore(); repoSpy.mockRestore(); authSpy.mockRestore()
     }
-
-    await expect(
-      composition.getGroceryCommandService().add(context, 'list-1', {
-        name: 'Milk',
-        category: 'Dairy'
-      })
-    ).rejects.toEqual(expect.objectContaining({ code: 'not_configured' }))
   })
 
   it('constructs and caches releases and observability services', () => {

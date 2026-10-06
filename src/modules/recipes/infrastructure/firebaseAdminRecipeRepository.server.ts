@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 
+import { createHash } from 'node:crypto'
 import type { App } from 'firebase-admin/app'
 import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 
@@ -10,9 +11,6 @@ import type { RecipeRecordInput } from '../domain/recipeSchemas'
 import type { ChefGroceryRepository, RecipeRepository } from '../application/recipeRepository'
 
 const invalidKey = /[.#$/[\]\u0000-\u001f\u007f]/
-
-const sanitizeEmailKey = (email: string): string =>
-  email.trim().toLowerCase().replace(/[.#$[\]]/g, '_')
 
 const key = (value: string, field: string): string => {
   if (!value || value.length > 200 || value.trim() !== value || invalidKey.test(value)) {
@@ -26,11 +24,10 @@ const mapFailure = (message: string, error: unknown): never => {
   throw new ApplicationError('upstream_failed', message, error)
 }
 
-const grantsMembership = (value: unknown): boolean => {
-  if (value === 'pending' || value === 'approved') return true
+const grantsMembership = (value: unknown, access: 'read' | 'write'): boolean => {
   if (value && typeof value === 'object') {
     const status = (value as { status?: unknown }).status
-    return status === 'pending' || status === 'approved'
+    return status === 'approved' && (access === 'read' || (value as { role?: unknown }).role === 'editor')
   }
   return false
 }
@@ -38,32 +35,19 @@ const grantsMembership = (value: unknown): boolean => {
 export class FirebaseAdminListAuthorizationRepository implements ListAuthorizationRepository {
   constructor(private readonly database: Database) {}
 
-  async assertAccessible(principal: AuthenticatedPrincipal, listId: string): Promise<void> {
+  async assertAccessible(principal: AuthenticatedPrincipal, listId: string, access: 'read' | 'write' = 'read'): Promise<void> {
     if (principal.kind !== 'user') {
       throw new ApplicationError('forbidden', 'Only signed-in users can access recipes')
     }
     try {
       const listKey = key(listId, 'listId')
-      const snapshot = await this.database.ref(`users/${listKey}`).get()
-      if (!snapshot.exists()) throw new ApplicationError('not_found', 'List not found')
-      const list = snapshot.val() as
-        | {
-            ownerUid?: unknown
-            members?: Record<string, unknown>
-            invites?: Record<string, unknown>
-          }
-        | null
-
-      const userKey = principal.email ? sanitizeEmailKey(principal.email) : null
-      if (userKey === listKey) return
-      if (list?.ownerUid === principal.uid) return
-      if (grantsMembership(list?.members?.[principal.uid])) return
-      if (userKey && grantsMembership(list?.invites?.[userKey])) return
-
-      if (userKey) {
-        const membershipSnapshot = await this.database.ref(`users/${userKey}/memberOf/${listKey}`).get()
-        if (grantsMembership(membershipSnapshot.val())) return
-      }
+      // Read only the authorization records; household contents never enter this check.
+      const [owner, member] = await Promise.all([
+        this.database.ref(`users/${listKey}/ownerUid`).get(),
+        this.database.ref(`users/${listKey}/members/${key(principal.uid, 'uid')}`).get()
+      ])
+      if (owner.val() === principal.uid) return
+      if (grantsMembership(member.val(), access)) return
 
       throw new ApplicationError('forbidden', 'User cannot access this list')
     } catch (error) {
@@ -75,14 +59,22 @@ export class FirebaseAdminListAuthorizationRepository implements ListAuthorizati
 export class FirebaseAdminRecipeRepository implements RecipeRepository, ChefGroceryRepository {
   constructor(private readonly database: Database) {}
 
-  async insert(listId: string, record: Omit<RecipeRecordInput, 'key'>): Promise<string> {
+  async insert(
+    listId: string,
+    record: Omit<RecipeRecordInput, 'key'>,
+    operation: { uid: string; id: string; intent: unknown }
+  ): Promise<string> {
     try {
-      const reference = this.database.ref(`users/${key(listId, 'listId')}/recipes`).push()
-      if (!reference.key) {
-        throw new ApplicationError('upstream_failed', 'Firebase did not allocate a recipe key')
-      }
-      await reference.set(record)
-      return reference.key
+      const digest = (value: string) => createHash('sha256').update(value).digest('hex')
+      const recipeKey = `saved_${digest(JSON.stringify([operation.uid, operation.id]))}`
+      const fingerprint = digest(JSON.stringify(operation.intent))
+      const reference = this.database.ref(`users/${key(listId, 'listId')}/recipes/${recipeKey}`)
+      const result = await reference.transaction((current) => {
+        if (current === null) return { ...record, saveOperation: { fingerprint, version: 1 } }
+        return current.saveOperation?.fingerprint === fingerprint ? current : undefined
+      })
+      if (!result.committed) throw new ApplicationError('conflict', 'Save operation already belongs to a different recipe')
+      return recipeKey
     } catch (error) {
       return mapFailure('Firebase recipe insert failed', error)
     }

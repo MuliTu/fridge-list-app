@@ -9,3 +9,5 @@ export {
   createGroceryPurchasedPutHandler
 } from './infrastructure/groceryHttp.server'
 export type { GroceryHttpDependencies } from './infrastructure/groceryHttp.server'
+
+export { createFirebaseSdkGroceryRepository } from './infrastructure/firebaseSdkGroceryRepository.server'

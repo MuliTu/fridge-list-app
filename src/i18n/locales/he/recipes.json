@@ -14,7 +14,9 @@
     "fat": "שומן",
     "carbs": "פחמימות",
     "kcalValue": "{{count}} קל׳",
-    "gramsSuffix": " גרם"
+    "gramsSuffix": " גרם",
+    "unavailable": "אין הערכה תזונתית זמינה.",
+    "modelEstimate": "הערכת AI מקורבת למנה, לפי משקלי המרכיבים שנבחרו; אינה מידע תזונתי מאומת."
   },
   "mealTypes": {
     "quick_dinner": "ארוחת ערב מהירה",

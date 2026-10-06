@@ -4,6 +4,7 @@ export type GroceryApiClientOptions = {
 }
 
 export type AddGroceryRequest = {
+  operationId?: string
   name: string
   category: string
   listName?: string | null
@@ -72,12 +73,19 @@ export const createGroceryApiClient = ({
   const item = (listId: string, itemId: string) =>
     `${collection(listId)}/${pathSegment(itemId)}`
 
+  const pendingAdds = new Map<string, string>()
+
   return {
-    add: (listId: string, input: AddGroceryRequest) =>
-      request<{ key: string }>(collection(listId), {
-        method: 'POST',
-        body: JSON.stringify(input)
-      }),
+    add: async (listId: string, input: AddGroceryRequest) => {
+      const intent = JSON.stringify([listId, input])
+      const operationId = input.operationId ?? pendingAdds.get(intent) ?? crypto.randomUUID()
+      pendingAdds.set(intent, operationId)
+      const result = await request<{ key: string }>(collection(listId), {
+        method: 'POST', body: JSON.stringify({ ...input, operationId })
+      })
+      pendingAdds.delete(intent)
+      return result
+    },
     update: (listId: string, itemId: string, input: UpdateGroceryRequest) =>
       request<void>(item(listId, itemId), {
         method: 'PATCH',

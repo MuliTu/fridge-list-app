@@ -5,5 +5,5 @@ import type { AuthenticatedPrincipal } from '../../shared'
  * membership-aware Firebase implementation; grocery commands only consume it.
  */
 export interface ListAuthorizationRepository {
-  assertAccessible(principal: AuthenticatedPrincipal, listId: string): Promise<void>
+  assertAccessible(principal: AuthenticatedPrincipal, listId: string, access?: 'read' | 'write'): Promise<void>
 }

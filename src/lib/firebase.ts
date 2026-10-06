@@ -1,7 +1,9 @@
+import { createRecipeSaveClient, clearPendingRecipeSaves } from '../client/api/recipeSaves'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, onValue, get, push, set, update, remove } from 'firebase/database'
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, type User } from 'firebase/auth'
-import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore'
+import { getDatabase, goOffline, connectDatabaseEmulator, ref, onValue, get, push, set, update, remove } from 'firebase/database'
+import { getAuth, connectAuthEmulator, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore'
+import { DEMO_CLIENT_MODE, demoFirebaseConfig } from './demoRuntime'
 import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from './categories'
 import { logger } from './logger'
 import { normalizeName } from './normalizeName'
@@ -59,7 +61,7 @@ const logClientAction = (legacyMessage: string) => {
     .catch(() => {})
 }
 
-const firebaseConfig = {
+const firebaseConfig = DEMO_CLIENT_MODE ? demoFirebaseConfig : {
   apiKey: 'AIzaSyAcwoGM2xPNBF372qI9kqVsp72kUG-Errs',
   authDomain: 'n8n-vocal-2-db.firebaseapp.com',
   databaseURL: 'https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app',
@@ -71,6 +73,14 @@ const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 const auth = getAuth(app)
 const firestore = getFirestore(app)
+if (DEMO_CLIENT_MODE) {
+  connectDatabaseEmulator(db, '127.0.0.1', 9000)
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectFirestoreEmulator(firestore, '127.0.0.1', 8080)
+}
+// Browser listeners must never keep a server-render/prerender process connected.
+// Server commands use their separate Admin SDK repositories.
+if (typeof window === 'undefined') goOffline(db)
 const googleProvider = new GoogleAuthProvider()
 
 // The 4 server routes that proxy to n8n/Gemini or Trello (scan-receipt,
@@ -135,8 +145,19 @@ const deleteImageDoc = async (collectionName: string, id: string) => {
 
 export { onValue }
 
-export const signIn = () => signInWithPopup(auth, googleProvider)
-export const signOutUser = () => signOut(auth)
+export const signIn = () => {
+  if (DEMO_CLIENT_MODE) {
+    const role = new URLSearchParams(window.location.search).get('demoUser') || 'owner'
+    if (!['owner', 'editor', 'viewer', 'pending', 'outsider'].includes(role)) {
+      return Promise.reject(new Error('Unknown synthetic demo user'))
+    }
+    return signInWithEmailAndPassword(auth, `${role}@example.test`, 'local-demo-only-password')
+  }
+  return signInWithPopup(auth, googleProvider)
+}
+export const signOutUser = async () => {
+  try { clearPendingRecipeSaves(localStorage) } finally { await signOut(auth) }
+}
 export const onAuthChange = (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb)
 
 export const resizeImage = (file: File | Blob, maxDim = 1280, quality = 0.75): Promise<Blob> =>
@@ -1084,19 +1105,17 @@ export function createListApi(ownerEmail: string) {
     }
   }
 
-  const saveRecipe = async (recipe: RecipeCandidate): Promise<{ key: string }> => {
-    const response = await fetch('/api/recipes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-      body: JSON.stringify({
-        listId: sanitizeEmailKey(ownerEmail),
-        recipe: recipeWithDisplayImage(recipe)
-      })
-    })
-    if (!response.ok) throw new Error('recipe save failed (' + response.status + ')')
-    logClientAction(`[recipes] saveRecipe: list=${ownerEmail} title=${recipe.title}`)
-    return response.json()
-  }
+  const recipeSaves = createRecipeSaveClient({
+    identity: async () => {
+      const user = auth.currentUser
+      if (!user) throw new Error('Please sign in before saving a recipe')
+      return { uid: user.uid, token: await user.getIdToken() }
+    },
+    storage: () => localStorage
+  })
+  const saveRecipe = (recipe: RecipeCandidate): Promise<{ key: string }> =>
+    recipeSaves.save(sanitizeEmailKey(ownerEmail), recipe)
+  const getPendingRecipeSaves = () => recipeSaves.pending(sanitizeEmailKey(ownerEmail))
 
   // Defensive one-time seed: only writes if this list's /categories is currently
   // empty, so this never clobbers real edits made after the first run. Every new
@@ -1167,6 +1186,7 @@ export function createListApi(ownerEmail: string) {
     getReceiptPriceHistory,
     suggestRecipes,
     saveRecipe,
+    getPendingRecipeSaves,
     seedCategoriesIfEmpty,
     addCategory,
     updateCategory,
