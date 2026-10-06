@@ -28,3 +28,12 @@ playwright-report
 
 # Local-only recoverable originals; never force-add this directory
 /.local-private/
+
+# Personal agent workflows and workstation settings stay local.
+/.codex/
+/.claude/settings.local.json
+/.claude/launch.json
+/.claude/*.code-workspace
+/.claude/skills/*/
+# Keep the GitNexus project workflow referenced by AGENTS.md reproducible.
+!/.claude/skills/gitnexus-*/

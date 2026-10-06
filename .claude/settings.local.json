@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__n8n-mcp__n8n_health_check",
-      "mcp__n8n-mcp__n8n_get_workflow",
-      "mcp__n8n-mcp__get_node"
-    ]
-  }
-}

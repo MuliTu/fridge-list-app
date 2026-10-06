@@ -33,7 +33,7 @@ is insufficient. Production runtime and deployment validation remain open.
 
 See [dated verification evidence](docs/plans/flagship-progress.md) and
 [remaining tasks](docs/specs/tasks-flagship-readiness.md). Local tests do not establish
-production readiness. Current changes have not been published.
+production readiness. The work is available in [draft PR #68](https://github.com/MuliTu/fridge-list-app/pull/68); remaining gates are documented before merge.
 
 ## Architecture and tradeoffs
 
