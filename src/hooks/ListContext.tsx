@@ -15,14 +15,14 @@ import { createGroceryApiClient } from '../client/api/groceries'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useAuth } from './AuthContext'
 import type { AuthUser, UserList } from '../types'
-import { normalizeName } from '../lib/normalizeName'
+import { DEMO_CLIENT_MODE } from '../lib/demoRuntime'
 
 const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
 // MM19's list-membership adapter is the final runtime dependency for server
 // grocery commands. This build-time switch supports a safe staged rollout and
 // immediate rollback while the realtime Firebase read projection remains intact.
 const GROCERY_COMMAND_API_ENABLED =
-  import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
+  DEMO_CLIENT_MODE || import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
 
 type ActiveListApi = Omit<ListApi, 'addGroceryItem'> & {
   addGroceryItem(
@@ -294,8 +294,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
             imageFile?: File | null
             quantity?: number | null
             unit?: string | null
-          },
-          mutationUser?: AuthUser | null
+          }
         ) => {
           if (details.imageFile) return legacy.saveItemDetails(key, details, mutationUser)
           const previous = details.name == null

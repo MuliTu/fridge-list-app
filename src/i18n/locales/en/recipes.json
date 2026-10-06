@@ -14,7 +14,9 @@
     "fat": "Fat",
     "carbs": "Carbs",
     "kcalValue": "{{count}} kcal",
-    "gramsSuffix": "g"
+    "gramsSuffix": "g",
+    "unavailable": "Nutrition estimate unavailable.",
+    "modelEstimate": "Approximate AI estimate per serving, based on selected ingredient weights; not verified nutritional data."
   },
   "mealTypes": {
     "quick_dinner": "Quick dinner",

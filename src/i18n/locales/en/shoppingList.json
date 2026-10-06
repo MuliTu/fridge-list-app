@@ -132,7 +132,9 @@
     "steps": "Steps",
     "assumedBasics": "Assumed pantry basics",
     "saveRecipe": "Save recipe",
-    "saveFailed": "Recipe save failed"
+    "saveFailed": "Recipe save failed",
+    "pendingSave": "A previous save was not confirmed. Review and press Save to retry safely.",
+    "restoreFailed": "Pending saves could not be restored from this browser."
   },
   "item": {
     "info": "Item details",

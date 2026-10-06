@@ -1,6 +1,5 @@
 import '@tanstack/react-start/server-only'
 
 export {
-  N8nFeedbackProvider,
-  SUBMIT_FEEDBACK_WEBHOOK_URL
+  N8nFeedbackProvider
 } from './infrastructure/n8nFeedbackProvider.server'

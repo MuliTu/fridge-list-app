@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { isChefFoodProduct } from '../../../lib/chefProducts'
 import { ZodError } from 'zod'
 
 import { ApplicationError, type RequestContext } from '../../shared'
@@ -15,7 +15,6 @@ import type {
   PersonalChefNutritionEstimator
 } from '../infrastructure/langchain/personalChefGraph'
 import {
-  createDeterministicChefGenerator,
   createDeterministicNutritionEstimator,
   PersonalChefModelError,
   personalChefGraph
@@ -30,21 +29,20 @@ const normalizeProduct = (product: RecipeProductInput): RecipeProductInput => ({
 })
 
 const MAX_MODEL_PRODUCTS = 20
-const MODEL_FALLBACK_WARNING =
-  'Chef AI was unavailable, so a local fallback suggestion was used.'
 
 export class SuggestRecipesService {
   constructor(
     private readonly groceries: ChefGroceryRepository,
     private readonly authorization: ListAuthorizationRepository,
     private readonly generator: PersonalChefGenerator,
-    private readonly createRunId: () => string = randomUUID,
+    private readonly createRunId: () => string,
     private readonly nutritionEstimator: PersonalChefNutritionEstimator = createDeterministicNutritionEstimator()
   ) {}
 
   async execute(
     context: RequestContext,
-    input: unknown
+    input: unknown,
+    signal?: AbortSignal
   ): Promise<PersonalChefAgentResult> {
     let parsed: SuggestRecipesInput
     try {
@@ -73,6 +71,10 @@ export class SuggestRecipesService {
         'conflict',
         'Some selected products are no longer available'
       )
+    }
+
+    if (liveProducts.some((product) => !isChefFoodProduct(product))) {
+      throw new ApplicationError('invalid_input', 'Only food products may be selected for recipes')
     }
 
     const products = parsed.products.map((product) => {
@@ -104,7 +106,7 @@ export class SuggestRecipesService {
     })
 
     try {
-      const result = await personalChefGraph(this.generator, this.nutritionEstimator)({
+      const result = await personalChefGraph(this.generator, this.nutritionEstimator, { signal })({
         ...parsed,
         products: modelProducts,
         runId
@@ -112,15 +114,7 @@ export class SuggestRecipesService {
       return withWarnings(result)
     } catch (error) {
       if (error instanceof PersonalChefModelError) {
-        const result = await personalChefGraph(
-          createDeterministicChefGenerator(),
-          createDeterministicNutritionEstimator()
-        )({
-          ...parsed,
-          products: modelProducts,
-          runId
-        })
-        return withWarnings(result, [MODEL_FALLBACK_WARNING])
+        throw new ApplicationError('unavailable', 'Recipe suggestions are temporarily unavailable. Please try again.')
       }
       if (error instanceof ZodError) {
         throw new ApplicationError('upstream_failed', 'Personal chef returned invalid recipes', error)

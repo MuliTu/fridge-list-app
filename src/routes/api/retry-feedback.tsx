@@ -1,3 +1,4 @@
+import { configuredWebhook } from '../../lib/configuredWebhook.server'
 import { randomUUID } from 'node:crypto'
 import { createFileRoute } from '@tanstack/react-router'
 import { deriveTicketFromN8nResponse } from '../../lib/deriveTicket'
@@ -31,7 +32,6 @@ import type { FeedbackRecord } from '../../types'
 //
 // Same n8n webhook URL submit-feedback.tsx already uses, reused for consistency — held
 // server-side only here too, never shipped to a browser.
-const FEEDBACK_WEBHOOK_URL = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/feedback'
 
 // Wires the Admin SDK's real (non-modular, namespaced) Realtime Database API into the
 // FeedbackRetryAdapter shape retryEligibleFeedbacks expects — kept as a thin adapter so
@@ -115,7 +115,7 @@ function buildAdapter(): FeedbackRetryAdapter {
 // doesn't need to) whether a given call is the original attempt or a retry.
 const callN8n: N8nFeedbackCaller = async (record) => {
   try {
-    const response = await fetch(FEEDBACK_WEBHOOK_URL, {
+    const response = await fetch(configuredWebhook(process.env.FEEDBACK_WEBHOOK_URL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -179,7 +179,7 @@ const notifyMaintainers: MaintainerNotifier = async (items) => {
     `card before taking any action.\n\n${lines.join('\n')}`
 
   try {
-    const response = await fetch(FEEDBACK_WEBHOOK_URL, {
+    const response = await fetch(configuredWebhook(process.env.FEEDBACK_WEBHOOK_URL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -225,6 +225,10 @@ export const Route = createFileRoute('/api/retry-feedback')({
         if (authHeader !== `Bearer ${cronSecret}`) {
           logger.warn('[retry-feedback] request rejected: missing or invalid CRON_SECRET bearer token')
           return Response.json({ error: true, message: 'unauthorized' }, { status: 401 })
+        }
+
+        try { configuredWebhook(process.env.FEEDBACK_WEBHOOK_URL) } catch {
+          return Response.json({ error: true, message: 'not_configured' }, { status: 503 })
         }
 
         if (!isFirebaseAdminConfigured()) {

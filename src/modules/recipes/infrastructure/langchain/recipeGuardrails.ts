@@ -18,19 +18,26 @@ const isSelectedProductIngredient = (
   if (selectedNames.has(normalized) || selectedNames.has(normalized.replace(/s$/, ''))) {
     return true
   }
-  return Array.from(selectedNames).some(
-    (productName) =>
-      normalized.includes(productName) || productName.includes(normalized)
+  return false
+}
+
+const selectedProductFor = (
+  ingredient: RecipeCandidateInput['ingredients'][number],
+  products: readonly RecipeProductInput[]
+): RecipeProductInput | undefined => {
+  const matches = products.filter((product) =>
+    (!ingredient.groceryKey || ingredient.groceryKey === product.groceryKey) &&
+    isSelectedProductIngredient(ingredient.name, productNameSet([product]))
   )
+  return matches.length === 1 ? matches[0] : undefined
 }
 
 export const assertRecipeUsesOnlySelectedProducts = (
   recipe: RecipeCandidateInput,
   selectedProducts: readonly RecipeProductInput[]
 ): void => {
-  const selectedNames = productNameSet(selectedProducts)
   const missing = recipe.ingredients.filter((ingredient) => {
-    return !isSelectedProductIngredient(ingredient.name, selectedNames)
+    return !selectedProductFor(ingredient, selectedProducts)
   })
 
   if (missing.length > 0) {
@@ -58,10 +65,9 @@ export const applyRecipeGuardrails = (
     selectedProducts: selectedProducts.map((product) => ({ ...product })),
     ingredients: recipe.ingredients.map((ingredient) => ({
       ...ingredient,
+      groceryKey: selectedProductFor(ingredient, selectedProducts)!.groceryKey,
       pantryBasic: false,
-      fromSelectedProducts:
-        ingredient.fromSelectedProducts ||
-        isSelectedProductIngredient(ingredient.name, productNameSet(selectedProducts))
+      fromSelectedProducts: true
     }))
   }))
 }

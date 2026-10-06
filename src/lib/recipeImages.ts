@@ -11,10 +11,4 @@ const recipePlaceholder = `data:image/svg+xml,${encodeURIComponent(
 export const recipeDisplayImageUrl = (recipe: RecipeWithImageFallback): string =>
   recipe.image.url || recipePlaceholder
 
-export const recipeWithDisplayImage = <T extends RecipeWithImageFallback>(recipe: T): T => ({
-  ...recipe,
-  image: {
-    ...recipe.image,
-    url: recipeDisplayImageUrl(recipe)
-  }
-})
+export const recipeWithDisplayImage = <T extends RecipeWithImageFallback>(recipe: T): T => recipe

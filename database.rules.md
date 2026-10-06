@@ -86,9 +86,9 @@ pending user. Verify:
 10. Admin SDK writes succeed only after the application service independently
     authorizes the principal (tested outside the Rules suite).
 
-Suggested command after adding `@firebase/rules-unit-testing` in the dedicated
-cutover ticket:
-
-```sh
-firebase emulators:exec --only database "npm test -- --runInBand database-rules.emulator.test.ts"
-```
+The current synthetic emulator/API rehearsal is documented in
+[isolated setup](docs/demo-setup.md); use its validated configuration, seed and smoke
+commands. `src/database-rules.test.ts` alone is not proof of emulator enforcement.
+There is no `database-rules.emulator.test.ts` suite in this checkout. The acceptance
+matrix above remains the production cutover gate; local demo checks cover a subset
+and do not authorize deployment or a household migration.

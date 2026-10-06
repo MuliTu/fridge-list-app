@@ -12,6 +12,8 @@
  * so firebaseAdmin.server.ts is mocked wholesale here rather than faking firebase-admin's
  * real transaction API.
  */
+jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
+
 const isFirebaseAdminConfiguredMock = jest.fn()
 const getAdminDatabaseMock = jest.fn()
 
@@ -60,7 +62,22 @@ function makeFakeDb(records: Record<string, any>) {
 describe('GET /api/retry-feedback', () => {
   const originalCronSecret = process.env.CRON_SECRET
 
+  const previousEndpoint = process.env.FEEDBACK_WEBHOOK_URL
+  afterAll(() => {
+    if (previousEndpoint === undefined) delete process.env.FEEDBACK_WEBHOOK_URL
+    else process.env.FEEDBACK_WEBHOOK_URL = previousEndpoint
+  })
+
+  it('disables an unconfigured workflow before network or database work', async () => {
+    delete process.env.FEEDBACK_WEBHOOK_URL
+    const response = await callGet({ authorization: `Bearer ${CRON_SECRET}` })
+    expect(response.status).toBe(503)
+    expect(getAdminDatabaseMock).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
+    process.env.FEEDBACK_WEBHOOK_URL = 'https://workflow.example.test/hook'
     process.env.CRON_SECRET = CRON_SECRET
     isFirebaseAdminConfiguredMock.mockReset()
     getAdminDatabaseMock.mockReset()

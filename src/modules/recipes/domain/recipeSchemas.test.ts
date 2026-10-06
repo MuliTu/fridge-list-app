@@ -62,6 +62,7 @@ describe('recipe schemas', () => {
   it('validates save recipe input with list scope', () => {
     expect(
       saveRecipeInputSchema.parse({
+        operationId: '00000000-0000-4000-8000-000000000001',
         listId: 'owner_email_com',
         recipe
       })

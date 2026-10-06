@@ -1,6 +1,11 @@
 # Plan: AI Personal Chef Agent
 
-Spec: `.specs/spec-personal-chef-agent.md`
+> Historical design input. The current [flagship spec](spec-flagship-readiness.md)
+> supersedes pantry assumptions: only explicitly selected purchased ingredients are
+> permitted; no implicit pantry additions. Old task completion is not live validation.
+
+
+Spec: [Chef spec](spec-personal-chef-agent.md)
 Status: Draft implementation plan
 
 ## Phase 0: Confirm Current App Shape

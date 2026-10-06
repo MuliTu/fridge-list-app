@@ -20,3 +20,19 @@ Run these before changing module boundaries or server/client wiring:
 npm run architecture:check
 npm run test:architecture
 ```
+
+## Flagship readiness planning
+
+Local implementation has started; milestone and release gates remain explicit.
+
+- [Product spec and evidence baseline](specs/spec-flagship-readiness.md)
+- [Phased implementation plan](plans/plan-flagship-readiness.md)
+- [Reviewable task backlog](specs/tasks-flagship-readiness.md)
+
+These documents distinguish existing code, verified evidence and planned behavior.
+Earlier feature specs remain useful historical inputs.
+
+- [Execution evidence and task status](plans/flagship-progress.md)
+- [Isolated demo setup status](demo-setup.md)
+
+- [External remediation and endpoint configuration proposal](plans/external-remediation-proposal.md)

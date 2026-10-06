@@ -1,5 +1,10 @@
 # Spec: AI Personal Chef Agent
 
+> Historical design input. The current [flagship spec](spec-flagship-readiness.md)
+> supersedes pantry assumptions: only explicitly selected purchased ingredients are
+> permitted; no implicit pantry additions. Old task completion is not live validation.
+
+
 Status: Draft
 Language: TypeScript
 Frameworks: TanStack Start / React / Firebase / LangGraph

@@ -40,10 +40,10 @@ Never run `git commit` unless the user explicitly asks for it, even mid-way thro
 
 1. Confirm the merge landed: `git fetch origin && git log origin/main -1 --format='%H|%s'` — check the top commit is the expected one (subject usually contains `(#NN)` referencing the PR).
 2. Tag that exact commit: `git tag -a vX.Y.Z <sha> -m vX.Y.Z && git push origin vX.Y.Z`.
-3. Create the release: `gh release create vX.Y.Z --title vX.Y.Z --notes "<notes>"`. Notes follow the same style the old CHANGELOG.md entries used — one concise sentence per bullet under `### Added`/`### Fixed`/etc., saying what shipped, not a paragraph of implementation detail (the "why" lives in `CONVERSATION.md`, deeper reference in `CLAUDE.md`).
+3. Create the release: `gh release create vX.Y.Z --title vX.Y.Z --notes "<notes>"`. Notes follow the same style the old CHANGELOG.md entries used — one concise sentence per bullet under `### Added`/`### Fixed`/etc., saying what shipped, not a paragraph of implementation detail (the rationale lives in `docs/plans/` decision records; contributor guidance is in `CLAUDE.md`).
 4. `gh release list --limit 1` should show the new tag marked `Latest` — if it isn't (e.g. releases were created out of order), pass `--latest` explicitly to `gh release create` or adjust with `gh release edit vX.Y.Z --latest`.
 
-Since this repo's convention is that Codex does not merge its own PRs, this step is usually a distinct follow-up action — either the user says "it's merged, go ahead," or you notice on a later turn that `origin/main` has moved past your branch's base.
+Since this repo's convention is that Claude doesn't merge its own PRs, this step is usually a distinct follow-up action — either the user says "it's merged, go ahead," or you notice on a later turn that `origin/main` has moved past your branch's base.
 
 ## Avoiding version conflicts between parallel PRs
 

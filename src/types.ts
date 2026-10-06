@@ -132,6 +132,7 @@ export interface RecipeProduct {
 }
 
 export interface RecipeIngredient {
+  groceryKey?: string
   name: string
   quantity: string | null
   fromSelectedProducts: boolean
@@ -139,6 +140,8 @@ export interface RecipeIngredient {
 }
 
 export interface RecipeNutrition {
+  estimateSource?: 'model' | 'unavailable'
+  estimateBasis?: 'selected-weights-per-serving'
   calories: number | null
   proteinGrams: number | null
   fatGrams: number | null

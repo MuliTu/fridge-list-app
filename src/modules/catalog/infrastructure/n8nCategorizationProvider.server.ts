@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { configuredWebhook } from '../../../lib/configuredWebhook.server'
 
 import { ApplicationError } from '../../shared'
 import type {
@@ -6,9 +7,6 @@ import type {
   CategorizationResult,
   CategorizedItem
 } from '../application/categorizationProvider'
-
-export const CATEGORIZE_ITEM_WEBHOOK_URL =
-  'https://whiny-idealist-unseen.ngrok-free.dev/webhook/categorize-item'
 
 type Fetch = typeof fetch
 
@@ -21,12 +19,13 @@ const normalizeItem = (value: unknown): CategorizedItem | null => {
 }
 
 export class N8nCategorizationProvider implements CategorizationProvider {
-  constructor(private readonly fetchImpl: Fetch = fetch) {}
+  constructor(private readonly endpoint?: string, private readonly fetchImpl: Fetch = fetch) {}
 
   async categorize(text: string): Promise<CategorizationResult> {
+    const endpoint = configuredWebhook(this.endpoint)
     let response: Response
     try {
-      response = await this.fetchImpl(CATEGORIZE_ITEM_WEBHOOK_URL, {
+      response = await this.fetchImpl(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
