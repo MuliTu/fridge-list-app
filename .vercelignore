@@ -8,6 +8,8 @@
 !scripts
 !scripts/build.mjs
 !scripts/vercel-build.mjs
+!scripts/lib
+!scripts/lib/reconcile-shell-stylesheets.mjs
 !scripts/check-demo-config.mjs
 !scripts/demo-server-safety.mjs
 !demo.config.json
