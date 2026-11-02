@@ -10,3 +10,8 @@ export {
   OTHER_CATEGORY_KEY,
   OTHER_CATEGORY_NAME
 } from './infrastructure/firebaseAdminCatalogCommandRepository.server'
+export {
+  createCategoryCollectionPostHandler,
+  createCategoryItemDeleteHandler,
+  createCategoryItemPatchHandler
+} from './infrastructure/catalogHttp.server'

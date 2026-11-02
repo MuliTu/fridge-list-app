@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useRouterState } from '@tanstack/react-router'
+import { Menu, Leaf } from 'lucide-react'
 import { DirectionProvider } from '@radix-ui/react-direction'
 import { version as appVersion } from '../../package.json'
 import { useTranslation } from 'react-i18next'
@@ -28,14 +29,16 @@ import {
 } from '../hooks/BoughtItemsPreferenceContext'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
 import { cn } from '../lib/utils'
+import { WelcomeScreen } from './WelcomeScreen'
+import { WorkspaceNavigation } from './WorkspaceNavigation'
 
 // Shared Tailwind utility strings for sidebar rows — kept as constants rather than
 // repeating the same long className string at every call site below.
 const sidebarItemClass =
   "flex w-full cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2 py-3 text-start font-['Rubik',sans-serif] text-sm text-foreground hover:bg-accent focus-visible:bg-accent"
-const sidebarItemActiveClass = 'bg-accent shadow-[inset_0_0_0_1px_rgba(244,241,232,0.15)]'
+const sidebarItemActiveClass = 'bg-accent ring-1 ring-border'
 const sidebarSectionLabelClass = 'mx-0.5 mb-0.5 mt-3 text-[11px] text-muted-foreground opacity-80'
-const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-[rgba(244,241,232,0.12)]'
+const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-border'
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation()
@@ -60,19 +63,35 @@ export default function Layout({ children }: { children: ReactNode }) {
 function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   return (
-    <BoughtItemsPreferenceProvider email={user?.email}>
-      {children}
-    </BoughtItemsPreferenceProvider>
+    <BoughtItemsPreferenceProvider email={user?.email}>{children}</BoughtItemsPreferenceProvider>
   )
 }
 
 function LayoutContent({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const currentPage =
+    pathname === '/stock'
+      ? 'stock'
+      : pathname === '/receipts'
+        ? 'receipts'
+        : pathname === '/recipes'
+          ? 'recipes'
+          : 'shoppingList'
   useSyncHtmlLangDir()
   const { user, authResolved, onSignIn, onSignOut, authError } = useAuth()
-  const { myLists, listsResolved, listsError, activeList, setActiveListId, renameActiveList, isOwner, canEdit, canView } =
-    useActiveList()
-  const { status, toast } = useGroceriesFeed()
+  const {
+    myLists,
+    listsResolved,
+    listsError,
+    activeList,
+    setActiveListId,
+    renameActiveList,
+    isOwner,
+    canEdit,
+    canView
+  } = useActiveList()
+  const { status, toast, entries, isLoading } = useGroceriesFeed()
   const { prompt } = useDialogService()
   const [showCategories, setShowCategories] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -84,8 +103,11 @@ function LayoutContent({ children }: { children: ReactNode }) {
   const { categories } = useCategories()
   // Feedback submission is non-blocking: the modal closes on submit and this drives
   // a transient status toast (pending → success/error) that outlives the modal.
-  const { toast: feedbackToast, submit: submitFeedbackRequest, dismiss: dismissFeedbackToast } =
-    useFeedbackToast()
+  const {
+    toast: feedbackToast,
+    submit: submitFeedbackRequest,
+    dismiss: dismissFeedbackToast
+  } = useFeedbackToast()
   const { enabled: stockSuggestionEnabled, toggle: toggleStockSuggestion } = useStockSuggestion()
   const {
     keepBoughtItemsInCategories,
@@ -94,7 +116,11 @@ function LayoutContent({ children }: { children: ReactNode }) {
     toggleBoughtItemsPlacement
   } = useBoughtItemsPreference()
   const { actions: listPickerActions } = useListPickerActions()
-  const { isOpen: onboardingOpen, close: closeOnboarding, replay: replayOnboarding } = useOnboarding(user?.email)
+  const {
+    isOpen: onboardingOpen,
+    close: closeOnboarding,
+    replay: replayOnboarding
+  } = useOnboarding(user?.email)
 
   const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
@@ -122,237 +148,259 @@ function LayoutContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="frame" dir={i18n.dir()}>
-      <header>
-        <div className="user-chip">
-          <button
-            className="icon-btn lang-switch-btn"
-            onClick={() => changeLanguage(otherLanguage)}
-            aria-label={t('language.label')}
-          >
-            {t(`language.${otherLanguage}`)}
-          </button>
-          {user ? (
-            // modal={false}: a fully modal Radix Dialog locks the rest of the page
-            // (document.body gets pointer-events: none, and everything outside the
-            // dialog gets aria-hidden) for as long as it's open — correct for a true
-            // dialog, but it means the hamburger trigger itself becomes unclickable
-            // while the sidebar is open, breaking "tap the hamburger again to close"
-            // (confirmed directly: elementFromPoint at the trigger's own coordinates
-            // resolved to a different element once the lock kicked in). Navigation
-            // drawers are the standard exception to full modality for exactly this
-            // reason — non-modal still gets Escape-to-close and outside-tap-to-close
-            // for free from Radix's own dismissable-layer behavior, it just doesn't
-            // lock the rest of the page.
-            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
-              <SheetTrigger asChild>
-                <button className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
-                  ☰
-                </button>
-              </SheetTrigger>
-              <SheetContent closeLabel={t('actions.close')} hideClose>
-                <SheetHeader>
-                  <SheetTitle>{t('menu.button')}</SheetTitle>
-                </SheetHeader>
+    <div
+      className={`frame workspace${canView ? ' workspace-signed-in' : ' workspace-public'}`}
+      dir={i18n.dir()}
+    >
+      <a className="skip-link" href="#main-content">
+        {t('workspace.skip')}
+      </a>
+      {canView && (
+        <WorkspaceNavigation
+          householdName={activeList?.name || t('workspace.sharedSpace')}
+          remainingCount={isLoading ? null : entries.filter((entry) => !entry.bought).length}
+        />
+      )}
+      <div className="workspace-main">
+        <header className="app-header">
+          <div className="user-chip">
+            <button
+              className="icon-btn lang-switch-btn"
+              onClick={() => changeLanguage(otherLanguage)}
+              aria-label={t('language.label')}
+            >
+              {t(`language.${otherLanguage}`)}
+            </button>
+            {user ? (
+              // modal={false}: a fully modal Radix Dialog locks the rest of the page
+              // (document.body gets pointer-events: none, and everything outside the
+              // dialog gets aria-hidden) for as long as it's open — correct for a true
+              // dialog, but it means the hamburger trigger itself becomes unclickable
+              // while the sidebar is open, breaking "tap the hamburger again to close"
+              // (confirmed directly: elementFromPoint at the trigger's own coordinates
+              // resolved to a different element once the lock kicked in). Navigation
+              // drawers are the standard exception to full modality for exactly this
+              // reason — non-modal still gets Escape-to-close and outside-tap-to-close
+              // for free from Radix's own dismissable-layer behavior, it just doesn't
+              // lock the rest of the page.
+              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
+                <SheetTrigger asChild>
+                  <button className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
+                    <Menu size={19} aria-hidden="true" />
+                  </button>
+                </SheetTrigger>
+                <SheetContent closeLabel={t('actions.close')} hideClose>
+                  <SheetHeader>
+                    <SheetTitle>{t('menu.button')}</SheetTitle>
+                  </SheetHeader>
 
-                {activeList && (
-                  <>
-                    {myLists.length > 1 && <div className={sidebarSectionLabelClass}>{t('lists:sectionLabel')}</div>}
-                    {myLists.length > 1 ? (
-                      myLists.map((l) => (
+                  {activeList && (
+                    <>
+                      {myLists.length > 1 && (
+                        <div className={sidebarSectionLabelClass}>{t('lists:sectionLabel')}</div>
+                      )}
+                      {myLists.length > 1 ? (
+                        myLists.map((l) => (
+                          <button
+                            key={l.id}
+                            className={cn(
+                              sidebarItemClass,
+                              l.id === activeList.id && sidebarItemActiveClass
+                            )}
+                            onClick={() => {
+                              setActiveListId(l.id)
+                              setSidebarOpen(false)
+                            }}
+                          >
+                            📋 {l.name}
+                            {l.id === activeList.id ? ' ✓' : ''}
+                          </button>
+                        ))
+                      ) : (
+                        <div className={sidebarItemClass}>📋 {activeList.name}</div>
+                      )}
+                    </>
+                  )}
+
+                  {listPickerActions && (
+                    <>
+                      <div className={sidebarDividerClass} />
+                      <div className={sidebarSectionLabelClass}>
+                        {t('shoppingList:listPicker.sectionLabel')}
+                      </div>
+                      {listPickerActions.canEdit && (
                         <button
-                          key={l.id}
-                          className={cn(sidebarItemClass, l.id === activeList.id && sidebarItemActiveClass)}
-                          onClick={() => {
-                            setActiveListId(l.id)
-                            setSidebarOpen(false)
-                          }}
+                          className={sidebarItemClass}
+                          onClick={() => runAfterSidebarCloses(listPickerActions.onCreateList)}
                         >
-                          📋 {l.name}
-                          {l.id === activeList.id ? ' ✓' : ''}
+                          {t('shoppingList:listPicker.newList')}
                         </button>
-                      ))
-                    ) : (
-                      <div className={sidebarItemClass}>📋 {activeList.name}</div>
-                    )}
-                  </>
-                )}
+                      )}
+                      {listPickerActions.canEdit && (
+                        <button
+                          className={sidebarItemClass}
+                          onClick={() => runAfterSidebarCloses(listPickerActions.onBulkUpload)}
+                        >
+                          {t('shoppingList:listPicker.bulkUpload')}
+                        </button>
+                      )}
+                      {listPickerActions.hasUnbought && (
+                        <button
+                          className={sidebarItemClass}
+                          onClick={() => runAfterSidebarCloses(listPickerActions.onShareMissing)}
+                        >
+                          {t('shoppingList:listPicker.shareMissing')}
+                        </button>
+                      )}
+                      {listPickerActions.canEdit && listPickerActions.isCustomList && (
+                        <button
+                          className={sidebarItemClass}
+                          onClick={() => runAfterSidebarCloses(listPickerActions.onDeleteList)}
+                        >
+                          {t('shoppingList:listPicker.deleteList')}
+                        </button>
+                      )}
+                    </>
+                  )}
 
-                {listPickerActions && (
-                  <>
-                    <div className={sidebarDividerClass} />
-                    <div className={sidebarSectionLabelClass}>{t('shoppingList:listPicker.sectionLabel')}</div>
-                    {listPickerActions.canEdit && (
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(listPickerActions.onCreateList)}
-                      >
-                        {t('shoppingList:listPicker.newList')}
-                      </button>
-                    )}
-                    {listPickerActions.canEdit && (
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(listPickerActions.onBulkUpload)}
-                      >
-                        {t('shoppingList:listPicker.bulkUpload')}
-                      </button>
-                    )}
-                    {listPickerActions.hasUnbought && (
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(listPickerActions.onShareMissing)}
-                      >
-                        {t('shoppingList:listPicker.shareMissing')}
-                      </button>
-                    )}
-                    {listPickerActions.canEdit && listPickerActions.isCustomList && (
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(listPickerActions.onDeleteList)}
-                      >
-                        {t('shoppingList:listPicker.deleteList')}
-                      </button>
-                    )}
-                  </>
-                )}
+                  <div className={sidebarDividerClass} />
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => runAfterSidebarCloses(() => setShowWhatsNew(true))}
+                  >
+                    {t('menu.viewWhatsNew')}
+                  </button>
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => runAfterSidebarCloses(() => setShowAiAssistant(true))}
+                  >
+                    {t('menu.viewAiAssistant')}
+                  </button>
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => runAfterSidebarCloses(replayOnboarding)}
+                  >
+                    {t('menu.viewOnboarding')}
+                  </button>
 
-                <div className={sidebarDividerClass} />
-                <button
-                  className={sidebarItemClass}
-                  onClick={() => runAfterSidebarCloses(() => setShowWhatsNew(true))}
-                >
-                  {t('menu.viewWhatsNew')}
-                </button>
-                <button
-                  className={sidebarItemClass}
-                  onClick={() => runAfterSidebarCloses(() => setShowAiAssistant(true))}
-                >
-                  {t('menu.viewAiAssistant')}
-                </button>
-                <button
-                  className={sidebarItemClass}
-                  onClick={() => runAfterSidebarCloses(replayOnboarding)}
-                >
-                  {t('menu.viewOnboarding')}
-                </button>
-
-                {canEdit && (
-                  <>
-                    <div className={sidebarDividerClass} />
-                    <div className={sidebarSectionLabelClass}>{t('menu.sectionSettings')}</div>
-                    <button
-                      className={sidebarItemClass}
-                      onClick={() => runAfterSidebarCloses(() => setShowCategories(true))}
-                    >
-                      {t('menu.manageCategories')}
-                    </button>
-                    {isOwner && (
+                  {canEdit && (
+                    <>
+                      <div className={sidebarDividerClass} />
+                      <div className={sidebarSectionLabelClass}>{t('menu.sectionSettings')}</div>
                       <button
                         className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
+                        onClick={() => runAfterSidebarCloses(() => setShowCategories(true))}
                       >
-                        {t('menu.shareEditing', { listName: activeList?.name || '' })}
+                        {t('menu.manageCategories')}
                       </button>
-                    )}
-                    {isOwner && (
-                      <button className={sidebarItemClass} onClick={() => runAfterSidebarCloses(handleRenameList)}>
-                        {t('lists:renameMenuItem')}
+                      {isOwner && (
+                        <button
+                          className={sidebarItemClass}
+                          onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
+                        >
+                          {t('menu.shareEditing', { listName: activeList?.name || '' })}
+                        </button>
+                      )}
+                      {isOwner && (
+                        <button
+                          className={sidebarItemClass}
+                          onClick={() => runAfterSidebarCloses(handleRenameList)}
+                        >
+                          {t('lists:renameMenuItem')}
+                        </button>
+                      )}
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(() => setShowChangelog(true))}
+                      >
+                        {t('menu.viewChangelog')}
                       </button>
-                    )}
-                    <button
-                      className={sidebarItemClass}
-                      onClick={() => runAfterSidebarCloses(() => setShowChangelog(true))}
-                    >
-                      {t('menu.viewChangelog')}
-                    </button>
-                    <button
-                      className={sidebarItemClass}
-                      onClick={() => runAfterSidebarCloses(() => setShowFeedback(true))}
-                    >
-                      {t('menu.sendFeedback')}
-                    </button>
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(() => setShowFeedback(true))}
+                      >
+                        {t('menu.sendFeedback')}
+                      </button>
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => {
+                          setSidebarOpen(false)
+                          toggleStockSuggestion()
+                        }}
+                      >
+                        {stockSuggestionEnabled
+                          ? t('menu.stockSuggestionOn')
+                          : t('menu.stockSuggestionOff')}
+                      </button>
+                      <button
+                        className={cn(sidebarItemClass, 'disabled:cursor-wait disabled:opacity-60')}
+                        disabled={!boughtItemsPreferenceResolved}
+                        aria-pressed={keepBoughtItemsInCategories}
+                        onClick={() => {
+                          toggleBoughtItemsPlacement().catch(() => {})
+                        }}
+                      >
+                        {keepBoughtItemsInCategories
+                          ? t('menu.boughtItemsInCategories')
+                          : t('menu.boughtItemsInCompletedSection')}
+                      </button>
+                      {boughtItemsPreferenceSaveError && (
+                        <div className="px-2 py-1 text-xs text-destructive" role="status">
+                          {t('menu.preferenceSaveFailed')}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div className={sidebarDividerClass} />
+                  <div className="break-words px-2 pb-2.5 pt-1.5 text-xs text-muted-foreground">
+                    {user.displayName || user.email}
+                  </div>
+                  <div className="mt-auto pt-2.5">
                     <button
                       className={sidebarItemClass}
                       onClick={() => {
                         setSidebarOpen(false)
-                        toggleStockSuggestion()
+                        onSignOut()
                       }}
                     >
-                      {stockSuggestionEnabled ? t('menu.stockSuggestionOn') : t('menu.stockSuggestionOff')}
+                      {t('auth.signOut')}
                     </button>
-                    <button
-                      className={cn(sidebarItemClass, 'disabled:cursor-wait disabled:opacity-60')}
-                      disabled={!boughtItemsPreferenceResolved}
-                      aria-pressed={keepBoughtItemsInCategories}
-                      onClick={() => {
-                        toggleBoughtItemsPlacement().catch(() => {})
-                      }}
-                    >
-                      {keepBoughtItemsInCategories
-                        ? t('menu.boughtItemsInCategories')
-                        : t('menu.boughtItemsInCompletedSection')}
-                    </button>
-                    {boughtItemsPreferenceSaveError && (
-                      <div className="px-2 py-1 text-xs text-destructive" role="status">
-                        {t('menu.preferenceSaveFailed')}
-                      </div>
-                    )}
-                  </>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <button className="signout-btn" onClick={onSignIn}>
+                {t('auth.signIn')}
+              </button>
+            )}
+          </div>
+          {authError && <div className="header-error">{authError}</div>}
+          {canView ? (
+            <div className="workspace-context">
+              <Leaf size={20} aria-hidden="true" />
+              <span>{activeList?.name}</span>
+              <span className="context-divider">/</span>
+              <strong>
+                {t(
+                  `workspace.nav.${currentPage === 'shoppingList' ? 'shop' : currentPage === 'stock' ? 'kitchen' : currentPage === 'recipes' ? 'cook' : 'receipts'}`
                 )}
-
-                <div className={sidebarDividerClass} />
-                <div className="break-words px-2 pb-2.5 pt-1.5 text-xs text-muted-foreground">
-                  {user.displayName || user.email}
-                </div>
-                <div className="mt-auto pt-2.5">
-                  <button
-                    className={sidebarItemClass}
-                    onClick={() => {
-                      setSidebarOpen(false)
-                      onSignOut()
-                    }}
-                  >
-                    {t('auth.signOut')}
-                  </button>
-                </div>
-              </SheetContent>
-            </Sheet>
+              </strong>
+            </div>
           ) : (
-            <button className="signout-btn" onClick={onSignIn}>
-              {t('auth.signIn')}
-            </button>
+            <h1 className="site-title">
+              <span className="brand-mark">
+                <Leaf size={23} aria-hidden="true" />
+              </span>
+              <span className="brand-copy">
+                <span>{t('appTitle')}</span>
+                <small>{t('design.tagline')}</small>
+              </span>
+            </h1>
           )}
-        </div>
-        {authError && <div className="header-error">{authError}</div>}
-        <h1 className="site-title">
-          <img
-            className="site-logo"
-            src="/branding/home-list-logo-compact.png"
-            alt=""
-            aria-hidden="true"
-          />
-          <span>{t('appTitle')}</span>
-        </h1>
-        {canView && (
-          <nav className="tabs" aria-label={t('tabs.label')}>
-            <Link to="/" className="tab-btn" activeProps={{ className: 'active' }} activeOptions={{ exact: true }}>
-              🛒 {t('tabs.shoppingList')}
-            </Link>
-            <Link to="/stock" className="tab-btn" activeProps={{ className: 'active' }}>
-              📦 {t('tabs.stock')}
-            </Link>
-            <Link to="/receipts" className="tab-btn" activeProps={{ className: 'active' }}>
-              🧾 {t('tabs.receipts')}
-            </Link>
-            <Link to="/recipes" className="tab-btn" activeProps={{ className: 'active' }}>
-              🍳 {t('tabs.recipes')}
-            </Link>
-          </nav>
-        )}
-      </header>
+        </header>
 
-      {/* Viewing this app's data requires signing in with Google (anyone can — no
+        {/* Viewing this app's data requires signing in with Google (anyone can — no
           app-wide invite gate). Every signed-in user automatically has their own
           list (auto-provisioned, see ListContext's ensureOwnList) — there's no
           "create a list" onboarding step. authResolved distinguishes "still
@@ -369,30 +417,50 @@ function LayoutContent({ children }: { children: ReactNode }) {
           real activeList regardless of what listsResolved says. Same loading
           copy as the listsResolved check, since to the user it's the same
           "still getting your list ready" wait either way. */}
-      {!authResolved ? (
-        <div className="all-empty">{t('auth.checkingSession')}</div>
-      ) : !user ? (
-        <div className="all-empty">{t('auth.signInRequired')}</div>
-      ) : !listsResolved ? (
-        <div className="all-empty">{t('lists:checkingLists')}</div>
-      ) : listsError ? (
-        <div className="all-empty list-onboarding">
-          <p>{t('lists:loadError')}</p>
-        </div>
-      ) : !activeList ? (
-        <div className="all-empty">{t('lists:checkingLists')}</div>
-      ) : (
-        <>
-          {toast && <div className="toast">🛒 {toast}</div>}
-          {children}
-          <div className="status">
-            {status} · v{appVersion}
-          </div>
-          {onboardingOpen && <OnboardingModal onClose={closeOnboarding} />}
-        </>
-      )}
+        <div
+          id="main-content"
+          className="workspace-content"
+          role={canView ? 'main' : undefined}
+          tabIndex={-1}
+        >
+          {!authResolved ? (
+            <div className="all-empty">{t('auth.checkingSession')}</div>
+          ) : !user ? (
+            <WelcomeScreen onSignIn={onSignIn} />
+          ) : !listsResolved ? (
+            <div className="all-empty">{t('lists:checkingLists')}</div>
+          ) : listsError ? (
+            <div className="all-empty list-onboarding">
+              <p>{t('lists:loadError')}</p>
+            </div>
+          ) : !activeList ? (
+            <div className="all-empty">{t('lists:checkingLists')}</div>
+          ) : (
+            <>
+              <div className="page-heading">
+                <div>
+                  <p className="page-eyebrow">{t(`workspace.eyebrow.${currentPage}`)}</p>
+                  <h1>{t(`workspace.title.${currentPage}`)}</h1>
+                  <p className="page-description">{t(`design.${currentPage}`)}</p>
+                </div>
+              </div>
+              {toast && <div className="toast">🛒 {toast}</div>}
+              {children}
 
-      {showCategories && <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />}
+              {onboardingOpen && <OnboardingModal onClose={closeOnboarding} />}
+            </>
+          )}
+        </div>
+        {canView && (
+          <footer className="workspace-status">
+            <span>{status}</span>
+            <span>Fridge · v{appVersion}</span>
+          </footer>
+        )}
+      </div>
+      {showCategories && (
+        <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />
+      )}
       {showMembers && <ListMembersModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}

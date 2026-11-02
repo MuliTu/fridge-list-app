@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { onValue } from '../lib/firebase'
 import { recipeDisplayImageUrl } from '../lib/recipeImages'
-import { useListApi } from '../hooks/ListContext'
+import { useActiveList, useListApi } from '../hooks/ListContext'
 import type { RecipeRecord } from '../types'
 import ListSkeleton from '../components/ListSkeleton'
 import { RecipeNutritionSummary } from '../components/RecipeNutritionSummary'
+import { CookingStudio } from '../components/CookingStudio'
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
+import { Clock3, ArrowUpRight, BookOpen, Search } from 'lucide-react'
 
 function RecipeImage({ recipe }: { recipe: RecipeRecord }) {
   const [failed, setFailed] = useState(false)
@@ -33,6 +36,10 @@ export const Route = createFileRoute('/recipes')({
 function RecipesPage() {
   const { t } = useTranslation()
   const listApi = useListApi()
+  const { activeList, canEdit } = useActiveList()
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeRecord | null>(null)
+  const selectedRecipeTrigger = useRef<HTMLButtonElement | null>(null)
+  const [query, setQuery] = useState('')
   const [recipes, setRecipes] = useState<RecipeRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +47,8 @@ function RecipesPage() {
   useEffect(() => {
     setIsLoading(true)
     setError(null)
+    setSelectedRecipe(null)
+    setQuery('')
     const unsubscribe = onValue(
       listApi.recipesRef,
       (snapshot) => {
@@ -58,56 +67,135 @@ function RecipesPage() {
     return unsubscribe
   }, [listApi])
 
-  if (isLoading) return <ListSkeleton variant="flat" sections={2} rows={2} />
-
-  if (error) {
-    return <div className="all-empty">{t('recipes:loadFailed', { message: error })}</div>
-  }
-
-  if (recipes.length === 0) {
-    return <div className="all-empty">{t('recipes:empty')}</div>
-  }
+  const filteredRecipes = recipes.filter((recipe) =>
+    recipe.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+  )
 
   return (
-    <div className="flat-list recipes-list">
-      {recipes.map((recipe) => (
-        <article key={recipe.key} className="saved-recipe-card">
-          <RecipeImage recipe={recipe} />
-          <div className="saved-recipe-body">
-            <h2>{recipe.title}</h2>
-            <p>{recipe.description}</p>
-            <div className="recipe-meta-grid">
-              <span>{t('recipes:servings', { count: recipe.servings })}</span>
-              <span>
-                {recipe.estimatedTimeMinutes
-                  ? t('recipes:minutes', { count: recipe.estimatedTimeMinutes })
-                  : t('recipes:timeUnknown')}
-              </span>
-              <span>{t(`recipes:mealTypes.${recipe.mealType}`)}</span>
-            </div>
-            <RecipeNutritionSummary nutrition={recipe.nutrition} />
-            <section>
-              <h3>{t('recipes:ingredients')}</h3>
-              <ul>
-                {recipe.ingredients.map((ingredient, index) => (
-                  <li key={`${ingredient.name}-${index}`}>
-                    {ingredient.quantity ? `${ingredient.quantity} ` : ''}
-                    {ingredient.name}
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section>
-              <h3>{t('recipes:steps')}</h3>
-              <ol>
-                {recipe.steps.map((step, index) => (
-                  <li key={`${index}-${step}`}>{step}</li>
-                ))}
-              </ol>
-            </section>
-          </div>
-        </article>
-      ))}
+    <div className="cook-workspace">
+      {canEdit && <CookingStudio key={activeList?.id} />}
+      <div className="collection-heading">
+        <div>
+          <span className="workspace-kicker">{t('workspace.yourCollection')}</span>
+          <h3>
+            {t('workspace.savedRecipes')} <small>{isLoading ? '—' : recipes.length}</small>
+          </h3>
+        </div>
+        <label className="collection-search">
+          <Search size={17} aria-hidden="true" />
+          <input
+            aria-label={t('workspace.searchRecipes')}
+            placeholder={t('workspace.searchRecipes')}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      </div>
+      {isLoading ? (
+        <ListSkeleton variant="grid" sections={2} rows={2} />
+      ) : error ? (
+        <p role="alert" className="chef-error">
+          {t('recipes:loadFailed', { message: error })}
+        </p>
+      ) : filteredRecipes.length === 0 ? (
+        <div className="workspace-empty">
+          <BookOpen aria-hidden="true" />
+          <h3>{t(query ? 'workspace.noMatches' : 'recipes:empty')}</h3>
+          <p>{t(query ? 'workspace.trySearch' : 'workspace.savedRecipesHint')}</p>
+        </div>
+      ) : (
+        <div className="recipe-collection">
+          {filteredRecipes.map((recipe) => (
+            <button
+              key={recipe.key}
+              className="recipe-preview"
+              onClick={(event) => {
+                selectedRecipeTrigger.current = event.currentTarget
+                setSelectedRecipe(recipe)
+              }}
+            >
+              <RecipeImage recipe={recipe} />
+              <div className="recipe-preview-copy">
+                <span className="workspace-kicker">
+                  {t(`recipes:mealTypes.${recipe.mealType}`)}
+                </span>
+                <h3>{recipe.title}</h3>
+                <p>{recipe.description}</p>
+                <div>
+                  <span>
+                    <Clock3 size={15} aria-hidden="true" />
+                    {recipe.estimatedTimeMinutes
+                      ? t('recipes:minutes', { count: recipe.estimatedTimeMinutes })
+                      : t('recipes:timeUnknown')}
+                  </span>
+                  <ArrowUpRight size={19} aria-hidden="true" />
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      <Dialog
+        open={!!selectedRecipe}
+        onOpenChange={(open) => {
+          if (!open) setSelectedRecipe(null)
+        }}
+      >
+        <DialogContent
+          className="saved-recipe-detail"
+          closeLabel={t('actions.close')}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            selectedRecipeTrigger.current?.focus()
+          }}
+        >
+          {selectedRecipe && (
+            <>
+              <DialogTitle>{selectedRecipe.title}</DialogTitle>
+              <p className="recipe-detail-description">{selectedRecipe.description}</p>
+              <div className="recipe-meta-grid">
+                <span>{t('recipes:servings', { count: selectedRecipe.servings })}</span>
+                <span>
+                  {selectedRecipe.estimatedTimeMinutes
+                    ? t('recipes:minutes', { count: selectedRecipe.estimatedTimeMinutes })
+                    : t('recipes:timeUnknown')}
+                </span>
+                <span>{t(`recipes:mealTypes.${selectedRecipe.mealType}`)}</span>
+              </div>
+              <div className="recipe-detail-grid">
+                <section>
+                  <h3>{t('recipes:ingredients')}</h3>
+                  <ul>
+                    {selectedRecipe.ingredients.map((ingredient, index) => (
+                      <li key={index}>
+                        {ingredient.quantity ? `${ingredient.quantity} ` : ''}
+                        {ingredient.name}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <h3>{t('recipes:steps')}</h3>
+                  <ol>
+                    {selectedRecipe.steps.map((step, index) => (
+                      <li key={index}>{step}</li>
+                    ))}
+                  </ol>
+                </section>
+              </div>
+              {selectedRecipe.assumedBasics?.length > 0 && (
+                <p className="recipe-basics">
+                  {t('shoppingList:chef.assumedBasics')}: {selectedRecipe.assumedBasics.join(', ')}
+                </p>
+              )}
+              {selectedRecipe.chefNotes && (
+                <p className="recipe-notes">{selectedRecipe.chefNotes}</p>
+              )}
+              <RecipeNutritionSummary nutrition={selectedRecipe.nutrition} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

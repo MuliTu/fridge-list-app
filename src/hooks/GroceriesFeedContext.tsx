@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { onValue } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useActiveList } from './ListContext'
@@ -19,8 +20,9 @@ const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
 // changes (switching households) — knownKeys/firstLoad reset too, so a fresh list's
 // existing items never get mistaken for "newly added" and trigger a toast.
 export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
+  const { t, i18n } = useTranslation()
   const [entries, setEntries] = useState<GroceryItem[]>([])
-  const [status, setStatus] = useState('מתחבר...')
+  const [status, setStatus] = useState(t('workspace.feedConnecting'))
   const [toast, setToast] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const knownKeys = useRef(new Set<string>())
@@ -42,19 +44,18 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
         const data = snapshot.val() || {}
         const newlyAdded: string[] = []
 
-        const nextEntries: GroceryItem[] = Object.entries(data as Record<string, any>).map(([key, entry]) => {
-          const isFresh = !firstLoad.current && !knownKeys.current.has(key)
-          if (isFresh) newlyAdded.push(entry.item)
-          return { key, ...entry, isFresh }
-        })
+        const nextEntries: GroceryItem[] = Object.entries(data as Record<string, any>).map(
+          ([key, entry]) => {
+            const isFresh = !firstLoad.current && !knownKeys.current.has(key)
+            if (isFresh) newlyAdded.push(entry.item)
+            return { key, ...entry, isFresh }
+          }
+        )
 
         knownKeys.current = new Set(Object.keys(data))
 
         if (newlyAdded.length > 0 && !firstLoad.current) {
-          const message =
-            newlyAdded.length === 1
-              ? `נוסף: ${newlyAdded[0]}`
-              : `נוספו ${newlyAdded.length} פריטים: ${newlyAdded.join(', ')}`
+          const message = t('workspace.feedAdded', { items: newlyAdded.join(', ') })
           setToast(message)
           if (toastTimer.current) clearTimeout(toastTimer.current)
           toastTimer.current = setTimeout(() => setToast(null), 4500)
@@ -63,10 +64,17 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
         firstLoad.current = false
         setIsLoading(false)
         setEntries(nextEntries)
-        setStatus('עודכן לאחרונה: ' + new Date().toLocaleTimeString('he-IL'))
+        setStatus(
+          t('workspace.feedUpdated', {
+            time: new Date().toLocaleTimeString(i18n.language === 'he' ? 'he-IL' : 'en-GB', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          })
+        )
       },
       (error) => {
-        setStatus('שגיאת חיבור: ' + error.message)
+        setStatus(t('workspace.feedError', { message: error.message }))
       }
     )
 
@@ -74,9 +82,13 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
       unsubscribe()
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [isPrerendering, listApi])
+  }, [isPrerendering, listApi, t, i18n.language])
 
-  return <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>{children}</GroceriesFeedContext.Provider>
+  return (
+    <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading }}>
+      {children}
+    </GroceriesFeedContext.Provider>
+  )
 }
 
 export function useGroceriesFeed() {

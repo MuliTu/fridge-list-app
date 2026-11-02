@@ -2,15 +2,17 @@ import { type ReactNode, useEffect } from 'react'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { AuthProvider } from '../hooks/AuthContext'
 import Layout from '../components/Layout'
+import { useInputMethod } from '../hooks/useInputMethod'
 import appCss from '../App.css?url'
+import workspaceCss from '../workspace.css?url'
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1.0, viewport-fit=cover' },
       { title: 'רשימת הבית' },
-      { name: 'theme-color', content: '#0d1c16' },
+      { name: 'theme-color', content: '#111715' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
       { name: 'apple-mobile-web-app-title', content: 'רשימת קניות' }
@@ -22,6 +24,7 @@ export const Route = createRootRoute({
         href: 'https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;500;700&display=swap'
       },
       { rel: 'stylesheet', href: appCss },
+      { rel: 'stylesheet', href: workspaceCss },
       { rel: 'manifest', href: '/manifest.json' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       { rel: 'icon', href: '/icons/icon-192.png' }
@@ -70,6 +73,7 @@ function useRegisterServiceWorker() {
 
 function RootDocument({ children }: { children: ReactNode }) {
   useRegisterServiceWorker()
+  useInputMethod()
   return (
     <html lang="he" dir="rtl">
       <head>

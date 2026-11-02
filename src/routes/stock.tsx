@@ -1,4 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { Package, Search, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Button } from '../components/ui/button'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { onValue } from '../lib/firebase'
@@ -26,6 +28,8 @@ function StockPage() {
   const [entries, setEntries] = useState<StockItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [search, setSearch] = useState('')
+  const [lowOnly, setLowOnly] = useState(false)
   const [editingItem, setEditingItem] = useState<StockItem | null>(null)
   const { isCollapsed, toggle } = useCollapsedSections()
   const { categories, categoryMap } = useCategories()
@@ -34,13 +38,21 @@ function StockPage() {
     setIsLoading(true)
     return onValue(listApi.stockRef, (snapshot) => {
       const data = snapshot.val() || {}
-      setEntries(Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry })))
+      setEntries(
+        Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+      )
       setIsLoading(false)
     })
   }, [listApi])
 
+  const lowCount = entries.filter((entry) => entry.quantity <= entry.low_threshold).length
+  const filteredEntries = entries.filter(
+    (entry) =>
+      (!lowOnly || entry.quantity <= entry.low_threshold) &&
+      entry.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+  )
   const grouped: Record<string, StockItem[]> = {}
-  entries.forEach((entry) => {
+  filteredEntries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
     grouped[catName].push(entry)
@@ -86,19 +98,78 @@ function StockPage() {
   }
 
   return (
-    <div className="stock-view">
+    <div className="stock-view kitchen-workspace">
+      <div className="workspace-toolbar">
+        <div className="stock-filters">
+          <button
+            aria-pressed={!lowOnly}
+            className={!lowOnly ? 'active' : ''}
+            onClick={() => setLowOnly(false)}
+          >
+            {t('common:workspace.allStock')} <span>{isLoading ? '—' : entries.length}</span>
+          </button>
+          <button
+            aria-pressed={lowOnly}
+            className={lowOnly ? 'active' : ''}
+            onClick={() => setLowOnly(true)}
+          >
+            {t('common:workspace.runningLow')} <span>{isLoading ? '—' : lowCount}</span>
+          </button>
+        </div>
+        {canEdit && (
+          <Button onClick={() => setShowAdd(true)}>
+            <Plus aria-hidden="true" />
+            {t('common:workspace.addStock')}
+          </Button>
+        )}
+      </div>
+      <label className="collection-search stock-search">
+        <Search size={17} aria-hidden="true" />
+        <input
+          aria-label={t('common:workspace.searchStock')}
+          placeholder={t('common:workspace.searchStock')}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </label>
       {isLoading && isEmpty ? (
         <ListSkeleton variant="grid" sections={3} rows={3} />
       ) : isEmpty ? (
-        <div className="all-empty">{canEdit ? t('stock:emptyAddFirst') : t('stock:emptyViewOnly')}</div>
+        <div className="workspace-empty">
+          <Package aria-hidden="true" />
+          <h3>
+            {t(entries.length ? 'common:workspace.noMatches' : 'common:workspace.emptyKitchen')}
+          </h3>
+          <p>
+            {entries.length
+              ? t('common:workspace.trySearch')
+              : canEdit
+                ? t('stock:emptyAddFirst')
+                : t('stock:emptyViewOnly')}
+          </p>
+        </div>
       ) : (
         <div className="board-grid">
           {visibleCategories.map(({ name, color, icon }) => (
             <section className="panel" key={name} style={{ '--accent': color } as CSSProperties}>
-              <h2 className="panel-header" onClick={() => toggle(name)}>
-                <span className="cat-icon">{icon}</span>
-                {name}
-                <span className={`chevron${isCollapsed(name) ? ' collapsed' : ''}`}>▾</span>
+              <h2 className="panel-header">
+                <button
+                  type="button"
+                  className="stock-category-toggle"
+                  onClick={() => toggle(name)}
+                  aria-expanded={!isCollapsed(name)}
+                >
+                  <span className="cat-icon" aria-hidden="true">
+                    {icon}
+                  </span>
+                  {name}
+                  <span
+                    className={`chevron${isCollapsed(name) ? ' collapsed' : ''}`}
+                    aria-hidden="true"
+                  >
+                    ▾
+                  </span>
+                </button>
               </h2>
               {!isCollapsed(name) && (
                 <ul className="items stock-items">
@@ -119,7 +190,9 @@ function StockPage() {
                                   date: formatDateTime(entry.updated_at),
                                   email: entry.updated_by
                                 })
-                              : t('stock:updatedCaption', { date: formatDateTime(entry.updated_at) })}
+                              : t('stock:updatedCaption', {
+                                  date: formatDateTime(entry.updated_at)
+                                })}
                           </div>
                         )}
                         <div className="stock-actions">
@@ -140,7 +213,10 @@ function StockPage() {
                             +
                           </button>
                           {isLow && canEdit && (
-                            <button className="add-to-list-btn" onClick={() => handleAddToShoppingList(entry)}>
+                            <button
+                              className="add-to-list-btn"
+                              onClick={() => handleAddToShoppingList(entry)}
+                            >
                               {t('stock:actions.addToList')}
                             </button>
                           )}
@@ -150,7 +226,7 @@ function StockPage() {
                               onClick={() => setEditingItem(entry)}
                               aria-label={t('stock:actions.edit')}
                             >
-                              ✎
+                              <Pencil size={17} aria-hidden="true" />
                             </button>
                           )}
                           {canEdit && (
@@ -159,7 +235,7 @@ function StockPage() {
                               onClick={() => handleDelete(entry)}
                               aria-label={t('stock:actions.delete')}
                             >
-                              🗑
+                              <Trash2 size={17} aria-hidden="true" />
                             </button>
                           )}
                         </div>
@@ -173,12 +249,6 @@ function StockPage() {
         </div>
       )}
 
-      {canEdit && (
-        <button className="fab-add-btn" onClick={() => setShowAdd(true)} aria-label={t('stock:addFab')}>
-          +
-        </button>
-      )}
-
       {(showAdd || editingItem) && (
         <StockItemModal
           item={editingItem}
@@ -189,7 +259,11 @@ function StockPage() {
           }}
           onSubmit={(fields) =>
             editingItem
-              ? listApi.updateStockItem(editingItem.key, fields as unknown as Record<string, unknown>, user)
+              ? listApi.updateStockItem(
+                  editingItem.key,
+                  fields as unknown as Record<string, unknown>,
+                  user
+                )
               : listApi.addStockItem(fields, user)
           }
         />

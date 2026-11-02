@@ -21,9 +21,8 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-// Anchored via inset-y-0/end-0 + a margin-inline-end transition (not translateX) —
-// logical properties auto-mirror the slide-in edge for RTL (Hebrew, default) vs LTR
-// (English) with zero JS/dir branching.
+// Logical edge anchoring mirrors the drawer in Hebrew and English. Navigation
+// opens immediately so repeated pointer and keyboard actions never wait on motion.
 // pt-20 clears the fixed-above hamburger/language-switch row (.user-chip, z-index 35
 // per Layout.tsx — kept above the sidebar so tapping it again still closes it): that
 // row's real bottom edge measures ~70px, so 80px (Tailwind's `20` spacing step)
@@ -39,11 +38,9 @@ const SheetContent = React.forwardRef<
       ref={ref}
       className={cn(
         'fixed inset-y-0 end-0 z-30 flex w-[min(300px,86vw)] flex-col gap-0.5 overflow-y-auto',
-        'bg-background text-foreground shadow-[inset_0_0_0_3px_rgba(244,241,232,0.06)]',
+        'design-sheet bg-popover text-foreground border-s border-border shadow-[var(--shadow-float)]',
         "pt-20 px-[18px] pb-[calc(18px+env(safe-area-inset-bottom,0px))] font-['Rubik',sans-serif]",
-        'transition-[margin-inline-end,opacity] duration-[250ms] ease-in-out',
-        'data-[state=closed]:me-[min(-300px,-86vw)] data-[state=closed]:opacity-0 data-[state=closed]:pointer-events-none',
-        'data-[state=open]:me-0 data-[state=open]:opacity-100',
+        'data-[state=closed]:opacity-0 data-[state=closed]:pointer-events-none',
         className
       )}
       {...props}
@@ -58,7 +55,7 @@ const SheetContent = React.forwardRef<
           unreadable icon. */}
       {!hideClose && (
         <DialogPrimitive.Close
-          className="absolute end-[18px] top-[18px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border border-white/20 text-muted-foreground"
+          className="absolute end-[18px] top-[18px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground"
           aria-label={closeLabel}
         >
           <X className="h-4 w-4" />
@@ -79,7 +76,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("m-0 text-[17px] font-normal text-foreground font-['Secular_One',sans-serif]", className)}
+    className={cn("m-0 text-[17px] font-medium text-foreground font-['Rubik',sans-serif]", className)}
     {...props}
   />
 ))

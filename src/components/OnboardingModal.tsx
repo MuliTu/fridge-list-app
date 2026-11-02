@@ -11,7 +11,7 @@ interface OnboardingModalProps {
 
 const STEP_KEYS = ['welcome', 'addItems', 'search', 'organize', 'lists', 'stock', 'receipts'] as const
 
-const mockChipClass = 'rounded-full px-3 py-1 text-sm text-white'
+const mockChipClass = 'rounded-full px-3 py-1 text-sm text-[#243b30]'
 const mockCardClass = 'flex items-center justify-between gap-2 rounded-xl bg-background px-3 py-2 text-sm'
 
 // Static, illustrative mock UI per step — deliberately not reusing the real

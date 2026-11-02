@@ -10,5 +10,13 @@
     "ui": {
       "enabled": false
     }
+  },
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Fridge Native",
+        "supportEmail": "muli.turiel@gmail.com"
+      }
+    }
   }
 }

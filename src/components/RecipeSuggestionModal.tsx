@@ -5,13 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { RecipeCandidate } from '../types'
 import { recipeDisplayImageUrl } from '../lib/recipeImages'
 import { RecipeNutritionSummary } from './RecipeNutritionSummary'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from './ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 
 interface RecipeSuggestionModalProps {
   recipes: RecipeCandidate[]
@@ -20,6 +14,7 @@ interface RecipeSuggestionModalProps {
   error: string | null
   onOpenChange: (open: boolean) => void
   onSave: (recipe: RecipeCandidate) => void
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 export default function RecipeSuggestionModal({
@@ -28,7 +23,8 @@ export default function RecipeSuggestionModal({
   saving,
   error,
   onOpenChange,
-  onSave
+  onSave,
+  onCloseAutoFocus
 }: RecipeSuggestionModalProps) {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
@@ -51,7 +47,11 @@ export default function RecipeSuggestionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="recipe-suggestion-modal">
+      <DialogContent
+        className="recipe-suggestion-modal"
+        closeLabel={t('actions.close')}
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>{t('shoppingList:chef.suggestionsTitle')}</DialogTitle>
         </DialogHeader>
@@ -94,7 +94,11 @@ export default function RecipeSuggestionModal({
 
           <div className="recipe-meta-grid">
             <span>{t('shoppingList:chef.servingsValue', { count: recipe.servings })}</span>
-            <span>{recipe.estimatedTimeMinutes ? t('shoppingList:chef.minutes', { count: recipe.estimatedTimeMinutes }) : t('shoppingList:chef.timeUnknown')}</span>
+            <span>
+              {recipe.estimatedTimeMinutes
+                ? t('shoppingList:chef.minutes', { count: recipe.estimatedTimeMinutes })
+                : t('shoppingList:chef.timeUnknown')}
+            </span>
             <span>{t(`shoppingList:chef.mealTypes.${recipe.mealType}`)}</span>
           </div>
 

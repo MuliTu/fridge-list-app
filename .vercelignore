@@ -1,0 +1,19 @@
+# Deploy only application source and build inputs. Local credentials, emulator
+# data, agent context, and generated output must never enter a source deployment.
+*
+!src
+!src/**
+!public
+!public/**
+!scripts
+!scripts/build.mjs
+!scripts/vercel-build.mjs
+!scripts/check-demo-config.mjs
+!scripts/demo-server-safety.mjs
+!demo.config.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!vite.config.ts
+!vercel.json
+!.vercelignore
