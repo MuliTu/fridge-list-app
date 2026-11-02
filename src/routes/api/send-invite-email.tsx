@@ -6,7 +6,7 @@ import { createSmtpInvitationEmailSender } from '../../modules/invitations/serve
 // reason: the git-branch-aliased/per-deployment Vercel URLs are unstable and, for
 // previews, behind Deployment Protection — an invite email needs one URL that will
 // always resolve for whoever opens it, weeks or months later.
-const APP_URL = 'https://fridge-list-app.vercel.app'
+const APP_URL = process.env.PUBLIC_APP_URL?.trim() || 'https://fridge.app.muli-tu.com'
 
 // This route is currently UNAUTHENTICATED. The proper next step is verifying a
 // Firebase ID token so only signed-in admins can trigger a send (otherwise, once

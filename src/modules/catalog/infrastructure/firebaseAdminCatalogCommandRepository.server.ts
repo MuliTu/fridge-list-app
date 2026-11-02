@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 
 import type { App } from 'firebase-admin/app'
-import { getDatabase, type Database } from 'firebase-admin/database'
+import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 
 import { ApplicationError } from '../../shared'
 import type {
@@ -87,5 +87,5 @@ export class FirebaseAdminCatalogCommandRepository implements CatalogCommandRepo
   }
 }
 
-export const createFirebaseAdminCatalogCommandRepository = (app: App): FirebaseAdminCatalogCommandRepository =>
-  new FirebaseAdminCatalogCommandRepository(getDatabase(app))
+export const createFirebaseAdminCatalogCommandRepository = (app: App, databaseUrl: string): FirebaseAdminCatalogCommandRepository =>
+  new FirebaseAdminCatalogCommandRepository(getDatabaseWithUrl(databaseUrl, app))

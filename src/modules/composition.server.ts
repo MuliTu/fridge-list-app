@@ -5,8 +5,8 @@ import { initializeFirestore } from 'firebase-admin/firestore'
 
 import { logger } from '../lib/logger'
 import { verifyAuthToken } from '../lib/verifyAuthToken'
-import { CategorizeItemService } from './catalog'
-import { N8nCategorizationProvider } from './catalog/server'
+import { CatalogCommandService, CategorizeItemService } from './catalog'
+import { createFirebaseAdminCatalogCommandRepository, N8nCategorizationProvider } from './catalog/server'
 import { SubmitFeedbackService } from './feedback'
 import { N8nFeedbackProvider } from './feedback/server'
 import {
@@ -45,6 +45,10 @@ import { recipeNutritionResponseSchema, recipeSuggestionResponseSchema } from '.
 import { ReceiptCommandService, ScanReceiptFileService, ScanReceiptUrlService } from './receipts'
 import { FirebaseAdminReceiptImageRepository, FirebaseAdminReceiptRepository, N8nReceiptScanner, SafeReceiptUrlFetcher } from './receipts/server'
 import { ApplicationError } from './shared'
+import { MemberCommandService } from './members'
+import { HouseholdSnapshotService } from './household'
+import { StockCommandService } from './stock'
+import { createFirebaseAdminStockRepository } from './stock/server'
 import {
   createTicketingServer,
   type TicketingServer
@@ -182,6 +186,10 @@ export class ServerComposition {
   private submitFeedbackService: SubmitFeedbackService | undefined
   private recipeCommandService: RecipeCommandService | undefined
   private suggestRecipesService: SuggestRecipesService | undefined
+  private stockCommandService: StockCommandService | undefined
+  private catalogCommandService: CatalogCommandService | undefined
+  private memberCommandService: MemberCommandService | undefined
+  private householdSnapshotService: HouseholdSnapshotService | undefined
 
   constructor(private readonly options: ServerCompositionOptions) {
     this.generateRequestId = options.generateRequestId ?? randomUUID
@@ -270,6 +278,50 @@ export class ServerComposition {
       )
     }
     return this.groceryCommandService
+  }
+
+  getStockCommandService(): StockCommandService {
+    if (!this.stockCommandService) {
+      const app = getFirebaseAdminApp(this.options.environment)
+      const authorization = createFirebaseAdminListAuthorizationRepository(app, firebaseDatabaseUrl(this.options.environment))
+      this.stockCommandService = new StockCommandService(createFirebaseAdminStockRepository(app, firebaseDatabaseUrl(this.options.environment)), authorization)
+    }
+    return this.stockCommandService
+  }
+
+  getCatalogCommandService(): CatalogCommandService {
+    if (!this.catalogCommandService) {
+      const app = getFirebaseAdminApp(this.options.environment)
+      const authorization = createFirebaseAdminListAuthorizationRepository(app, firebaseDatabaseUrl(this.options.environment))
+      this.catalogCommandService = new CatalogCommandService(createFirebaseAdminCatalogCommandRepository(app, firebaseDatabaseUrl(this.options.environment)), authorization)
+    }
+    return this.catalogCommandService
+  }
+
+  getMemberCommandService(): MemberCommandService {
+    if (!this.memberCommandService) {
+      const app = getFirebaseAdminApp(this.options.environment)
+      const databaseUrl = firebaseDatabaseUrl(this.options.environment)
+      this.memberCommandService = new MemberCommandService(
+        app,
+        databaseUrl,
+        createFirebaseAdminListAuthorizationRepository(app, databaseUrl)
+      )
+    }
+    return this.memberCommandService
+  }
+
+  getHouseholdSnapshotService(): HouseholdSnapshotService {
+    if (!this.householdSnapshotService) {
+      const app = getFirebaseAdminApp(this.options.environment)
+      const databaseUrl = firebaseDatabaseUrl(this.options.environment)
+      this.householdSnapshotService = new HouseholdSnapshotService(
+        app,
+        databaseUrl,
+        createFirebaseAdminListAuthorizationRepository(app, databaseUrl)
+      )
+    }
+    return this.householdSnapshotService
   }
 
   getReleasesService(): GetReleasesService {
@@ -463,6 +515,18 @@ export const getN8nGroceryWriteDependencies = (): N8nGroceryWriteDependencies =>
 
 export const getGroceryCommandService = (): GroceryCommandService =>
   getServerComposition().getGroceryCommandService()
+
+export const getStockCommandService = (): StockCommandService =>
+  getServerComposition().getStockCommandService()
+
+export const getCatalogCommandService = (): CatalogCommandService =>
+  getServerComposition().getCatalogCommandService()
+
+export const getMemberCommandService = (): MemberCommandService =>
+  getServerComposition().getMemberCommandService()
+
+export const getHouseholdSnapshotService = (): HouseholdSnapshotService =>
+  getServerComposition().getHouseholdSnapshotService()
 
 export const getReleasesService = (): GetReleasesService =>
   getServerComposition().getReleasesService()

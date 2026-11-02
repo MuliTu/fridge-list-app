@@ -21,3 +21,21 @@ playwright-report
 
 # Machine-specific assistant tooling
 .claude/mcp.json
+
+# Isolated build verification artifacts
+/dist-demo/
+
+# Per-app Firebase configuration; restore from Firebase Console on each machine.
+/ios/FridgeNative/FridgeNative/GoogleService-Info.plist
+
+# Local-only recoverable originals; never force-add this directory
+/.local-private/
+
+# Personal agent workflows and workstation settings stay local.
+/.codex/
+/.claude/settings.local.json
+/.claude/launch.json
+/.claude/*.code-workspace
+/.claude/skills/*/
+# Keep the GitNexus project workflow referenced by AGENTS.md reproducible.
+!/.claude/skills/gitnexus-*/

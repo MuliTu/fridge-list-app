@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 
 import type { App } from 'firebase-admin/app'
-import { getDatabase, type Database } from 'firebase-admin/database'
+import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 
 import { ApplicationError } from '../../shared'
 import type { NewStockRecord, StockPatch, StockRecord, StockRepository } from '../application/stockRepository'
@@ -60,5 +60,5 @@ export class FirebaseAdminStockRepository implements StockRepository {
   }
 }
 
-export const createFirebaseAdminStockRepository = (app: App): FirebaseAdminStockRepository =>
-  new FirebaseAdminStockRepository(getDatabase(app))
+export const createFirebaseAdminStockRepository = (app: App, databaseUrl: string): FirebaseAdminStockRepository =>
+  new FirebaseAdminStockRepository(getDatabaseWithUrl(databaseUrl, app))

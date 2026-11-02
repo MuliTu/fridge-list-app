@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import {
+  ArrowUpRight,
+  Check,
+  CookingPot,
+  ShoppingBasket,
+  Plus,
+  Share2,
+  SlidersHorizontal
+} from 'lucide-react'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
@@ -23,20 +32,16 @@ import GroceryItemModal from '../components/GroceryItemModal'
 import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
-import ActiveListLabel from '../components/ActiveListLabel'
 import ShoppingListSearch from '../components/ShoppingListSearch'
 import SearchSuggestAdd from '../components/SearchSuggestAdd'
 import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
 import QuickAddBar from '../components/QuickAddBar'
-import ShoppingListTopPanel from '../components/ShoppingListTopPanel'
 import ListSkeleton from '../components/ListSkeleton'
-import PersonalChefChat from '../components/PersonalChefChat'
-import RecipeSuggestionModal from '../components/RecipeSuggestionModal'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
 import { partitionGroceryItemsByPlacement } from '../lib/boughtItemsPlacement'
-import type { GroceryItem, RecipeCandidate, RecipeMealType, StockItem } from '../types'
+import type { GroceryItem, StockItem } from '../types'
 
 const PERMANENT_LIST = null
 
@@ -57,9 +62,12 @@ function ShoppingListPage() {
   const { canEdit } = useActiveList()
   const listApi = useListApi()
   const { entries: allEntries, isLoading } = useGroceriesFeed()
-  const { confirm, prompt } = useDialogService()
+  const { confirm, prompt, alert } = useDialogService()
   const [selectedEntry, setSelectedEntry] = useState<GroceryItem | null>(null)
-  const [restockTarget, setRestockTarget] = useState<{ entry: GroceryItem; existing: StockItem | null } | null>(null)
+  const [restockTarget, setRestockTarget] = useState<{
+    entry: GroceryItem
+    existing: StockItem | null
+  } | null>(null)
   const [showAddGrocery, setShowAddGrocery] = useState(false)
   // Set only when the add-item modal is opened from the search's "no results,
   // add it?" prompt (SearchSuggestAdd) — pre-fills GroceryItemModal's name field.
@@ -67,7 +75,7 @@ function ShoppingListPage() {
   // leaks into a later FAB-triggered add.
   const [addModalInitialName, setAddModalInitialName] = useState<string | undefined>(undefined)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
-  const [topCollapsed, setTopCollapsed] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
   const quickAddInputRef = useRef<HTMLInputElement>(null)
   const pendingItemNamesRef = useRef(new Set<string>())
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
@@ -75,22 +83,10 @@ function ShoppingListPage() {
   // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
   // so it resets when navigating away and back — the ticket explicitly wants this.
   const [search, setSearch] = useState('')
-  const [chefOpen, setChefOpen] = useState(false)
-  const [chefSelectionMode, setChefSelectionMode] = useState(false)
-  const [chefServings, setChefServings] = useState(2)
-  const [chefMealType, setChefMealType] = useState<RecipeMealType>('quick_dinner')
-  const [chefPreferences, setChefPreferences] = useState('')
-  const [chefMessage, setChefMessage] = useState('')
-  const [chefSelectedKeys, setChefSelectedKeys] = useState<Set<string>>(() => new Set())
-  const [chefSuggestions, setChefSuggestions] = useState<RecipeCandidate[]>([])
-  const [chefSuggestionsOpen, setChefSuggestionsOpen] = useState(false)
-  const [chefGenerating, setChefGenerating] = useState(false)
-  const [chefSaving, setChefSaving] = useState(false)
-  const [chefError, setChefError] = useState<string | null>(null)
-  const [chefSaveError, setChefSaveError] = useState<string | null>(null)
-  const [chefSelectionCompleteToken, setChefSelectionCompleteToken] = useState(0)
   const { isCollapsed, toggle } = useCollapsedSections()
-  const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(activeList || '__permanent__')
+  const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(
+    activeList || '__permanent__'
+  )
   const { sortOption, setSortOption } = useListSort(activeList || '__permanent__', user?.email)
   const { categories, categoryMap } = useCategories()
   const { keepBoughtItemsInCategories } = useBoughtItemsPreference()
@@ -100,12 +96,15 @@ function ShoppingListPage() {
   const sortedCustomLists = [...customListNames].sort((a, b) => a.localeCompare(b, 'he'))
 
   const visibleEntries = allEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
-  const uncheckedCountByCategory = visibleEntries.reduce<Record<string, number>>((counts, entry) => {
-    if (entry.bought) return counts
-    const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
-    counts[category] = (counts[category] || 0) + 1
-    return counts
-  }, {})
+  const uncheckedCountByCategory = visibleEntries.reduce<Record<string, number>>(
+    (counts, entry) => {
+      if (entry.bought) return counts
+      const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
+      counts[category] = (counts[category] || 0) + 1
+      return counts
+    },
+    {}
+  )
   const chefAvailableProducts = visibleEntries.filter(
     (entry) => entry.bought && isChefFoodProduct(entry)
   )
@@ -151,7 +150,8 @@ function ShoppingListPage() {
   // Client-side name search: case-insensitive substring match on the item name, layered
   // on top of the selected bought-item placement. Empty query = no-op.
   const query = search.trim().toLowerCase()
-  const matchesSearch = (entry: GroceryItem) => !query || (entry.item || '').toLowerCase().includes(query)
+  const matchesSearch = (entry: GroceryItem) =>
+    !query || (entry.item || '').toLowerCase().includes(query)
   const searchedEntries = categoryEntries.filter(matchesSearch)
   const searchedPurchasedEntries = sortGroceryItems(
     completedEntries.filter(matchesSearch),
@@ -173,16 +173,22 @@ function ShoppingListPage() {
   const activeResultsEmpty = visibleCategories.length === 0
   const allResultsEmpty = activeResultsEmpty && searchedPurchasedEntries.length === 0
 
-  const handleToggleBought = (entry: GroceryItem) => {
+  const handleToggleBought = async (entry: GroceryItem) => {
     const newBought = !entry.bought
-    listApi.setBought(entry, newBought, user)
+    try {
+      await listApi.setBought(entry, newBought, user)
+    } catch {
+      await alert(t('itemDetail.saveFailed'))
+      return
+    }
     // Offer to reflect the purchase in the home inventory. Unlike before, the prompt
     // now appears whether or not the item is already tracked in /stock: an existing
     // match adds to its quantity, a miss offers to create a fresh stock entry. Gated by
     // the settings toggle (isStockSuggestionEnabled), read fresh so it reflects the
     // latest choice.
     if (newBought && isStockSuggestionEnabled()) {
-      listApi.findStockItemByName(entry.item)
+      listApi
+        .findStockItemByName(entry.item)
         .then((match) => setRestockTarget({ entry, existing: match }))
         .catch((error) => console.error('[Stock] lookup failed:', error.message))
     }
@@ -263,7 +269,8 @@ function ShoppingListPage() {
 
   const handleDeleteList = async () => {
     const count = visibleEntries.length
-    if (!(await confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count })))) return
+    if (!(await confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count }))))
+      return
     listApi.deleteGroceryList(activeList)
     navigate({ search: { list: undefined } })
   }
@@ -271,100 +278,6 @@ function ShoppingListPage() {
   const handleSuggestAdd = () => {
     setAddModalInitialName(search.trim())
     setShowAddGrocery(true)
-  }
-
-  const handleChefStartSelection = () => {
-    setChefOpen(false)
-    setChefError(null)
-    setChefSelectionMode(true)
-    setChefSelectedKeys(new Set())
-  }
-
-  const handleChefCancelSelection = () => {
-    setChefSelectionMode(false)
-    setChefSelectedKeys(new Set())
-    setChefOpen(true)
-  }
-
-  const handleChefToggleProduct = (key: string) => {
-    setChefSelectedKeys((current) => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
-
-  const handleChefSelectAll = () => {
-    setChefSelectedKeys((current) =>
-      current.size === chefAvailableProducts.length
-        ? new Set()
-        : new Set(chefAvailableProducts.map((entry) => entry.key))
-    )
-  }
-
-  const handleChefSubmitSelection = () => {
-    if (chefSelectedKeys.size === 0) {
-      setChefError(t('shoppingList:chef.selectAtLeastOne'))
-      setChefOpen(true)
-      return
-    }
-    setChefError(null)
-    setChefSelectionMode(false)
-    setChefOpen(true)
-    setChefSelectionCompleteToken((current) => current + 1)
-  }
-
-  const handleChefGenerate = async () => {
-    const selectedProducts = chefAvailableProducts
-      .filter((entry) => chefSelectedKeys.has(entry.key))
-      .map((entry) => ({
-        groceryKey: entry.key,
-        name: entry.item,
-        category: entry.category,
-        quantity: entry.quantity ?? null,
-        unit: entry.unit ?? null
-      }))
-    if (selectedProducts.length === 0) {
-      setChefError(t('shoppingList:chef.selectAtLeastOne'))
-      return
-    }
-
-    setChefGenerating(true)
-    setChefError(null)
-    setChefSaveError(null)
-    try {
-      const result = await listApi.suggestRecipes({
-        servings: chefServings,
-        mealType: chefMealType,
-        preferences: chefPreferences,
-        chefMessage,
-        products: selectedProducts,
-        language: i18n.language === 'he' ? 'he' : 'en'
-      })
-      setChefSuggestions(result.recipes)
-      setChefSuggestionsOpen(true)
-      setChefSelectionMode(false)
-    } catch (error: any) {
-      setChefError(error?.message || t('shoppingList:chef.generateFailed'))
-    } finally {
-      setChefGenerating(false)
-    }
-  }
-
-  const handleChefSaveRecipe = async (recipe: RecipeCandidate) => {
-    setChefSaving(true)
-    setChefSaveError(null)
-    try {
-      await listApi.saveRecipe(recipe)
-      setChefSuggestionsOpen(false)
-      setChefOpen(false)
-      setChefSuggestions([])
-    } catch (error: any) {
-      setChefSaveError(error?.message || t('shoppingList:chef.saveFailed'))
-    } finally {
-      setChefSaving(false)
-    }
   }
 
   const handleShareMissing = () => {
@@ -407,95 +320,62 @@ function ShoppingListPage() {
 
   return (
     <>
-      <ShoppingListTopPanel
-        onCollapse={() => setSearch('')}
-        onCollapsedChange={setTopCollapsed}
-      >
-        {/* Keep the permanent-list pill visible even before custom lists exist so
-            the context switcher has a stable position and the active context remains
-            explicit at a glance. */}
-        <ListPicker
-          activeList={activeList}
-          customLists={sortedCustomLists}
-          onSelectList={(l) => navigate({ search: { list: l || undefined } })}
-        />
-
-        <ActiveListLabel activeList={activeList} />
-
-        {canEdit && !chefSelectionMode && (
-          <QuickAddBar
-            ref={quickAddInputRef}
-            categories={categories}
-            onAdd={handleQuickAdd}
-            onAddCategory={(category) => listApi.addCategory(category)}
-          />
-        )}
-
-        {visibleEntries.length > 0 && !chefSelectionMode && (
-          <div className="list-controls-row">
-            <ShoppingListSearch value={search} onChange={setSearch} />
-            <ShoppingListSort value={sortOption} onChange={setSortOption} />
-          </div>
-        )}
-      </ShoppingListTopPanel>
-
-      {isLoading && visibleEntries.length === 0 ? (
-        <ListSkeleton variant="flat" sections={3} rows={3} />
-      ) : (
-        <>
-          {chefSelectionMode ? (
-            <div className="shopping-list-scroll chef-selection-list">
-              <div className="chef-selection-banner">
-                <strong>{t('shoppingList:chef.selectionTitle')}</strong>
-                <span>{t('shoppingList:chef.selectionHelp')}</span>
-                <div className="chef-selection-actions">
-                  <button type="button" onClick={handleChefCancelSelection}>
-                    {t('actions.cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleChefSelectAll}
-                    disabled={chefAvailableProducts.length === 0}
-                  >
-                    {chefSelectedKeys.size === chefAvailableProducts.length && chefAvailableProducts.length > 0
-                      ? t('shoppingList:chef.clearAll')
-                      : t('shoppingList:chef.selectAll')}
-                  </button>
-                  <button
-                    type="button"
-                    className="chef-selection-submit"
-                    onClick={handleChefSubmitSelection}
-                    disabled={chefSelectedKeys.size === 0}
-                  >
-                    {t('shoppingList:chef.chat.productsDone', { count: chefSelectedKeys.size })}
-                  </button>
-                </div>
-              </div>
-              {chefAvailableProducts.length === 0 ? (
-                <div className="shopping-empty-card">{t('shoppingList:chef.noFoodProducts')}</div>
-              ) : (
-                chefAvailableProducts.map((entry) => (
-                  <label key={entry.key} className="chef-selection-card">
-                    <input
-                      type="checkbox"
-                      checked={chefSelectedKeys.has(entry.key)}
-                      onChange={() => handleChefToggleProduct(entry.key)}
-                    />
-                    <span>{entry.item}</span>
-                    {entry.quantity != null && (
-                      <small>
-                        {entry.quantity}
-                        {entry.unit ? ` ${entry.unit}` : ''}
-                      </small>
-                    )}
-                  </label>
-                ))
-              )}
+      <div className="shopping-workspace">
+        <section className="shopping-primary" aria-label={t('tabs.shoppingList')}>
+          <div className="shop-overview">
+            <div>
+              <strong>{visibleEntries.length - purchasedCount}</strong>
+              <span>{t('workspace.leftToGet')}</span>
             </div>
+            <span className="shop-completed">
+              <Check size={16} aria-hidden="true" />
+              {t('workspace.packed', { count: purchasedCount })}
+            </span>
+            {visibleEntries.some((entry) => !entry.bought) && (
+              <button
+                className="workspace-icon"
+                onClick={handleShareMissing}
+                aria-label={t('shoppingList:listPicker.shareMissing')}
+              >
+                <Share2 size={18} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div className="shopping-toolbar">
+            <ListPicker
+              activeList={activeList}
+              customLists={sortedCustomLists}
+              onSelectList={(l) => navigate({ search: { list: l || undefined } })}
+            />
+            <button
+              className="workspace-icon"
+              aria-label={t('workspace.filterList')}
+              aria-expanded={toolsOpen}
+              aria-controls="shopping-filters"
+              onClick={() => {
+                setToolsOpen(!toolsOpen)
+                if (toolsOpen) setSearch('')
+              }}
+            >
+              <SlidersHorizontal size={18} aria-hidden="true" />
+            </button>
+          </div>
+          {toolsOpen && (
+            <div id="shopping-filters" className="list-controls-row">
+              <ShoppingListSearch value={search} onChange={setSearch} />
+              <ShoppingListSort value={sortOption} onChange={setSortOption} />
+            </div>
+          )}
+          {isLoading && visibleEntries.length === 0 ? (
+            <ListSkeleton variant="flat" sections={3} rows={3} />
           ) : query && allResultsEmpty && canEdit ? (
             <SearchSuggestAdd query={search.trim()} onSuggestAdd={handleSuggestAdd} />
           ) : visibleEntries.length === 0 ? (
-            <div className="all-empty">{t('shoppingList:empty')}</div>
+            <div className="workspace-empty">
+              <ShoppingBasket />
+              <h3>{t('workspace.emptyShopTitle')}</h3>
+              <p>{t('shoppingList:empty')}</p>
+            </div>
           ) : (
             <div className="shopping-list-scroll">
               {activeResultsEmpty && query && (
@@ -563,57 +443,52 @@ function ShoppingListPage() {
               )}
             </div>
           )}
-        </>
-      )}
-
-      {canEdit && !topCollapsed && !chefSelectionMode && (
-        <button
-          className="fab-add-btn"
-          onClick={() => {
-            quickAddInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            quickAddInputRef.current?.focus({ preventScroll: true })
-          }}
-          aria-label={t('shoppingList:addItemFab')}
-        >
-          +
-        </button>
-      )}
-
-      {canEdit && !chefSelectionMode && (
-        <PersonalChefChat
-          open={chefOpen}
-          servings={chefServings}
-          mealType={chefMealType}
-          preferences={chefPreferences}
-          chefMessage={chefMessage}
-          availableProducts={chefAvailableProducts}
-          selectedKeys={chefSelectedKeys}
-          selectionCompleteToken={chefSelectionCompleteToken}
-          isGenerating={chefGenerating}
-          error={chefError}
-          onOpen={() => setChefOpen(true)}
-          onClose={() => {
-            setChefOpen(false)
-            setChefSelectionMode(false)
-          }}
-          onServingsChange={setChefServings}
-          onMealTypeChange={setChefMealType}
-          onPreferencesChange={setChefPreferences}
-          onChefMessageChange={setChefMessage}
-          onStartSelection={handleChefStartSelection}
-          onGenerate={handleChefGenerate}
-        />
-      )}
-
-      <RecipeSuggestionModal
-        open={chefSuggestionsOpen}
-        recipes={chefSuggestions}
-        saving={chefSaving}
-        error={chefSaveError}
-        onOpenChange={setChefSuggestionsOpen}
-        onSave={handleChefSaveRecipe}
-      />
-
+          {canEdit && (
+            <div className="shopping-composer">
+              <QuickAddBar
+                ref={quickAddInputRef}
+                categories={categories}
+                onAdd={handleQuickAdd}
+                onAddCategory={(category) => listApi.addCategory(category)}
+              />
+              <button
+                className="detailed-add"
+                onClick={() => {
+                  setAddModalInitialName(undefined)
+                  setShowAddGrocery(true)
+                }}
+              >
+                <Plus size={15} aria-hidden="true" />
+                {t('workspace.addDetails')}
+              </button>
+            </div>
+          )}
+        </section>
+        <aside className="shopping-aside">
+          <div className="next-meal-card">
+            <span className="workspace-kicker">{t('workspace.nextMeal')}</span>
+            <CookingPot size={46} strokeWidth={1.2} aria-hidden="true" />
+            <h3>{t('workspace.cookWhatYouHave')}</h3>
+            <p>{t('workspace.cookFromBought')}</p>
+            <div className="ingredient-peek">
+              {chefAvailableProducts.slice(0, 4).map((entry) => (
+                <span key={entry.key}>{entry.item}</span>
+              ))}
+            </div>
+            <Link to="/recipes" className="workspace-link-button">
+              {t('workspace.openCook')}
+              <ArrowUpRight size={18} aria-hidden="true" />
+            </Link>
+          </div>
+          <Link to="/stock" className="kitchen-shortcut">
+            <span>
+              <strong>{t('workspace.checkKitchen')}</strong>
+              <small>{t('workspace.checkKitchenHint')}</small>
+            </span>
+            <ArrowUpRight size={20} aria-hidden="true" />
+          </Link>
+        </aside>
+      </div>
       {selectedEntry && (
         <ItemDetailModal
           entry={selectedEntry}
@@ -637,9 +512,17 @@ function ShoppingListPage() {
             if (existing) {
               listApi.adjustStockQuantity(existing.key, existing.quantity + amount, user)
             } else {
-              const category = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
+              const category = categoryMap.has(entry.category)
+                ? entry.category
+                : OTHER_CATEGORY_NAME
               listApi.addStockItem(
-                { name: entry.item, category, quantity: amount, unit: StockUnit.Piece, low_threshold: 1 },
+                {
+                  name: entry.item,
+                  category,
+                  quantity: amount,
+                  unit: StockUnit.Piece,
+                  low_threshold: 1
+                },
                 user
               )
             }

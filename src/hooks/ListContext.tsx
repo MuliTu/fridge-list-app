@@ -7,6 +7,7 @@ import {
   memberOfRef,
   onValue,
   renameOwnList,
+  sanitizeEmailKey,
   userNameRef,
   type ListApi
 } from '../lib/firebase'
@@ -273,15 +274,18 @@ export function ListProvider({ children }: { children: ReactNode }) {
       if (!GROCERY_COMMAND_API_ENABLED) return legacy
 
       const commands = createGroceryApiClient({ getIdToken: getCurrentUserIdToken })
+      // Own lists use raw emails in the picker; command routes require the same
+      // canonical key used by the realtime projection and shared-list discovery.
+      const commandListId = sanitizeEmailKey(resolvedActiveListId)
       return {
         ...legacy,
         setBought: (
           entry: Parameters<ListApi['setBought']>[0],
           bought: boolean,
           _mutationUser?: AuthUser | null
-        ) => commands.setPurchased(resolvedActiveListId, entry.key, bought),
+        ) => commands.setPurchased(commandListId, entry.key, bought),
         updateGroceryItemCategory: (key: string, category: string, _mutationUser?: AuthUser | null) =>
-          commands.update(resolvedActiveListId, key, { category }),
+          commands.update(commandListId, key, { category }),
         saveItemDetails: async (
           key: string,
           details: {
@@ -297,7 +301,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
           const previous = details.name == null
             ? null
             : (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
-          await commands.update(resolvedActiveListId, key, details)
+          await commands.update(commandListId, key, details)
           if (
             details.name != null &&
             previous &&
@@ -316,7 +320,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
         updateGroceryItemName: async (key: string, name: string, mutationUser?: AuthUser | null) => {
           const entry = (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
           if (!entry || normalizeName(entry.item) === normalizeName(name)) return
-          await commands.update(resolvedActiveListId, key, { name })
+          await commands.update(commandListId, key, { name })
           await legacy.recordListChange({
             type: 'renamed',
             itemKey: key,
@@ -329,7 +333,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
         deleteItem: async (key: string, imageRef?: string | null, mutationUser?: AuthUser | null) => {
           if (imageRef) return legacy.deleteItem(key, imageRef, mutationUser)
           const entry = (await legacy.getAllGroceryItems()).find((candidate) => candidate.key === key)
-          await commands.delete(resolvedActiveListId, key)
+          await commands.delete(commandListId, key)
           if (entry) {
             await legacy.recordListChange({
               type: 'removed',
@@ -351,7 +355,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
           listName: string | null,
           mutationUser?: AuthUser | null
         ) => {
-          const created = await commands.add(resolvedActiveListId, { ...item, listName })
+          const created = await commands.add(commandListId, { ...item, listName })
           await legacy.recordListChange({
             type: 'added',
             itemKey: created.key,

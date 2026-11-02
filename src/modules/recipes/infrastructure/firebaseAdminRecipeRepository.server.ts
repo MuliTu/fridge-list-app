@@ -6,6 +6,7 @@ import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 import type { GroceryItem } from '../../../types'
 import { ApplicationError, type AuthenticatedPrincipal } from '../../shared'
 import type { ListAuthorizationRepository } from '../../groceries'
+import type { CatalogAuthorizationRepository } from '../../catalog'
 import type { RecipeRecordInput } from '../domain/recipeSchemas'
 import type { ChefGroceryRepository, RecipeRepository } from '../application/recipeRepository'
 
@@ -35,7 +36,7 @@ const grantsMembership = (value: unknown): boolean => {
   return false
 }
 
-export class FirebaseAdminListAuthorizationRepository implements ListAuthorizationRepository {
+export class FirebaseAdminListAuthorizationRepository implements ListAuthorizationRepository, CatalogAuthorizationRepository {
   constructor(private readonly database: Database) {}
 
   async assertAccessible(principal: AuthenticatedPrincipal, listId: string): Promise<void> {
@@ -68,6 +69,19 @@ export class FirebaseAdminListAuthorizationRepository implements ListAuthorizati
       throw new ApplicationError('forbidden', 'User cannot access this list')
     } catch (error) {
       mapFailure('Firebase list authorization read failed', error)
+    }
+  }
+
+
+  async assertOwner(principal: AuthenticatedPrincipal, listId: string): Promise<void> {
+    if (principal.kind !== 'user') throw new ApplicationError('forbidden', 'Only signed-in users can own a list')
+    try {
+      const listKey = key(listId, 'listId')
+      const owner = await this.database.ref(`users/${listKey}/ownerUid`).get()
+      if (owner.val() === principal.uid) return
+      throw new ApplicationError('forbidden', 'Only the list owner can perform this action')
+    } catch (error) {
+      mapFailure('Firebase list ownership read failed', error)
     }
   }
 }

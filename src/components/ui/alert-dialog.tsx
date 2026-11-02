@@ -13,7 +13,7 @@ const AlertDialogOverlay = React.forwardRef<
   <AlertDialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-20 bg-black/55 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'design-overlay fixed inset-0 z-40',
       className
     )}
     {...props}
@@ -30,13 +30,12 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed z-20 flex flex-col gap-3',
+        'design-dialog fixed z-40 flex flex-col gap-3',
         'bottom-0 left-0 right-0 sm:inset-0 sm:m-auto sm:h-fit',
         'w-full sm:max-w-[420px] max-h-[85vh] overflow-y-auto',
-        'bg-background text-foreground shadow-[inset_0_0_0_3px_rgba(244,241,232,0.06)]',
+        'bg-popover text-foreground border border-border shadow-[var(--shadow-float)]',
         'rounded-t-[18px] sm:rounded-[18px]',
         "p-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] sm:pb-5 font-['Rubik',sans-serif]",
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className
       )}
       {...props}
@@ -59,7 +58,7 @@ const AlertDialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
     ref={ref}
-    className={cn("m-0 text-lg font-normal font-['Secular_One',sans-serif]", className)}
+    className={cn("m-0 text-lg font-medium font-['Rubik',sans-serif]", className)}
     {...props}
   />
 ))

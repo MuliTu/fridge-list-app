@@ -9,41 +9,43 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StockRouteImport } from './routes/stock'
-import { Route as RecipesRouteImport } from './routes/recipes'
-import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedback'
-import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
-import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
-import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
-import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedback'
-import { Route as ApiReleasesRouteImport } from './routes/api/releases'
-import { Route as ApiRecipesRouteImport } from './routes/api/recipes'
-import { Route as ApiPurchaseHabitSummaryRouteImport } from './routes/api/purchase-habit-summary'
-import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
-import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
+import { Route as ReceiptsRouteImport } from './routes/receipts'
+import { Route as RecipesRouteImport } from './routes/recipes'
+import { Route as StockRouteImport } from './routes/stock'
 import { Route as ApiCategorizeItemRouteImport } from './routes/api/categorize-item'
-import { Route as ApiPersonalChefSuggestRecipesRouteImport } from './routes/api/personal-chef/suggest-recipes'
-import { Route as ApiAiEnrichItemsRouteImport } from './routes/api/ai/enrich-items'
-import { Route as ApiAiAnalyzeRouteImport } from './routes/api/ai/analyze'
-import { Route as ApiAgentEntitlementRouteImport } from './routes/api/agent/entitlement'
+import { Route as ApiClientLogRouteImport } from './routes/api/client-log'
+import { Route as ApiN8nWriteGroceriesRouteImport } from './routes/api/n8n-write-groceries'
+import { Route as ApiPurchaseHabitSummaryRouteImport } from './routes/api/purchase-habit-summary'
+import { Route as ApiRecipesRouteImport } from './routes/api/recipes'
+import { Route as ApiReleasesRouteImport } from './routes/api/releases'
+import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedback'
+import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
+import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
+import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
+import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedback'
 import { Route as ApiAgentCreateTicketRouteImport } from './routes/api/agent/create-ticket'
-import { Route as ApiListsListIdReceiptsRouteImport } from './routes/api/lists/$listId/receipts'
+import { Route as ApiAgentEntitlementRouteImport } from './routes/api/agent/entitlement'
+import { Route as ApiAiAnalyzeRouteImport } from './routes/api/ai/analyze'
+import { Route as ApiAiEnrichItemsRouteImport } from './routes/api/ai/enrich-items'
+import { Route as ApiPersonalChefSuggestRecipesRouteImport } from './routes/api/personal-chef/suggest-recipes'
+import { Route as ApiListsListIdCategoriesRouteImport } from './routes/api/lists/$listId/categories'
 import { Route as ApiListsListIdGroceriesRouteImport } from './routes/api/lists/$listId/groceries'
-import { Route as ApiListsListIdReceiptsReceiptIdRouteImport } from './routes/api/lists/$listId/receipts/$receiptId'
+import { Route as ApiListsListIdMembersRouteImport } from './routes/api/lists/$listId/members'
+import { Route as ApiListsListIdReceiptsRouteImport } from './routes/api/lists/$listId/receipts'
+import { Route as ApiListsListIdSnapshotRouteImport } from './routes/api/lists/$listId/snapshot'
+import { Route as ApiListsListIdStockRouteImport } from './routes/api/lists/$listId/stock'
+import { Route as ApiListsListIdCategoriesCategoryIdRouteImport } from './routes/api/lists/$listId/categories/$categoryId'
 import { Route as ApiListsListIdGroceriesItemIdRouteImport } from './routes/api/lists/$listId/groceries/$itemId'
-import { Route as ApiListsListIdReceiptsReceiptIdImageRouteImport } from './routes/api/lists/$listId/receipts/$receiptId/image'
+import { Route as ApiListsListIdMembersEmailRouteImport } from './routes/api/lists/$listId/members/$email'
+import { Route as ApiListsListIdReceiptsReceiptIdRouteImport } from './routes/api/lists/$listId/receipts/$receiptId'
+import { Route as ApiListsListIdStockStockIdRouteImport } from './routes/api/lists/$listId/stock/$stockId'
 import { Route as ApiListsListIdGroceriesItemIdPurchasedRouteImport } from './routes/api/lists/$listId/groceries/$itemId/purchased'
+import { Route as ApiListsListIdReceiptsReceiptIdImageRouteImport } from './routes/api/lists/$listId/receipts/$receiptId/image'
 
-const StockRoute = StockRouteImport.update({
-  id: '/stock',
-  path: '/stock',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecipesRoute = RecipesRouteImport.update({
-  id: '/recipes',
-  path: '/recipes',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReceiptsRoute = ReceiptsRouteImport.update({
@@ -51,54 +53,19 @@ const ReceiptsRoute = ReceiptsRouteImport.update({
   path: '/receipts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const RecipesRoute = RecipesRouteImport.update({
+  id: '/recipes',
+  path: '/recipes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSubmitFeedbackRoute = ApiSubmitFeedbackRouteImport.update({
-  id: '/api/submit-feedback',
-  path: '/api/submit-feedback',
+const StockRoute = StockRouteImport.update({
+  id: '/stock',
+  path: '/stock',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSendInviteEmailRoute = ApiSendInviteEmailRouteImport.update({
-  id: '/api/send-invite-email',
-  path: '/api/send-invite-email',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiScanReceiptUrlRoute = ApiScanReceiptUrlRouteImport.update({
-  id: '/api/scan-receipt-url',
-  path: '/api/scan-receipt-url',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiScanReceiptRoute = ApiScanReceiptRouteImport.update({
-  id: '/api/scan-receipt',
-  path: '/api/scan-receipt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRetryFeedbackRoute = ApiRetryFeedbackRouteImport.update({
-  id: '/api/retry-feedback',
-  path: '/api/retry-feedback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiReleasesRoute = ApiReleasesRouteImport.update({
-  id: '/api/releases',
-  path: '/api/releases',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRecipesRoute = ApiRecipesRouteImport.update({
-  id: '/api/recipes',
-  path: '/api/recipes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPurchaseHabitSummaryRoute = ApiPurchaseHabitSummaryRouteImport.update({
-  id: '/api/purchase-habit-summary',
-  path: '/api/purchase-habit-summary',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiN8nWriteGroceriesRoute = ApiN8nWriteGroceriesRouteImport.update({
-  id: '/api/n8n-write-groceries',
-  path: '/api/n8n-write-groceries',
+const ApiCategorizeItemRoute = ApiCategorizeItemRouteImport.update({
+  id: '/api/categorize-item',
+  path: '/api/categorize-item',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiClientLogRoute = ApiClientLogRouteImport.update({
@@ -106,9 +73,69 @@ const ApiClientLogRoute = ApiClientLogRouteImport.update({
   path: '/api/client-log',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCategorizeItemRoute = ApiCategorizeItemRouteImport.update({
-  id: '/api/categorize-item',
-  path: '/api/categorize-item',
+const ApiN8nWriteGroceriesRoute = ApiN8nWriteGroceriesRouteImport.update({
+  id: '/api/n8n-write-groceries',
+  path: '/api/n8n-write-groceries',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPurchaseHabitSummaryRoute = ApiPurchaseHabitSummaryRouteImport.update({
+  id: '/api/purchase-habit-summary',
+  path: '/api/purchase-habit-summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecipesRoute = ApiRecipesRouteImport.update({
+  id: '/api/recipes',
+  path: '/api/recipes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReleasesRoute = ApiReleasesRouteImport.update({
+  id: '/api/releases',
+  path: '/api/releases',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRetryFeedbackRoute = ApiRetryFeedbackRouteImport.update({
+  id: '/api/retry-feedback',
+  path: '/api/retry-feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiScanReceiptRoute = ApiScanReceiptRouteImport.update({
+  id: '/api/scan-receipt',
+  path: '/api/scan-receipt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiScanReceiptUrlRoute = ApiScanReceiptUrlRouteImport.update({
+  id: '/api/scan-receipt-url',
+  path: '/api/scan-receipt-url',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSendInviteEmailRoute = ApiSendInviteEmailRouteImport.update({
+  id: '/api/send-invite-email',
+  path: '/api/send-invite-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSubmitFeedbackRoute = ApiSubmitFeedbackRouteImport.update({
+  id: '/api/submit-feedback',
+  path: '/api/submit-feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentCreateTicketRoute = ApiAgentCreateTicketRouteImport.update({
+  id: '/api/agent/create-ticket',
+  path: '/api/agent/create-ticket',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentEntitlementRoute = ApiAgentEntitlementRouteImport.update({
+  id: '/api/agent/entitlement',
+  path: '/api/agent/entitlement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiAnalyzeRoute = ApiAiAnalyzeRouteImport.update({
+  id: '/api/ai/analyze',
+  path: '/api/ai/analyze',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiEnrichItemsRoute = ApiAiEnrichItemsRouteImport.update({
+  id: '/api/ai/enrich-items',
+  path: '/api/ai/enrich-items',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPersonalChefSuggestRecipesRoute =
@@ -117,24 +144,20 @@ const ApiPersonalChefSuggestRecipesRoute =
     path: '/api/personal-chef/suggest-recipes',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiAiEnrichItemsRoute = ApiAiEnrichItemsRouteImport.update({
-  id: '/api/ai/enrich-items',
-  path: '/api/ai/enrich-items',
+const ApiListsListIdCategoriesRoute =
+  ApiListsListIdCategoriesRouteImport.update({
+    id: '/api/lists/$listId/categories',
+    path: '/api/lists/$listId/categories',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiListsListIdGroceriesRoute = ApiListsListIdGroceriesRouteImport.update({
+  id: '/api/lists/$listId/groceries',
+  path: '/api/lists/$listId/groceries',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAiAnalyzeRoute = ApiAiAnalyzeRouteImport.update({
-  id: '/api/ai/analyze',
-  path: '/api/ai/analyze',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAgentEntitlementRoute = ApiAgentEntitlementRouteImport.update({
-  id: '/api/agent/entitlement',
-  path: '/api/agent/entitlement',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAgentCreateTicketRoute = ApiAgentCreateTicketRouteImport.update({
-  id: '/api/agent/create-ticket',
-  path: '/api/agent/create-ticket',
+const ApiListsListIdMembersRoute = ApiListsListIdMembersRouteImport.update({
+  id: '/api/lists/$listId/members',
+  path: '/api/lists/$listId/members',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiListsListIdReceiptsRoute = ApiListsListIdReceiptsRouteImport.update({
@@ -142,16 +165,21 @@ const ApiListsListIdReceiptsRoute = ApiListsListIdReceiptsRouteImport.update({
   path: '/api/lists/$listId/receipts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiListsListIdGroceriesRoute = ApiListsListIdGroceriesRouteImport.update({
-  id: '/api/lists/$listId/groceries',
-  path: '/api/lists/$listId/groceries',
+const ApiListsListIdSnapshotRoute = ApiListsListIdSnapshotRouteImport.update({
+  id: '/api/lists/$listId/snapshot',
+  path: '/api/lists/$listId/snapshot',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiListsListIdReceiptsReceiptIdRoute =
-  ApiListsListIdReceiptsReceiptIdRouteImport.update({
-    id: '/$receiptId',
-    path: '/$receiptId',
-    getParentRoute: () => ApiListsListIdReceiptsRoute,
+const ApiListsListIdStockRoute = ApiListsListIdStockRouteImport.update({
+  id: '/api/lists/$listId/stock',
+  path: '/api/lists/$listId/stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiListsListIdCategoriesCategoryIdRoute =
+  ApiListsListIdCategoriesCategoryIdRouteImport.update({
+    id: '/$categoryId',
+    path: '/$categoryId',
+    getParentRoute: () => ApiListsListIdCategoriesRoute,
   } as any)
 const ApiListsListIdGroceriesItemIdRoute =
   ApiListsListIdGroceriesItemIdRouteImport.update({
@@ -159,17 +187,35 @@ const ApiListsListIdGroceriesItemIdRoute =
     path: '/$itemId',
     getParentRoute: () => ApiListsListIdGroceriesRoute,
   } as any)
-const ApiListsListIdReceiptsReceiptIdImageRoute =
-  ApiListsListIdReceiptsReceiptIdImageRouteImport.update({
-    id: '/image',
-    path: '/image',
-    getParentRoute: () => ApiListsListIdReceiptsReceiptIdRoute,
+const ApiListsListIdMembersEmailRoute =
+  ApiListsListIdMembersEmailRouteImport.update({
+    id: '/$email',
+    path: '/$email',
+    getParentRoute: () => ApiListsListIdMembersRoute,
+  } as any)
+const ApiListsListIdReceiptsReceiptIdRoute =
+  ApiListsListIdReceiptsReceiptIdRouteImport.update({
+    id: '/$receiptId',
+    path: '/$receiptId',
+    getParentRoute: () => ApiListsListIdReceiptsRoute,
+  } as any)
+const ApiListsListIdStockStockIdRoute =
+  ApiListsListIdStockStockIdRouteImport.update({
+    id: '/$stockId',
+    path: '/$stockId',
+    getParentRoute: () => ApiListsListIdStockRoute,
   } as any)
 const ApiListsListIdGroceriesItemIdPurchasedRoute =
   ApiListsListIdGroceriesItemIdPurchasedRouteImport.update({
     id: '/purchased',
     path: '/purchased',
     getParentRoute: () => ApiListsListIdGroceriesItemIdRoute,
+  } as any)
+const ApiListsListIdReceiptsReceiptIdImageRoute =
+  ApiListsListIdReceiptsReceiptIdImageRouteImport.update({
+    id: '/image',
+    path: '/image',
+    getParentRoute: () => ApiListsListIdReceiptsReceiptIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -193,10 +239,17 @@ export interface FileRoutesByFullPath {
   '/api/ai/analyze': typeof ApiAiAnalyzeRoute
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
+  '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
+  '/api/lists/$listId/members': typeof ApiListsListIdMembersRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
+  '/api/lists/$listId/snapshot': typeof ApiListsListIdSnapshotRoute
+  '/api/lists/$listId/stock': typeof ApiListsListIdStockRouteWithChildren
+  '/api/lists/$listId/categories/$categoryId': typeof ApiListsListIdCategoriesCategoryIdRoute
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
+  '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
   '/api/lists/$listId/receipts/$receiptId': typeof ApiListsListIdReceiptsReceiptIdRouteWithChildren
+  '/api/lists/$listId/stock/$stockId': typeof ApiListsListIdStockStockIdRoute
   '/api/lists/$listId/groceries/$itemId/purchased': typeof ApiListsListIdGroceriesItemIdPurchasedRoute
   '/api/lists/$listId/receipts/$receiptId/image': typeof ApiListsListIdReceiptsReceiptIdImageRoute
 }
@@ -221,10 +274,17 @@ export interface FileRoutesByTo {
   '/api/ai/analyze': typeof ApiAiAnalyzeRoute
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
+  '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
+  '/api/lists/$listId/members': typeof ApiListsListIdMembersRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
+  '/api/lists/$listId/snapshot': typeof ApiListsListIdSnapshotRoute
+  '/api/lists/$listId/stock': typeof ApiListsListIdStockRouteWithChildren
+  '/api/lists/$listId/categories/$categoryId': typeof ApiListsListIdCategoriesCategoryIdRoute
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
+  '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
   '/api/lists/$listId/receipts/$receiptId': typeof ApiListsListIdReceiptsReceiptIdRouteWithChildren
+  '/api/lists/$listId/stock/$stockId': typeof ApiListsListIdStockStockIdRoute
   '/api/lists/$listId/groceries/$itemId/purchased': typeof ApiListsListIdGroceriesItemIdPurchasedRoute
   '/api/lists/$listId/receipts/$receiptId/image': typeof ApiListsListIdReceiptsReceiptIdImageRoute
 }
@@ -250,10 +310,17 @@ export interface FileRoutesById {
   '/api/ai/analyze': typeof ApiAiAnalyzeRoute
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
+  '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
+  '/api/lists/$listId/members': typeof ApiListsListIdMembersRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
+  '/api/lists/$listId/snapshot': typeof ApiListsListIdSnapshotRoute
+  '/api/lists/$listId/stock': typeof ApiListsListIdStockRouteWithChildren
+  '/api/lists/$listId/categories/$categoryId': typeof ApiListsListIdCategoriesCategoryIdRoute
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
+  '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
   '/api/lists/$listId/receipts/$receiptId': typeof ApiListsListIdReceiptsReceiptIdRouteWithChildren
+  '/api/lists/$listId/stock/$stockId': typeof ApiListsListIdStockStockIdRoute
   '/api/lists/$listId/groceries/$itemId/purchased': typeof ApiListsListIdGroceriesItemIdPurchasedRoute
   '/api/lists/$listId/receipts/$receiptId/image': typeof ApiListsListIdReceiptsReceiptIdImageRoute
 }
@@ -280,10 +347,17 @@ export interface FileRouteTypes {
     | '/api/ai/analyze'
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
+    | '/api/lists/$listId/categories'
     | '/api/lists/$listId/groceries'
+    | '/api/lists/$listId/members'
     | '/api/lists/$listId/receipts'
+    | '/api/lists/$listId/snapshot'
+    | '/api/lists/$listId/stock'
+    | '/api/lists/$listId/categories/$categoryId'
     | '/api/lists/$listId/groceries/$itemId'
+    | '/api/lists/$listId/members/$email'
     | '/api/lists/$listId/receipts/$receiptId'
+    | '/api/lists/$listId/stock/$stockId'
     | '/api/lists/$listId/groceries/$itemId/purchased'
     | '/api/lists/$listId/receipts/$receiptId/image'
   fileRoutesByTo: FileRoutesByTo
@@ -308,10 +382,17 @@ export interface FileRouteTypes {
     | '/api/ai/analyze'
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
+    | '/api/lists/$listId/categories'
     | '/api/lists/$listId/groceries'
+    | '/api/lists/$listId/members'
     | '/api/lists/$listId/receipts'
+    | '/api/lists/$listId/snapshot'
+    | '/api/lists/$listId/stock'
+    | '/api/lists/$listId/categories/$categoryId'
     | '/api/lists/$listId/groceries/$itemId'
+    | '/api/lists/$listId/members/$email'
     | '/api/lists/$listId/receipts/$receiptId'
+    | '/api/lists/$listId/stock/$stockId'
     | '/api/lists/$listId/groceries/$itemId/purchased'
     | '/api/lists/$listId/receipts/$receiptId/image'
   id:
@@ -336,10 +417,17 @@ export interface FileRouteTypes {
     | '/api/ai/analyze'
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
+    | '/api/lists/$listId/categories'
     | '/api/lists/$listId/groceries'
+    | '/api/lists/$listId/members'
     | '/api/lists/$listId/receipts'
+    | '/api/lists/$listId/snapshot'
+    | '/api/lists/$listId/stock'
+    | '/api/lists/$listId/categories/$categoryId'
     | '/api/lists/$listId/groceries/$itemId'
+    | '/api/lists/$listId/members/$email'
     | '/api/lists/$listId/receipts/$receiptId'
+    | '/api/lists/$listId/stock/$stockId'
     | '/api/lists/$listId/groceries/$itemId/purchased'
     | '/api/lists/$listId/receipts/$receiptId/image'
   fileRoutesById: FileRoutesById
@@ -365,24 +453,21 @@ export interface RootRouteChildren {
   ApiAiAnalyzeRoute: typeof ApiAiAnalyzeRoute
   ApiAiEnrichItemsRoute: typeof ApiAiEnrichItemsRoute
   ApiPersonalChefSuggestRecipesRoute: typeof ApiPersonalChefSuggestRecipesRoute
+  ApiListsListIdCategoriesRoute: typeof ApiListsListIdCategoriesRouteWithChildren
   ApiListsListIdGroceriesRoute: typeof ApiListsListIdGroceriesRouteWithChildren
+  ApiListsListIdMembersRoute: typeof ApiListsListIdMembersRouteWithChildren
   ApiListsListIdReceiptsRoute: typeof ApiListsListIdReceiptsRouteWithChildren
+  ApiListsListIdSnapshotRoute: typeof ApiListsListIdSnapshotRoute
+  ApiListsListIdStockRoute: typeof ApiListsListIdStockRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/stock': {
-      id: '/stock'
-      path: '/stock'
-      fullPath: '/stock'
-      preLoaderRoute: typeof StockRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/recipes': {
-      id: '/recipes'
-      path: '/recipes'
-      fullPath: '/recipes'
-      preLoaderRoute: typeof RecipesRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/receipts': {
@@ -392,81 +477,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceiptsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/recipes': {
+      id: '/recipes'
+      path: '/recipes'
+      fullPath: '/recipes'
+      preLoaderRoute: typeof RecipesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/submit-feedback': {
-      id: '/api/submit-feedback'
-      path: '/api/submit-feedback'
-      fullPath: '/api/submit-feedback'
-      preLoaderRoute: typeof ApiSubmitFeedbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/send-invite-email': {
-      id: '/api/send-invite-email'
-      path: '/api/send-invite-email'
-      fullPath: '/api/send-invite-email'
-      preLoaderRoute: typeof ApiSendInviteEmailRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/scan-receipt-url': {
-      id: '/api/scan-receipt-url'
-      path: '/api/scan-receipt-url'
-      fullPath: '/api/scan-receipt-url'
-      preLoaderRoute: typeof ApiScanReceiptUrlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/scan-receipt': {
-      id: '/api/scan-receipt'
-      path: '/api/scan-receipt'
-      fullPath: '/api/scan-receipt'
-      preLoaderRoute: typeof ApiScanReceiptRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/retry-feedback': {
-      id: '/api/retry-feedback'
-      path: '/api/retry-feedback'
-      fullPath: '/api/retry-feedback'
-      preLoaderRoute: typeof ApiRetryFeedbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/releases': {
-      id: '/api/releases'
-      path: '/api/releases'
-      fullPath: '/api/releases'
-      preLoaderRoute: typeof ApiReleasesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/recipes': {
-      id: '/api/recipes'
-      path: '/api/recipes'
-      fullPath: '/api/recipes'
-      preLoaderRoute: typeof ApiRecipesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/purchase-habit-summary': {
-      id: '/api/purchase-habit-summary'
-      path: '/api/purchase-habit-summary'
-      fullPath: '/api/purchase-habit-summary'
-      preLoaderRoute: typeof ApiPurchaseHabitSummaryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/n8n-write-groceries': {
-      id: '/api/n8n-write-groceries'
-      path: '/api/n8n-write-groceries'
-      fullPath: '/api/n8n-write-groceries'
-      preLoaderRoute: typeof ApiN8nWriteGroceriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/client-log': {
-      id: '/api/client-log'
-      path: '/api/client-log'
-      fullPath: '/api/client-log'
-      preLoaderRoute: typeof ApiClientLogRouteImport
+    '/stock': {
+      id: '/stock'
+      path: '/stock'
+      fullPath: '/stock'
+      preLoaderRoute: typeof StockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/categorize-item': {
@@ -476,32 +498,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCategorizeItemRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/personal-chef/suggest-recipes': {
-      id: '/api/personal-chef/suggest-recipes'
-      path: '/api/personal-chef/suggest-recipes'
-      fullPath: '/api/personal-chef/suggest-recipes'
-      preLoaderRoute: typeof ApiPersonalChefSuggestRecipesRouteImport
+    '/api/client-log': {
+      id: '/api/client-log'
+      path: '/api/client-log'
+      fullPath: '/api/client-log'
+      preLoaderRoute: typeof ApiClientLogRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/ai/enrich-items': {
-      id: '/api/ai/enrich-items'
-      path: '/api/ai/enrich-items'
-      fullPath: '/api/ai/enrich-items'
-      preLoaderRoute: typeof ApiAiEnrichItemsRouteImport
+    '/api/n8n-write-groceries': {
+      id: '/api/n8n-write-groceries'
+      path: '/api/n8n-write-groceries'
+      fullPath: '/api/n8n-write-groceries'
+      preLoaderRoute: typeof ApiN8nWriteGroceriesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/ai/analyze': {
-      id: '/api/ai/analyze'
-      path: '/api/ai/analyze'
-      fullPath: '/api/ai/analyze'
-      preLoaderRoute: typeof ApiAiAnalyzeRouteImport
+    '/api/purchase-habit-summary': {
+      id: '/api/purchase-habit-summary'
+      path: '/api/purchase-habit-summary'
+      fullPath: '/api/purchase-habit-summary'
+      preLoaderRoute: typeof ApiPurchaseHabitSummaryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/agent/entitlement': {
-      id: '/api/agent/entitlement'
-      path: '/api/agent/entitlement'
-      fullPath: '/api/agent/entitlement'
-      preLoaderRoute: typeof ApiAgentEntitlementRouteImport
+    '/api/recipes': {
+      id: '/api/recipes'
+      path: '/api/recipes'
+      fullPath: '/api/recipes'
+      preLoaderRoute: typeof ApiRecipesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/releases': {
+      id: '/api/releases'
+      path: '/api/releases'
+      fullPath: '/api/releases'
+      preLoaderRoute: typeof ApiReleasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/retry-feedback': {
+      id: '/api/retry-feedback'
+      path: '/api/retry-feedback'
+      fullPath: '/api/retry-feedback'
+      preLoaderRoute: typeof ApiRetryFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/scan-receipt': {
+      id: '/api/scan-receipt'
+      path: '/api/scan-receipt'
+      fullPath: '/api/scan-receipt'
+      preLoaderRoute: typeof ApiScanReceiptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/scan-receipt-url': {
+      id: '/api/scan-receipt-url'
+      path: '/api/scan-receipt-url'
+      fullPath: '/api/scan-receipt-url'
+      preLoaderRoute: typeof ApiScanReceiptUrlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/send-invite-email': {
+      id: '/api/send-invite-email'
+      path: '/api/send-invite-email'
+      fullPath: '/api/send-invite-email'
+      preLoaderRoute: typeof ApiSendInviteEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/submit-feedback': {
+      id: '/api/submit-feedback'
+      path: '/api/submit-feedback'
+      fullPath: '/api/submit-feedback'
+      preLoaderRoute: typeof ApiSubmitFeedbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/agent/create-ticket': {
@@ -511,11 +575,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentCreateTicketRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lists/$listId/receipts': {
-      id: '/api/lists/$listId/receipts'
-      path: '/api/lists/$listId/receipts'
-      fullPath: '/api/lists/$listId/receipts'
-      preLoaderRoute: typeof ApiListsListIdReceiptsRouteImport
+    '/api/agent/entitlement': {
+      id: '/api/agent/entitlement'
+      path: '/api/agent/entitlement'
+      fullPath: '/api/agent/entitlement'
+      preLoaderRoute: typeof ApiAgentEntitlementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/analyze': {
+      id: '/api/ai/analyze'
+      path: '/api/ai/analyze'
+      fullPath: '/api/ai/analyze'
+      preLoaderRoute: typeof ApiAiAnalyzeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/enrich-items': {
+      id: '/api/ai/enrich-items'
+      path: '/api/ai/enrich-items'
+      fullPath: '/api/ai/enrich-items'
+      preLoaderRoute: typeof ApiAiEnrichItemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/personal-chef/suggest-recipes': {
+      id: '/api/personal-chef/suggest-recipes'
+      path: '/api/personal-chef/suggest-recipes'
+      fullPath: '/api/personal-chef/suggest-recipes'
+      preLoaderRoute: typeof ApiPersonalChefSuggestRecipesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lists/$listId/categories': {
+      id: '/api/lists/$listId/categories'
+      path: '/api/lists/$listId/categories'
+      fullPath: '/api/lists/$listId/categories'
+      preLoaderRoute: typeof ApiListsListIdCategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/lists/$listId/groceries': {
@@ -525,12 +617,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiListsListIdGroceriesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lists/$listId/receipts/$receiptId': {
-      id: '/api/lists/$listId/receipts/$receiptId'
-      path: '/$receiptId'
-      fullPath: '/api/lists/$listId/receipts/$receiptId'
-      preLoaderRoute: typeof ApiListsListIdReceiptsReceiptIdRouteImport
-      parentRoute: typeof ApiListsListIdReceiptsRoute
+    '/api/lists/$listId/members': {
+      id: '/api/lists/$listId/members'
+      path: '/api/lists/$listId/members'
+      fullPath: '/api/lists/$listId/members'
+      preLoaderRoute: typeof ApiListsListIdMembersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lists/$listId/receipts': {
+      id: '/api/lists/$listId/receipts'
+      path: '/api/lists/$listId/receipts'
+      fullPath: '/api/lists/$listId/receipts'
+      preLoaderRoute: typeof ApiListsListIdReceiptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lists/$listId/snapshot': {
+      id: '/api/lists/$listId/snapshot'
+      path: '/api/lists/$listId/snapshot'
+      fullPath: '/api/lists/$listId/snapshot'
+      preLoaderRoute: typeof ApiListsListIdSnapshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lists/$listId/stock': {
+      id: '/api/lists/$listId/stock'
+      path: '/api/lists/$listId/stock'
+      fullPath: '/api/lists/$listId/stock'
+      preLoaderRoute: typeof ApiListsListIdStockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lists/$listId/categories/$categoryId': {
+      id: '/api/lists/$listId/categories/$categoryId'
+      path: '/$categoryId'
+      fullPath: '/api/lists/$listId/categories/$categoryId'
+      preLoaderRoute: typeof ApiListsListIdCategoriesCategoryIdRouteImport
+      parentRoute: typeof ApiListsListIdCategoriesRoute
     }
     '/api/lists/$listId/groceries/$itemId': {
       id: '/api/lists/$listId/groceries/$itemId'
@@ -539,12 +659,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiListsListIdGroceriesItemIdRouteImport
       parentRoute: typeof ApiListsListIdGroceriesRoute
     }
-    '/api/lists/$listId/receipts/$receiptId/image': {
-      id: '/api/lists/$listId/receipts/$receiptId/image'
-      path: '/image'
-      fullPath: '/api/lists/$listId/receipts/$receiptId/image'
-      preLoaderRoute: typeof ApiListsListIdReceiptsReceiptIdImageRouteImport
-      parentRoute: typeof ApiListsListIdReceiptsReceiptIdRoute
+    '/api/lists/$listId/members/$email': {
+      id: '/api/lists/$listId/members/$email'
+      path: '/$email'
+      fullPath: '/api/lists/$listId/members/$email'
+      preLoaderRoute: typeof ApiListsListIdMembersEmailRouteImport
+      parentRoute: typeof ApiListsListIdMembersRoute
+    }
+    '/api/lists/$listId/receipts/$receiptId': {
+      id: '/api/lists/$listId/receipts/$receiptId'
+      path: '/$receiptId'
+      fullPath: '/api/lists/$listId/receipts/$receiptId'
+      preLoaderRoute: typeof ApiListsListIdReceiptsReceiptIdRouteImport
+      parentRoute: typeof ApiListsListIdReceiptsRoute
+    }
+    '/api/lists/$listId/stock/$stockId': {
+      id: '/api/lists/$listId/stock/$stockId'
+      path: '/$stockId'
+      fullPath: '/api/lists/$listId/stock/$stockId'
+      preLoaderRoute: typeof ApiListsListIdStockStockIdRouteImport
+      parentRoute: typeof ApiListsListIdStockRoute
     }
     '/api/lists/$listId/groceries/$itemId/purchased': {
       id: '/api/lists/$listId/groceries/$itemId/purchased'
@@ -553,8 +687,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiListsListIdGroceriesItemIdPurchasedRouteImport
       parentRoute: typeof ApiListsListIdGroceriesItemIdRoute
     }
+    '/api/lists/$listId/receipts/$receiptId/image': {
+      id: '/api/lists/$listId/receipts/$receiptId/image'
+      path: '/image'
+      fullPath: '/api/lists/$listId/receipts/$receiptId/image'
+      preLoaderRoute: typeof ApiListsListIdReceiptsReceiptIdImageRouteImport
+      parentRoute: typeof ApiListsListIdReceiptsReceiptIdRoute
+    }
   }
 }
+
+interface ApiListsListIdCategoriesRouteChildren {
+  ApiListsListIdCategoriesCategoryIdRoute: typeof ApiListsListIdCategoriesCategoryIdRoute
+}
+
+const ApiListsListIdCategoriesRouteChildren: ApiListsListIdCategoriesRouteChildren =
+  {
+    ApiListsListIdCategoriesCategoryIdRoute:
+      ApiListsListIdCategoriesCategoryIdRoute,
+  }
+
+const ApiListsListIdCategoriesRouteWithChildren =
+  ApiListsListIdCategoriesRoute._addFileChildren(
+    ApiListsListIdCategoriesRouteChildren,
+  )
 
 interface ApiListsListIdGroceriesItemIdRouteChildren {
   ApiListsListIdGroceriesItemIdPurchasedRoute: typeof ApiListsListIdGroceriesItemIdPurchasedRoute
@@ -584,6 +740,19 @@ const ApiListsListIdGroceriesRouteChildren: ApiListsListIdGroceriesRouteChildren
 const ApiListsListIdGroceriesRouteWithChildren =
   ApiListsListIdGroceriesRoute._addFileChildren(
     ApiListsListIdGroceriesRouteChildren,
+  )
+
+interface ApiListsListIdMembersRouteChildren {
+  ApiListsListIdMembersEmailRoute: typeof ApiListsListIdMembersEmailRoute
+}
+
+const ApiListsListIdMembersRouteChildren: ApiListsListIdMembersRouteChildren = {
+  ApiListsListIdMembersEmailRoute: ApiListsListIdMembersEmailRoute,
+}
+
+const ApiListsListIdMembersRouteWithChildren =
+  ApiListsListIdMembersRoute._addFileChildren(
+    ApiListsListIdMembersRouteChildren,
   )
 
 interface ApiListsListIdReceiptsReceiptIdRouteChildren {
@@ -616,6 +785,17 @@ const ApiListsListIdReceiptsRouteWithChildren =
     ApiListsListIdReceiptsRouteChildren,
   )
 
+interface ApiListsListIdStockRouteChildren {
+  ApiListsListIdStockStockIdRoute: typeof ApiListsListIdStockStockIdRoute
+}
+
+const ApiListsListIdStockRouteChildren: ApiListsListIdStockRouteChildren = {
+  ApiListsListIdStockStockIdRoute: ApiListsListIdStockStockIdRoute,
+}
+
+const ApiListsListIdStockRouteWithChildren =
+  ApiListsListIdStockRoute._addFileChildren(ApiListsListIdStockRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ReceiptsRoute: ReceiptsRoute,
@@ -637,8 +817,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiAnalyzeRoute: ApiAiAnalyzeRoute,
   ApiAiEnrichItemsRoute: ApiAiEnrichItemsRoute,
   ApiPersonalChefSuggestRecipesRoute: ApiPersonalChefSuggestRecipesRoute,
+  ApiListsListIdCategoriesRoute: ApiListsListIdCategoriesRouteWithChildren,
   ApiListsListIdGroceriesRoute: ApiListsListIdGroceriesRouteWithChildren,
+  ApiListsListIdMembersRoute: ApiListsListIdMembersRouteWithChildren,
   ApiListsListIdReceiptsRoute: ApiListsListIdReceiptsRouteWithChildren,
+  ApiListsListIdSnapshotRoute: ApiListsListIdSnapshotRoute,
+  ApiListsListIdStockRoute: ApiListsListIdStockRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

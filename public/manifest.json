@@ -3,8 +3,8 @@
   "short_name": "רשימת קניות",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#2f3d34",
-  "theme_color": "#2f3d34",
+  "background_color": "#111715",
+  "theme_color": "#111715",
   "dir": "rtl",
   "lang": "he",
   "icons": [

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Camera, Link as LinkIcon, ReceiptText } from 'lucide-react'
+import { Button } from '../components/ui/button'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -24,7 +26,8 @@ import ListSkeleton from '../components/ListSkeleton'
 import type { Receipt, ReceiptItem } from '../types'
 
 const receiptTotal = (receipt: Receipt) =>
-  receipt.total ?? (receipt.items || []).reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
+  receipt.total ??
+  (receipt.items || []).reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
 
 // Shared by the post-save reconcile step and the on-demand "add to stock" button on
 // an already-saved receipt card — both need the exact same stock/grocery matching +
@@ -34,8 +37,12 @@ const buildReconcileMatches = async (
   items: ReceiptItem[]
 ): Promise<ReconcileMatch[]> => {
   // One Firebase read each for the whole receipt, not one per item.
-  const [stockItems, groceryItems] = await Promise.all([listApi.getAllStockItems(), listApi.getAllGroceryItems()])
-  const findStock = (name: string) => stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
+  const [stockItems, groceryItems] = await Promise.all([
+    listApi.getAllStockItems(),
+    listApi.getAllGroceryItems()
+  ])
+  const findStock = (name: string) =>
+    stockItems.find((s) => normalizeName(s.name) === normalizeName(name)) || null
   const findGrocery = (name: string) =>
     groceryItems.find((g) => normalizeName(g.item) === normalizeName(name) && !g.bought) || null
 
@@ -64,7 +71,9 @@ const buildReconcileMatches = async (
   return items.map((item) => {
     const stockMatch = findStock(item.name)
     const groceryMatch = findGrocery(item.name)
-    const suggestedCategory = stockMatch ? stockMatch.category : takeCategory(item.name) || OTHER_CATEGORY_NAME
+    const suggestedCategory = stockMatch
+      ? stockMatch.category
+      : takeCategory(item.name) || OTHER_CATEGORY_NAME
     return { item, stockMatch, groceryMatch, suggestedCategory }
   })
 }
@@ -79,7 +88,8 @@ function ReceiptsPage() {
   const { activeList, canEdit } = useActiveList()
   const listApi = useListApi()
   const receiptApi = useMemo(
-    () => createReceiptApiClient({ getIdToken: async () => (await getCurrentUserIdToken()) ?? null }),
+    () =>
+      createReceiptApiClient({ getIdToken: async () => (await getCurrentUserIdToken()) ?? null }),
     []
   )
   const { confirm, prompt, alert } = useDialogService()
@@ -110,7 +120,9 @@ function ReceiptsPage() {
     })
   }, [listApi])
 
-  const chronological = [...receipts].sort((a, b) => (a.scanned_at || '').localeCompare(b.scanned_at || ''))
+  const chronological = [...receipts].sort((a, b) =>
+    (a.scanned_at || '').localeCompare(b.scanned_at || '')
+  )
   const priceHistory: Record<string, { price: number; date: string }[]> = {}
   chronological.forEach((receipt) => {
     ;(receipt.items || []).forEach((item) => {
@@ -150,9 +162,19 @@ function ReceiptsPage() {
       const result = await scanReceipt(fileForScan as Blob & { type: string })
       if (result.error) {
         setScanError(
-          t(result.message === 'quota_exceeded' ? 'receipts:scanErrors.quotaExceeded' : 'receipts:scanErrors.scanAutoFailed')
+          t(
+            result.message === 'quota_exceeded'
+              ? 'receipts:scanErrors.quotaExceeded'
+              : 'receipts:scanErrors.scanAutoFailed'
+          )
         )
-        setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
+        setReviewData({
+          store_name: null,
+          items: [],
+          total: null,
+          imageBlob: fileForScan,
+          queuePosition
+        })
       } else {
         setReviewData({
           store_name: result.store_name,
@@ -164,7 +186,13 @@ function ReceiptsPage() {
       }
     } catch (err: any) {
       setScanError(t('receipts:scanErrors.scanFailed', { message: err.message }))
-      setReviewData({ store_name: null, items: [], total: null, imageBlob: fileForScan, queuePosition })
+      setReviewData({
+        store_name: null,
+        items: [],
+        total: null,
+        imageBlob: fileForScan,
+        queuePosition
+      })
     } finally {
       setScanning(false)
     }
@@ -199,7 +227,13 @@ function ReceiptsPage() {
       const result = await scanReceiptFromUrl(trimmed)
       if (result.error) {
         setScanError(t('receipts:scanErrors.urlScanAutoFailed'))
-        setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
+        setReviewData({
+          store_name: null,
+          items: [],
+          total: null,
+          imageBlob: null,
+          source_url: trimmed
+        })
       } else {
         setReviewData({
           store_name: result.store_name,
@@ -211,7 +245,13 @@ function ReceiptsPage() {
       }
     } catch (err: any) {
       setScanError(t('receipts:scanErrors.urlScanFailed', { message: err.message }))
-      setReviewData({ store_name: null, items: [], total: null, imageBlob: null, source_url: trimmed })
+      setReviewData({
+        store_name: null,
+        items: [],
+        total: null,
+        imageBlob: null,
+        source_url: trimmed
+      })
     } finally {
       setScanning(false)
     }
@@ -256,13 +296,20 @@ function ReceiptsPage() {
     ;(reconcileMatches || []).forEach((m, i) => {
       if (selections[i]?.stock) {
         if (m.stockMatch) {
-          stockAdjustments.push({ key: m.stockMatch.key, quantity: m.stockMatch.quantity + (m.item.quantity || 1) })
+          stockAdjustments.push({
+            key: m.stockMatch.key,
+            quantity: m.stockMatch.quantity + (m.item.quantity || 1)
+          })
         } else {
           // No existing stock item for this product — create a new one instead of
           // silently dropping it, which is what used to happen here (a product
           // never previously tracked in stock could never end up in stock via a
           // receipt scan, no matter what was selected).
-          newStockItems.push({ name: m.item.name, category: m.suggestedCategory, quantity: m.item.quantity || 1 })
+          newStockItems.push({
+            name: m.item.name,
+            category: m.suggestedCategory,
+            quantity: m.item.quantity || 1
+          })
         }
       }
       if (selections[i]?.grocery) {
@@ -280,7 +327,10 @@ function ReceiptsPage() {
     // the most likely explanation for "I approved the products but don't see them
     // anywhere": the write silently failed and nothing told the user.
     try {
-      await listApi.applyReceiptReconciliation({ stockAdjustments, newStockItems, groceryBoughtKeys, newGroceryItems }, user)
+      await listApi.applyReceiptReconciliation(
+        { stockAdjustments, newStockItems, groceryBoughtKeys, newGroceryItems },
+        user
+      )
     } catch (err: any) {
       await alert(t('receipts:reconcile.applyFailed', { message: err.message }))
       return
@@ -325,7 +375,33 @@ function ReceiptsPage() {
   }
 
   return (
-    <div className="stock-view">
+    <div className="stock-view receipts-workspace">
+      <div className="receipt-intro">
+        <div>
+          <ReceiptText size={24} aria-hidden="true" />
+          <p>{t('common:workspace.receiptsHint')}</p>
+        </div>
+        {canEdit && (
+          <div className="receipt-import-actions">
+            <Button variant="outline" onClick={handleUrlSubmit} disabled={scanning}>
+              <LinkIcon aria-hidden="true" />
+              {t('common:workspace.importLink')}
+            </Button>
+            <label className={`receipt-upload-control${scanning ? ' disabled' : ''}`}>
+              <Camera size={17} aria-hidden="true" />
+              <span>{scanning ? t('receipts:loading') : t('common:workspace.scanReceipt')}</span>
+              <input
+                aria-label={t('receipts:uploadFab.ariaScan')}
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                disabled={scanning}
+                onChange={(event) => handleFilesSelected(event.target.files)}
+              />
+            </label>
+          </div>
+        )}
+      </div>
       {isLoading && receipts.length === 0 ? (
         <ListSkeleton variant="grid" sections={3} rows={3} />
       ) : receipts.length === 0 ? (
@@ -334,15 +410,20 @@ function ReceiptsPage() {
           {canEdit ? ' 📸' : ''}
         </div>
       ) : (
-        <div className="board-grid">
+        <div className="board-grid receipt-history">
           {receipts.map((receipt) => (
             <section className="panel receipt-card" key={receipt.key}>
               <h2>
                 <span className="dot" />
                 {receipt.store_name || t('receipts:fallbackTitle')}
                 {isSafeHttpUrl(receipt.source_url) && (
-                  <a href={receipt.source_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                    🔗
+                  <a
+                    href={receipt.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <LinkIcon size={16} aria-hidden="true" />
                   </a>
                 )}
                 {receipt.image_ref && (
@@ -351,7 +432,7 @@ function ReceiptsPage() {
                     onClick={() => handleViewImage(receipt)}
                     aria-label={t('receipts:viewImageAria')}
                   >
-                    📷
+                    <Camera size={17} aria-hidden="true" />
                   </button>
                 )}
                 <span className="receipt-date">{formatDateTime(receipt.scanned_at)}</span>
@@ -389,7 +470,10 @@ function ReceiptsPage() {
                   >
                     {t('receipts:addToStockBtn')}
                   </button>
-                  <button className="stock-icon-btn stock-delete-btn" onClick={() => handleDelete(receipt)}>
+                  <button
+                    className="stock-icon-btn stock-delete-btn"
+                    onClick={() => handleDelete(receipt)}
+                  >
                     {t('receipts:deleteBtn')}
                   </button>
                 </div>
@@ -397,29 +481,6 @@ function ReceiptsPage() {
             </section>
           ))}
         </div>
-      )}
-
-      {canEdit && (
-        <>
-          <button
-            className="fab-add-btn fab-secondary"
-            onClick={handleUrlSubmit}
-            disabled={scanning}
-            aria-label={t('receipts:uploadFab.ariaFromUrl')}
-          >
-            🔗
-          </button>
-          <label className="fab-add-btn receipt-upload-btn" aria-label={t('receipts:uploadFab.ariaScan')}>
-            {scanning ? (queue.length > 1 ? `${queueIndex + 1}/${queue.length}` : '…') : '+'}
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              multiple
-              disabled={scanning}
-              onChange={(e) => handleFilesSelected(e.target.files)}
-            />
-          </label>
-        </>
       )}
 
       {scanning && (
