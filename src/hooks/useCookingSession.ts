@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useListApi } from './ListContext'
 import type { GroceryItem, RecipeCandidate, RecipeMealType } from '../types'
@@ -19,24 +19,6 @@ export function useCookingSession(products: GroceryItem[]) {
   const [saveError, setSaveError] = useState<string | null>(null)
   const busy = useRef(false)
   const selectedProducts = products.filter((product) => selectedKeys.has(product.key))
-
-  useEffect(() => {
-    let cancelled = false
-    listApi
-      .getPendingRecipeSaves()
-      .then((pending) => {
-        if (cancelled || !pending.length) return
-        setRecipes(pending)
-        setReviewOpen(true)
-        setSaveError(t('shoppingList:chef.pendingSave'))
-      })
-      .catch(() => {
-        if (!cancelled) setError(t('shoppingList:chef.restoreFailed'))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [listApi, t])
 
   const toggleProduct = (key: string) => {
     setSelectedKeys((current) => {

@@ -1,9 +1,8 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { useCookingSession } from '../useCookingSession'
 import type { GroceryItem, RecipeCandidate } from '../../types'
 
 const mockApi = {
-  getPendingRecipeSaves: jest.fn(),
   suggestRecipes: jest.fn(),
   saveRecipe: jest.fn()
 }
@@ -24,11 +23,9 @@ const recipe = { id: 'salad', title: 'Salad' } as RecipeCandidate
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockApi.getPendingRecipeSaves.mockResolvedValue([])
   mockApi.suggestRecipes.mockResolvedValue({ recipes: [recipe] })
   mockApi.saveRecipe.mockResolvedValue({ key: 'saved' })
 })
-
 it('opens suggestions for review and does not save until explicitly requested', async () => {
   const { result } = renderHook(() => useCookingSession([food]))
   act(() => result.current.toggleProduct('tomato'))
@@ -111,10 +108,3 @@ it('keeps the review and recipe available when saving fails', async () => {
   expect(result.current.reviewOpen).toBe(false)
 })
 
-it('restores pending saves for explicit review without sending another save', async () => {
-  mockApi.getPendingRecipeSaves.mockResolvedValue([recipe])
-  const { result } = renderHook(() => useCookingSession([food]))
-  await waitFor(() => expect(result.current.reviewOpen).toBe(true))
-  expect(result.current.saveError).toBe('shoppingList:chef.pendingSave')
-  expect(mockApi.saveRecipe).not.toHaveBeenCalled()
-})
