@@ -16,6 +16,7 @@ import { cp, mkdir, writeFile, rm, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { nodeFileTrace } from '@vercel/nft'
+import { reconcileShellStylesheets } from './lib/reconcile-shell-stylesheets.mjs'
 
 const OUT = '.vercel/output'
 const FUNC = `${OUT}/functions/index.func`
@@ -29,6 +30,18 @@ if (!existsSync('dist/client') || !existsSync('dist/server/server.js')) {
 }
 
 await cp('dist/client', `${OUT}/static`, { recursive: true })
+
+// Tailwind's Vite transform can give the same CSS entry a different content hash
+// while TanStack's SPA shell is being prerendered than the hash that survives in
+// dist/client/assets. When that happens the shell points at a stylesheet that was
+// never emitted. Vercel then falls through to index.html for the missing asset, so
+// the browser receives HTML as CSS and the whole utility layer disappears.
+//
+// Reconcile only missing, hashed CSS entries and fail closed if there is not one
+// unambiguous emitted asset with the same entry-name prefix. This keeps the shell
+// tied to the files actually copied into the Build Output API bundle and also makes
+// future missing stylesheet regressions fail during the build instead of shipping.
+await reconcileShellStylesheets(`${OUT}/static`)
 // SPA mode (vite.config.ts's `spa: { enabled: true }`) prerenders one static shell
 // for the whole app instead of per-route SSR — copy it to the conventional
 // `index.html` name so Vercel's filesystem-first routing serves it directly for "/"
