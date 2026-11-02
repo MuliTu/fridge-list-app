@@ -44,7 +44,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
   it('defaults an exact-name match to updating the existing item, not creating a duplicate', async () => {
     ;(categorizeItem as jest.Mock).mockResolvedValue([])
     const onAdd = jest.fn(() => Promise.resolve())
-    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+    const onUpdateDetails = jest.fn(() => Promise.resolve())
 
     render(
       <BulkUploadModal
@@ -53,7 +53,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
         existingEntries={[{ key: 'existing-1', name: 'חלב', category: 'מוצרי חלב' }]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={onUpdateQuantity}
+        onUpdateDetails={onUpdateDetails}
       />
     )
 
@@ -63,16 +63,16 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
     await clickSave(user)
 
     // The matched row (חלב) updates the existing item instead of calling onAdd.
-    expect(onUpdateQuantity).toHaveBeenCalledTimes(1)
-    expect(onUpdateQuantity).toHaveBeenCalledWith('existing-1', { quantity: null, unit: null })
+    expect(onUpdateDetails).toHaveBeenCalledTimes(1)
+    expect(onUpdateDetails).toHaveBeenCalledWith('existing-1', { quantity: null, unit: null })
     // The unmatched row (לחם) still creates a new item, exactly as before.
     expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd).toHaveBeenCalledWith({ name: 'לחם', category: 'מאפים', quantity: null, unit: null })
+    expect(onAdd).toHaveBeenCalledWith({ name: 'לחם', category: 'מאפים', note: null, quantity: null, unit: null })
   })
 
   it('defaults a fuzzy plural match to updating the existing item (מלפפון -> מלפפונים)', async () => {
     ;(categorizeItem as jest.Mock).mockResolvedValue([])
-    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+    const onUpdateDetails = jest.fn(() => Promise.resolve())
 
     render(
       <BulkUploadModal
@@ -81,7 +81,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
         existingEntries={[{ key: 'cucumber-key', name: 'מלפפונים', category: 'אחר' }]}
         onClose={jest.fn()}
         onAdd={jest.fn()}
-        onUpdateQuantity={onUpdateQuantity}
+        onUpdateDetails={onUpdateDetails}
       />
     )
 
@@ -90,7 +90,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
 
     await clickSave(user)
 
-    expect(onUpdateQuantity).toHaveBeenCalledWith('cucumber-key', { quantity: 10, unit: null })
+    expect(onUpdateDetails).toHaveBeenCalledWith('cucumber-key', { quantity: 10, unit: null })
   })
 
   it('parses "name,amount,unit" into quantity + unit for a new item', async () => {
@@ -104,14 +104,14 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
         existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={jest.fn()}
+        onUpdateDetails={jest.fn()}
       />
     )
 
     const user = await parseAndReview('מלפפונים,10,ק"ג')
     await clickSave(user)
 
-    expect(onAdd).toHaveBeenCalledWith({ name: 'מלפפונים', category: 'אחר', quantity: 10, unit: 'ק"ג' })
+    expect(onAdd).toHaveBeenCalledWith({ name: 'מלפפונים', category: 'אחר', note: null, quantity: 10, unit: 'ק"ג' })
   })
 
   it('still honors an explicit non-numeric second column as a category (backward compatible)', async () => {
@@ -125,14 +125,43 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
         existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={jest.fn()}
+        onUpdateDetails={jest.fn()}
       />
     )
 
     const user = await parseAndReview('עגבניות, מוצרי חלב')
     await clickSave(user)
 
-    expect(onAdd).toHaveBeenCalledWith({ name: 'עגבניות', category: 'מוצרי חלב', quantity: null, unit: null })
+    expect(onAdd).toHaveBeenCalledWith({ name: 'עגבניות', category: 'מוצרי חלב', note: null, quantity: null, unit: null })
+  })
+
+  it('imports a headered CSV with category, item, quantity, unit, and notes in any column order', async () => {
+    ;(categorizeItem as jest.Mock).mockResolvedValue([])
+    const onAdd = jest.fn(() => Promise.resolve())
+
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={onAdd}
+        onUpdateDetails={jest.fn()}
+      />
+    )
+
+    const user = await parseAndReview(
+      'category,item,quantity,unit,notes\nמאפים,"לחם, פרוס",2,חבילה,ללא גלוטן'
+    )
+    await clickSave(user)
+
+    expect(onAdd).toHaveBeenCalledWith({
+      name: 'לחם, פרוס',
+      category: 'מאפים',
+      note: 'ללא גלוטן',
+      quantity: 2,
+      unit: 'חבילה'
+    })
   })
 
   it('behaves as before when nothing on the list matches at all: no suggestion shown, row added as new', async () => {
@@ -146,7 +175,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
         existingEntries={[{ key: 'k1', name: 'חלב', category: 'מוצרי חלב' }]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={jest.fn()}
+        onUpdateDetails={jest.fn()}
       />
     )
 
@@ -155,13 +184,13 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
 
     await clickSave(user)
 
-    expect(onAdd).toHaveBeenCalledWith({ name: 'שוקולד', category: 'מאפים', quantity: null, unit: null })
+    expect(onAdd).toHaveBeenCalledWith({ name: 'שוקולד', category: 'מאפים', note: null, quantity: null, unit: null })
   })
 
-  it('rejects an invalid quantity at save time with a blocking error, without calling onAdd/onUpdateQuantity', async () => {
+  it('rejects an invalid quantity at save time with a blocking error, without calling onAdd/onUpdateDetails', async () => {
     ;(categorizeItem as jest.Mock).mockResolvedValue([])
     const onAdd = jest.fn(() => Promise.resolve())
-    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+    const onUpdateDetails = jest.fn(() => Promise.resolve())
 
     render(
       <BulkUploadModal
@@ -170,7 +199,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
         existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={onUpdateQuantity}
+        onUpdateDetails={onUpdateDetails}
       />
     )
 
@@ -183,7 +212,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
     await clickSave(user)
 
     expect(onAdd).not.toHaveBeenCalled()
-    expect(onUpdateQuantity).not.toHaveBeenCalled()
+    expect(onUpdateDetails).not.toHaveBeenCalled()
     expect(await screen.findByText(/common:quantityUnit.invalidQuantity/)).toBeInTheDocument()
   })
 })
@@ -211,7 +240,7 @@ describe('BulkUploadModal — AI assistant', () => {
         existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={jest.fn()}
+        onUpdateDetails={jest.fn()}
         onAddCategory={onAddCategory}
       />
     )
@@ -243,7 +272,7 @@ describe('BulkUploadModal — AI assistant', () => {
     })
     const user = userEvent.setup()
     const onAdd = jest.fn()
-    const onUpdateQuantity = jest.fn(() => Promise.resolve())
+    const onUpdateDetails = jest.fn(() => Promise.resolve())
     render(
       <BulkUploadModal
         listName={null}
@@ -251,7 +280,7 @@ describe('BulkUploadModal — AI assistant', () => {
         existingEntries={[{ key: 'milk', name: 'חלב', category: 'מוצרי חלב' }]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={onUpdateQuantity}
+        onUpdateDetails={onUpdateDetails}
       />
     )
 
@@ -260,7 +289,7 @@ describe('BulkUploadModal — AI assistant', () => {
     await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
     await clickSave(user)
 
-    expect(onUpdateQuantity).toHaveBeenCalledWith('milk', { quantity: null, unit: null })
+    expect(onUpdateDetails).toHaveBeenCalledWith('milk', { quantity: null, unit: null })
     expect(onAdd).not.toHaveBeenCalled()
   })
 
@@ -280,7 +309,7 @@ describe('BulkUploadModal — AI assistant', () => {
         existingEntries={[]}
         onClose={jest.fn()}
         onAdd={onAdd}
-        onUpdateQuantity={jest.fn()}
+        onUpdateDetails={jest.fn()}
       />
     )
 

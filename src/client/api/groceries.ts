@@ -7,6 +7,7 @@ export type AddGroceryRequest = {
   name: string
   category: string
   listName?: string | null
+  note?: string | null
   quantity?: number | null
   unit?: string | null
 }

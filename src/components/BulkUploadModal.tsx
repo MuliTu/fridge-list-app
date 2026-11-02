@@ -36,12 +36,13 @@ interface BulkUploadModalProps {
   onAdd: (item: {
     name: string
     category: string
+    note?: string | null
     quantity?: number | null
     unit?: string | null
   }) => Promise<unknown> | PromiseLike<unknown>
-  onUpdateQuantity: (
+  onUpdateDetails: (
     key: string,
-    fields: { quantity: number | null; unit: string | null }
+    fields: { note?: string | null; quantity: number | null; unit: string | null }
   ) => Promise<unknown> | PromiseLike<unknown>
   onAddCategory?: (category: {
     name: string
@@ -57,6 +58,8 @@ interface ParsedRow {
   quantityText: string
   unit: string
   customUnit: string
+  note: string
+  noteProvided: boolean
   // Existing items that plausibly refer to the same product, ranked best-first (see
   // src/lib/fuzzyMatch.ts) — empty means nothing on the list looked like a match, so
   // this row can only ever create a new item.
@@ -76,36 +79,103 @@ interface ParsedLine {
   explicitCategory: string | null
   quantityText: string
   unitText: string | null
+  note: string
+  noteProvided: boolean
 }
 
-// Each non-empty line is one item. "name" alone just adds/matches by name. A comma
-// starts a second column that is EITHER an amount (a positive number — optionally
-// followed by a third column, a unit, e.g. "מלפפונים,10,ק"ג") OR, for backward
-// compatibility with the plain "name,category" shape this always supported, an
-// explicit category when that second column isn't numeric. Everything past the first
-// comma is preserved verbatim as the category in that case (so item/category names
-// containing their own commas are tolerated, same as before this feature) — the
-// number-vs-category branch only inspects the immediate next column, not the whole
-// remainder of the line.
-const parseRawList = (raw: string): ParsedLine[] =>
-  raw
+const parseCsvLine = (line: string): string[] => {
+  const fields: string[] = []
+  let field = ''
+  let quoted = false
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index]
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        field += '"'
+        index += 1
+      } else {
+        quoted = !quoted
+      }
+    } else if (character === ',' && !quoted) {
+      fields.push(field.trim())
+      field = ''
+    } else {
+      field += character
+    }
+  }
+  fields.push(field.trim())
+  return fields
+}
+
+const headerAliases = {
+  name: ['item', 'name', 'product', 'מוצר', 'פריט'],
+  category: ['category', 'קטגוריה'],
+  quantity: ['quantity', 'amount', 'כמות'],
+  unit: ['unit', 'יחידה'],
+  note: ['notes', 'note', 'הערות', 'הערה']
+} as const
+
+const headerField = (value: string): keyof typeof headerAliases | null => {
+  const normalized = value.replace(/^\uFEFF/, '').trim().toLowerCase()
+  return (Object.entries(headerAliases).find(([, aliases]) =>
+    (aliases as readonly string[]).includes(normalized)
+  )?.[0] as keyof typeof headerAliases | undefined) ?? null
+}
+
+// Supports a headered CSV with item/category/quantity/unit/notes in any order, plus
+// the legacy name, name+category, and name+quantity+unit text formats.
+const parseRawList = (raw: string): ParsedLine[] => {
+  const records = raw
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => {
-      const commaIndex = line.indexOf(',')
-      if (commaIndex === -1) return { name: line, explicitCategory: null, quantityText: '', unitText: null }
-      const name = line.slice(0, commaIndex).trim()
-      const rest = line.slice(commaIndex + 1)
-      const restParts = rest.split(',').map((part) => part.trim())
-      const asNumber = Number(restParts[0])
-      if (restParts[0] && Number.isFinite(asNumber) && asNumber > 0) {
-        return { name, explicitCategory: null, quantityText: restParts[0], unitText: restParts[1] || null }
+    .filter(Boolean)
+    .map(parseCsvLine)
+  if (records.length === 0) return []
+
+  const headers = records[0].map(headerField)
+  const hasHeader = headers.includes('name') && headers.some(Boolean)
+  if (hasHeader) {
+    return records.slice(1).map((fields) => {
+      const values = Object.fromEntries(headers.flatMap((header, index) =>
+        header ? [[header, fields[index] ?? '']] : []
+      )) as Partial<Record<keyof typeof headerAliases, string>>
+      return {
+        name: values.name?.trim() ?? '',
+        explicitCategory: values.category?.trim() || null,
+        quantityText: values.quantity?.trim() ?? '',
+        unitText: values.unit?.trim() || null,
+        note: values.note?.trim() ?? '',
+        noteProvided: headers.includes('note')
       }
-      const explicitCategory = rest.trim()
-      return { name, explicitCategory: explicitCategory || null, quantityText: '', unitText: null }
-    })
-    .filter((entry) => entry.name.length > 0)
+    }).filter((entry) => entry.name.length > 0)
+  }
+
+  return records.map((fields) => {
+    const [name = '', second = '', third = '', ...rest] = fields
+    const asNumber = Number(second)
+    if (second && Number.isFinite(asNumber) && asNumber > 0) {
+      return { name, explicitCategory: null, quantityText: second, unitText: third || null, note: '', noteProvided: false }
+    }
+    if (fields.length >= 4) {
+      return {
+        name,
+        explicitCategory: second || null,
+        quantityText: third,
+        unitText: rest[0] || null,
+        note: rest.slice(1).join(', ').trim(),
+        noteProvided: fields.length >= 5
+      }
+    }
+    return {
+      name,
+      explicitCategory: fields.slice(1).join(',').trim() || null,
+      quantityText: '',
+      unitText: null,
+      note: '',
+      noteProvided: false
+    }
+  }).filter((entry) => entry.name.length > 0)
+}
 
 // Resolves parsed free-text unit (e.g. "kilo", "ק\"ג") to the picker's state shape —
 // a known preset if recognized, otherwise the "custom unit" sentinel pre-filled with
@@ -122,7 +192,7 @@ export default function BulkUploadModal({
   existingEntries,
   onClose,
   onAdd,
-  onUpdateQuantity,
+  onUpdateDetails,
   onAddCategory
 }: BulkUploadModalProps) {
   const { t, i18n } = useTranslation(['shoppingList', 'common', 'stock'])
@@ -186,6 +256,8 @@ export default function BulkUploadModal({
             quantityText: entry.quantityText,
             unit,
             customUnit,
+            note: entry.note,
+            noteProvided: entry.noteProvided,
             matchCandidates,
             matchKey,
             originalName: suggestion && normalizeName(suggestion.originalName) !== normalizeName(correctedName)
@@ -241,7 +313,7 @@ export default function BulkUploadModal({
         category = categoryMap.has(fallback) ? fallback : OTHER_CATEGORY_NAME
       }
 
-      return { name: p.name, category, quantityText: p.quantityText, unit, customUnit, matchCandidates, matchKey }
+      return { name: p.name, category, quantityText: p.quantityText, unit, customUnit, note: p.note, noteProvided: p.noteProvided, matchCandidates, matchKey }
     })
 
       setRows(nextRows)
@@ -255,7 +327,7 @@ export default function BulkUploadModal({
 
   const updateRow = (
     index: number,
-    field: 'name' | 'category' | 'quantityText' | 'unit' | 'customUnit',
+    field: 'name' | 'category' | 'quantityText' | 'unit' | 'customUnit' | 'note',
     value: string
   ) => {
     setRows((prev) => prev.map((row, i) => {
@@ -270,6 +342,7 @@ export default function BulkUploadModal({
           )
         }
       }
+      if (field === 'note') return { ...row, note: value, noteProvided: true }
       return { ...row, [field]: value }
     }))
   }
@@ -291,6 +364,8 @@ export default function BulkUploadModal({
         quantityText: '',
         unit: NO_UNIT,
         customUnit: '',
+        note: '',
+        noteProvided: false,
         matchCandidates: [],
         matchKey: null
       }
@@ -357,9 +432,13 @@ export default function BulkUploadModal({
       }
       for (const { row, quantity, unit } of uniqueToApply) {
         if (row.matchKey) {
-          await onUpdateQuantity(row.matchKey, { quantity, unit })
+          await onUpdateDetails(row.matchKey, {
+            ...(row.noteProvided ? { note: row.note.trim() || null } : {}),
+            quantity,
+            unit
+          })
         } else {
-          await onAdd({ name: row.name.trim(), category: row.category, quantity, unit })
+          await onAdd({ name: row.name.trim(), category: row.category, note: row.note.trim() || null, quantity, unit })
         }
       }
       onClose()
@@ -535,6 +614,12 @@ export default function BulkUploadModal({
                       onChange={(e) => updateRow(i, 'customUnit', e.target.value)}
                     />
                   )}
+                  <Input
+                    className="h-7 text-xs"
+                    placeholder={t('common:itemDetail.notePlaceholder')}
+                    value={row.note}
+                    onChange={(e) => updateRow(i, 'note', e.target.value)}
+                  />
                 </div>
               ))}
             </div>

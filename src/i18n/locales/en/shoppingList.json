@@ -14,7 +14,7 @@
   },
   "bulkUpload": {
     "title": "Import & update items",
-    "instructions": "Paste a list — one item per line — or upload a CSV file. Add an amount after a comma, and a unit after the amount (e.g. cucumbers,10,kg), or a category after a comma (e.g. milk, Dairy). Items already on your list are detected automatically and offered as a quantity update instead of a duplicate; items without a category are categorized automatically.",
+    "instructions": "Paste a list — one item per line — or upload a CSV file. For a complete import, use the headers item, category, quantity, unit, notes in any order. Legacy formats still work: cucumbers,10,kg or milk,Dairy. Existing items are detected automatically and offered as an update instead of a duplicate; uncategorized items are categorized automatically.",
     "placeholder": "milk\nbread\ntomatoes, Vegetables & fruit\ncucumbers,10,kg",
     "chooseFile": "📄 Choose file",
     "parse": "Continue",
