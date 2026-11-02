@@ -524,8 +524,9 @@ describe('grocery item quantity/unit persistence', () => {
 
   describe('addGroceryItem', () => {
     it('writes quantity/unit when provided', () => {
-      listApi.addGroceryItem({ name: 'עגבניות', category: 'ירקות', quantity: 2, unit: 'ק"ג' }, null)
+      listApi.addGroceryItem({ name: 'עגבניות', category: 'ירקות', note: 'בשלים', quantity: 2, unit: 'ק"ג' }, null)
       const [, data] = (push as jest.Mock).mock.calls[0]
+      expect(data.note).toBe('בשלים')
       expect(data.quantity).toBe(2)
       expect(data.unit).toBe('ק"ג')
     })
@@ -533,6 +534,7 @@ describe('grocery item quantity/unit persistence', () => {
     it('writes null quantity/unit when omitted, rather than undefined', () => {
       listApi.addGroceryItem({ name: 'לחם', category: 'מאפים' }, null)
       const [, data] = (push as jest.Mock).mock.calls[0]
+      expect(data.note).toBeNull()
       expect(data.quantity).toBeNull()
       expect(data.unit).toBeNull()
     })

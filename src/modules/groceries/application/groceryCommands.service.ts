@@ -28,6 +28,7 @@ export type AddGroceryInput = {
   name: unknown
   category: unknown
   listName?: unknown
+  note?: unknown
   quantity?: unknown
   unit?: unknown
 }
@@ -71,6 +72,7 @@ export class GroceryCommandService {
       raw_text: 'נוסף ידנית',
       list_name: nullableText(input.listName, 'listName', limits.listName),
       created_by: this.actor(context),
+      note: nullableText(input.note, 'note', limits.note),
       quantity: quantity(input.quantity),
       unit: nullableText(input.unit, 'unit', limits.unit)
     }

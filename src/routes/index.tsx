@@ -123,6 +123,7 @@ function ShoppingListPage() {
   const addGroceryItemUnlessActiveDuplicate = async (item: {
     name: string
     category: string
+    note?: string | null
     quantity?: number | null
     unit?: string | null
   }) => {
@@ -670,7 +671,9 @@ function ShoppingListPage() {
             .map((e) => ({ key: e.key, name: e.item, category: e.category }))}
           onClose={() => setShowBulkUpload(false)}
           onAdd={addGroceryItemUnlessActiveDuplicate}
-          onUpdateQuantity={(key, fields) => listApi.updateGroceryItemQuantity(key, fields, user)}
+          onUpdateDetails={(key, fields) => fields.note === undefined
+            ? listApi.updateGroceryItemQuantity(key, fields, user)
+            : listApi.saveItemDetails(key, fields, user)}
           onAddCategory={(category) => listApi.addCategory(category)}
         />
       )}

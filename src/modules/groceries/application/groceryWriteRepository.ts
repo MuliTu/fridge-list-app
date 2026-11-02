@@ -6,6 +6,7 @@ export interface NewGroceryRecord {
   bought: boolean
   created_by: string | null
   list_name?: string | null
+  note?: string | null
   quantity?: number | null
   unit?: string | null
   modified_at?: string
@@ -20,11 +21,9 @@ export interface ReactivateGroceryRecord {
 export type GroceryPatch = Partial<
   Pick<
     NewGroceryRecord,
-    'item' | 'category' | 'bought' | 'list_name' | 'quantity' | 'unit' | 'modified_at' | 'modified_by'
+    'item' | 'category' | 'bought' | 'list_name' | 'note' | 'quantity' | 'unit' | 'modified_at' | 'modified_by'
   >
-> & {
-  note?: string | null
-}
+>
 
 /** Persistence boundary for the existing users/{listId}/groceries RTDB collection. */
 export interface GroceryRepository {

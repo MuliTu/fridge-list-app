@@ -28,6 +28,7 @@ type ActiveListApi = Omit<ListApi, 'addGroceryItem'> & {
     item: {
       name: string
       category: string
+      note?: string | null
       quantity?: number | null
       unit?: string | null
     },
@@ -343,6 +344,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
           item: {
             name: string
             category: string
+            note?: string | null
             quantity?: number | null
             unit?: string | null
           },

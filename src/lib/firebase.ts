@@ -651,7 +651,7 @@ export function createListApi(ownerEmail: string) {
   }
 
   const addGroceryItem = async (
-    item: { name: string; category: string; quantity?: number | null; unit?: string | null },
+    item: { name: string; category: string; note?: string | null; quantity?: number | null; unit?: string | null },
     listName: string | null,
     user?: AuthUser | null
   ) => {
@@ -666,6 +666,7 @@ export function createListApi(ownerEmail: string) {
       raw_text: 'נוסף ידנית',
       list_name: listName || null,
       created_by: user?.email || null,
+      note: item.note ?? null,
       quantity: item.quantity ?? null,
       unit: item.unit ?? null
     })
