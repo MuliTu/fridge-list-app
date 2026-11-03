@@ -16,6 +16,7 @@ import { useIsPrerendering } from './useIsPrerendering'
 import { useAuth } from './AuthContext'
 import type { AuthUser, UserList } from '../types'
 import { DEMO_CLIENT_MODE } from '../lib/demoRuntime'
+import { normalizeName } from '../lib/normalizeName'
 
 const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
 // MM19's list-membership adapter is the final runtime dependency for server
@@ -294,7 +295,8 @@ export function ListProvider({ children }: { children: ReactNode }) {
             imageFile?: File | null
             quantity?: number | null
             unit?: string | null
-          }
+          },
+          mutationUser?: AuthUser | null
         ) => {
           if (details.imageFile) return legacy.saveItemDetails(key, details, mutationUser)
           const previous = details.name == null

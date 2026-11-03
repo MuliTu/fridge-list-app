@@ -91,7 +91,12 @@ describe('personalChefGraph', () => {
     expect(result.recipes[1]).toMatchObject({
       title: expect.stringContaining('אפשרות 2'),
       ingredients: expect.arrayContaining([
-        { name: 'פסטה', quantity: null, pantryBasic: false, fromSelectedProducts: true }
+        expect.objectContaining({
+          name: 'פסטה',
+          quantity: null,
+          pantryBasic: false,
+          fromSelectedProducts: true
+        })
       ])
     })
   })

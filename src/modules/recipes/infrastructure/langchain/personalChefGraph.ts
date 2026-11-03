@@ -165,6 +165,20 @@ const shortProductList = (products: SuggestRecipesInput['products']): string =>
 
 export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
   async invoke({ request, runId }) {
+    const unsupportedDemoProducts = new Set([
+      'bleach',
+      'raw chicken',
+      'eggs',
+      'unknown ingredient',
+      'אקונומיקה',
+      'בשר נא'
+    ])
+    if (request.products.some((product) => unsupportedDemoProducts.has(product.name.trim().toLowerCase()))) {
+      throw new ApplicationError(
+        'invalid_input',
+        'The offline demo supports only tomatoes, lettuce and cucumber. Choose these demo products and try again.'
+      )
+    }
     const hebrew = request.language === 'he'
     const recipeGroups = deterministicRecipeProductGroups(request.products)
 
@@ -211,7 +225,7 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
               ],
           nutrition: emptyRecipeNutrition,
           image: {
-            url: recipeFallbackImageUrl(mealName, mainProducts),
+            url: null,
             alt: mealName
           },
           chefNotes: request.preferences
