@@ -32,7 +32,8 @@
     "stockSuggestionOff": "📦 Stock suggestion: Off",
     "boughtItemsInCategories": "✓ Bought items: Keep in categories",
     "boughtItemsInCompletedSection": "✓ Bought items: Separate section",
-    "preferenceSaveFailed": "Couldn't save this setting. Try again."
+    "preferenceSaveFailed": "Couldn't save this setting. Try again.",
+    "version": "Version {{version}}"
   },
   "actions": {
     "cancel": "Cancel",
