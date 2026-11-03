@@ -1,4 +1,20 @@
 /* Task-focused kitchen workspace. Component details remain in App.css. */
+/* Prevent text selection and the touch copy callout during shopping gestures. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Keep native selection, copy, and paste available while editing. */
+input,
+textarea,
+[contenteditable]:not([contenteditable='false']) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 :root {
   --board: #161b18;
   --board-edge: #101411;
@@ -156,6 +172,9 @@ textarea {
   min-height: 0;
 }
 .workspace .app-header {
+  flex-shrink: 0;
+  background: var(--board);
+  box-shadow: none;
   height: 82px;
   min-height: 82px;
   margin: 0;
@@ -1178,6 +1197,7 @@ textarea {
   .workspace.frame,
   .workspace-public.frame {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
   }
   .workspace-rail {
     display: contents;
@@ -1188,7 +1208,8 @@ textarea {
     display: none;
   }
   .workspace-nav {
-    position: fixed;
+    position: static;
+    grid-row: 2;
     inset-inline: 0;
     bottom: 0;
     z-index: 20;
@@ -1212,7 +1233,8 @@ textarea {
     display: none;
   }
   .workspace-main {
-    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    grid-row: 1;
+    padding-bottom: 0;
   }
   .workspace-public .workspace-main {
     padding-bottom: 0;
