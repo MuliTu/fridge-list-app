@@ -349,8 +349,23 @@ const updateFeedbackRecord = (
 // in themselves — presence of `name` is what actually means "this is a real,
 // initialized list", not mere existence of the node).
 export const ensureOwnList = async (email: string, displayName?: string | null): Promise<string> => {
-  const nameSnapshot = await get(userNameRef(email))
-  if (nameSnapshot.exists()) return nameSnapshot.val()
+  try {
+    const nameSnapshot = await get(userNameRef(email))
+    if (nameSnapshot.exists()) return nameSnapshot.val()
+  } catch (error) {
+    if (!auth.currentUser) throw error
+    // New users cannot read an unbound household under the isolation rules.
+    // The authenticated server provisions their own UID; browsers never bind it.
+  }
+  if (auth.currentUser) {
+    const response = await fetch('/api/shopping-sharing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+      body: JSON.stringify({ action: 'provision' })
+    })
+    if (!response.ok) throw new Error('Unable to verify list ownership')
+    const provisioned = await response.json()
+    return provisioned.name
+  }
   const name = displayName ? `הרשימה של ${displayName}` : 'הרשימה שלי'
   logClientAction(`[lists] ensureOwnList: owner=${email} name=${name}`)
   await set(userNameRef(email), name)

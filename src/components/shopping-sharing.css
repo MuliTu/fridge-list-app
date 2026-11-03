@@ -1,0 +1,24 @@
+.list-sharing-bar { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .75rem; margin-block: .75rem; }
+.list-sharing-bar h2 { margin-inline-end: auto; font-size: 1.25rem; font-weight: 700; }
+.list-member-avatars { display: flex; align-items: center; flex-shrink: 0; }
+.list-member-avatar { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; overflow: hidden; border-radius: 50%; background: #e8edff; color: #334b91; border: 2px solid white; font-size: 12px; font-weight: 700; }
+.list-member-avatar + .list-member-avatar { margin-inline-start: -7px; }
+.list-member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sharing-member-list { display: grid; gap: .75rem; max-height: 40vh; overflow-y: auto; }
+.sharing-member-list li { display: flex; align-items: center; gap: .75rem; }
+.sharing-member-name { display: grid; min-width: 0; flex: 1; }
+.sharing-member-name strong, .sharing-member-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sharing-member-name span { font-size: .8rem; text-align: start; }
+.sharing-invite-form { display: flex; gap: .5rem; }
+.sharing-invite-form input { min-width: 0; }
+.sharing-edit-form { display: grid; gap: 1rem; }
+.shared-shopping-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; font-size: .85rem; }
+.shared-shopping-navigation a { padding: .5rem .75rem; border: 1px solid #d8ddea; border-radius: 20px; }
+.shared-shopping-navigation a[aria-current="page"] { background: #e8edff; border-color: #6176ba; }
+.shared-shopping-list { max-width: 760px; margin-inline: auto; }
+.shared-shopping-list > .quick-add { margin-block: 1rem; }
+.shared-shopping-list > .item-list { list-style: none; padding: 0; }
+@media (max-width: 480px) {
+  .sharing-invite-form { flex-wrap: wrap; }
+  .sharing-invite-form input { flex-basis: 100%; }
+}

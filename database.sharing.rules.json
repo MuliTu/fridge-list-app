@@ -1,0 +1,109 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "lists": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid"
+    },
+    "users": {
+      "$listId": {
+        "name": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+        },
+        "config": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "groceries": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "categories": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "stock": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "receipts": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "recipes": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "purchaseHistory": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "listChangeHistory": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid"
+        },
+        "ownerUid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        },
+        "normalizedOwnerEmail": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        },
+        "members": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        },
+        "invites": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        },
+        "memberOf": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child($listId).child('ownerUid').val() === auth.uid",
+          ".write": false
+        }
+      }
+    },
+    "groceries": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid"
+    },
+    "categories": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid"
+    },
+    "stock": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid"
+    },
+    "receipts": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid"
+    },
+    "admins": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && root.child('users').child('muli_turiel@gmail_com').child('ownerUid').val() === auth.uid"
+    },
+    "shoppingListShares": {
+      ".read": false,
+      ".write": false
+    },
+    "shoppingListShareIndex": {
+      ".read": false,
+      ".write": false
+    },
+    "identityBindings": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "whats_new": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+      ".write": false
+    }
+  }
+}

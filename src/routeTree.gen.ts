@@ -23,6 +23,7 @@ import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedbac
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
+import { Route as ApiShoppingSharingRouteImport } from './routes/api/shopping-sharing'
 import { Route as ApiSubmitFeedbackRouteImport } from './routes/api/submit-feedback'
 import { Route as ApiAgentCreateTicketRouteImport } from './routes/api/agent/create-ticket'
 import { Route as ApiAgentEntitlementRouteImport } from './routes/api/agent/entitlement'
@@ -111,6 +112,11 @@ const ApiScanReceiptUrlRoute = ApiScanReceiptUrlRouteImport.update({
 const ApiSendInviteEmailRoute = ApiSendInviteEmailRouteImport.update({
   id: '/api/send-invite-email',
   path: '/api/send-invite-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShoppingSharingRoute = ApiShoppingSharingRouteImport.update({
+  id: '/api/shopping-sharing',
+  path: '/api/shopping-sharing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSubmitFeedbackRoute = ApiSubmitFeedbackRouteImport.update({
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
+  '/api/shopping-sharing': typeof ApiShoppingSharingRoute
   '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
   '/api/agent/create-ticket': typeof ApiAgentCreateTicketRoute
   '/api/agent/entitlement': typeof ApiAgentEntitlementRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
+  '/api/shopping-sharing': typeof ApiShoppingSharingRoute
   '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
   '/api/agent/create-ticket': typeof ApiAgentCreateTicketRoute
   '/api/agent/entitlement': typeof ApiAgentEntitlementRoute
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
+  '/api/shopping-sharing': typeof ApiShoppingSharingRoute
   '/api/submit-feedback': typeof ApiSubmitFeedbackRoute
   '/api/agent/create-ticket': typeof ApiAgentCreateTicketRoute
   '/api/agent/entitlement': typeof ApiAgentEntitlementRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
+    | '/api/shopping-sharing'
     | '/api/submit-feedback'
     | '/api/agent/create-ticket'
     | '/api/agent/entitlement'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
+    | '/api/shopping-sharing'
     | '/api/submit-feedback'
     | '/api/agent/create-ticket'
     | '/api/agent/entitlement'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
+    | '/api/shopping-sharing'
     | '/api/submit-feedback'
     | '/api/agent/create-ticket'
     | '/api/agent/entitlement'
@@ -447,6 +459,7 @@ export interface RootRouteChildren {
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
   ApiSendInviteEmailRoute: typeof ApiSendInviteEmailRoute
+  ApiShoppingSharingRoute: typeof ApiShoppingSharingRoute
   ApiSubmitFeedbackRoute: typeof ApiSubmitFeedbackRoute
   ApiAgentCreateTicketRoute: typeof ApiAgentCreateTicketRoute
   ApiAgentEntitlementRoute: typeof ApiAgentEntitlementRoute
@@ -559,6 +572,13 @@ declare module '@tanstack/react-router' {
       path: '/api/send-invite-email'
       fullPath: '/api/send-invite-email'
       preLoaderRoute: typeof ApiSendInviteEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shopping-sharing': {
+      id: '/api/shopping-sharing'
+      path: '/api/shopping-sharing'
+      fullPath: '/api/shopping-sharing'
+      preLoaderRoute: typeof ApiShoppingSharingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/submit-feedback': {
@@ -811,6 +831,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
   ApiSendInviteEmailRoute: ApiSendInviteEmailRoute,
+  ApiShoppingSharingRoute: ApiShoppingSharingRoute,
   ApiSubmitFeedbackRoute: ApiSubmitFeedbackRoute,
   ApiAgentCreateTicketRoute: ApiAgentCreateTicketRoute,
   ApiAgentEntitlementRoute: ApiAgentEntitlementRoute,
