@@ -51,6 +51,16 @@ textarea {
 .workspace-public.frame {
   grid-template-columns: minmax(0, 1fr);
 }
+/* Installed iOS WebKit can under-report dvh with a translucent status bar.
+   Use the full viewport only in standalone mode; Safari tabs keep dynamic sizing.
+   Header/nav padding already accounts for each safe-area inset once. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .workspace.frame {
+      height: 100vh;
+    }
+  }
+}
 .workspace-rail {
   display: flex;
   flex-direction: column;
