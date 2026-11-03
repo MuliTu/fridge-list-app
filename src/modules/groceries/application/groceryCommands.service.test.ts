@@ -72,3 +72,26 @@ describe('GroceryCommandService', () => {
     expect(repo.delete).not.toHaveBeenCalled()
   })
 })
+
+it('authorizes and persists urgency through the normal command path', async () => {
+  const repo = repository()
+  const access = authorization()
+  const service = new GroceryCommandService(repo, access)
+  await service.update(context, 'list', 'item', { urgency: 'urgent' })
+  expect(access.assertAccessible).toHaveBeenCalledWith(context.principal, 'list', 'write')
+  expect(repo.update).toHaveBeenCalledWith('list', 'item', expect.objectContaining({ urgency: 'urgent' }))
+  await service.updateDetails(context, 'list', 'item', { urgency: 'wanted', note: 'Soon' })
+  expect(repo.update).toHaveBeenLastCalledWith('list', 'item', expect.objectContaining({ urgency: 'wanted', note: 'Soon' }))
+})
+it.each([null, 3, 'highest', {}, true])('rejects invalid urgency %p without writing', async urgency => {
+  const repo = repository()
+  await expect(new GroceryCommandService(repo, authorization()).update(context, 'list', 'item', { urgency })).rejects.toMatchObject({ code: 'invalid_input' })
+  expect(repo.update).not.toHaveBeenCalled()
+})
+it('does not persist urgency if authorization fails', async () => {
+  const repo = repository()
+  const access = authorization()
+  access.assertAccessible.mockRejectedValue({ code: 'forbidden' })
+  await expect(new GroceryCommandService(repo, access).update(context, 'list', 'item', { urgency: 'urgent' })).rejects.toMatchObject({ code: 'forbidden' })
+  expect(repo.update).not.toHaveBeenCalled()
+})

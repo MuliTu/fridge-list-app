@@ -35,12 +35,14 @@ export type AddGroceryInput = {
 }
 
 export type UpdateGroceryInput = {
+  urgency?: unknown
   name?: unknown
   category?: unknown
   listName?: unknown
 }
 
 export type UpdateGroceryDetailsInput = {
+  urgency?: unknown
   name?: unknown
   note?: unknown
   quantity?: unknown
@@ -96,6 +98,12 @@ export class GroceryCommandService {
     if (input.name !== undefined) patch.item = text(input.name, 'name', limits.item)
     if (input.category !== undefined) patch.category = text(input.category, 'category', limits.category)
     if (input.listName !== undefined) patch.list_name = nullableText(input.listName, 'listName', limits.listName)
+    if (input.urgency !== undefined) {
+      if (input.urgency !== 'normal' && input.urgency !== 'wanted' && input.urgency !== 'urgent') {
+        throw new ApplicationError('invalid_input', 'urgency must be normal, wanted, or urgent')
+      }
+      patch.urgency = input.urgency
+    }
     if (Object.keys(patch).length === 2) throw new ApplicationError('invalid_input', 'at least one field is required')
     await this.repository.update(authorizedListId, itemKey(id), patch)
   }
@@ -125,6 +133,12 @@ export class GroceryCommandService {
     if (input.note !== undefined) patch.note = nullableText(input.note, 'note', limits.note)
     if (input.quantity !== undefined) patch.quantity = quantity(input.quantity)
     if (input.unit !== undefined) patch.unit = nullableText(input.unit, 'unit', limits.unit)
+    if (input.urgency !== undefined) {
+      if (input.urgency !== 'normal' && input.urgency !== 'wanted' && input.urgency !== 'urgent') {
+        throw new ApplicationError('invalid_input', 'urgency must be normal, wanted, or urgent')
+      }
+      patch.urgency = input.urgency
+    }
     if (Object.keys(patch).length === 2) throw new ApplicationError('invalid_input', 'at least one detail is required')
     await this.repository.update(authorizedListId, itemKey(id), patch)
   }

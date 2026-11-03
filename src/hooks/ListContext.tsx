@@ -62,7 +62,7 @@ interface ListContextValue {
   listApi: ActiveListApi | null
 }
 
-const ListContext = createContext<ListContextValue | null>(null)
+export const ListContext = createContext<ListContextValue | null>(null)
 
 export function ListProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -287,6 +287,8 @@ export function ListProvider({ children }: { children: ReactNode }) {
         ) => commands.setPurchased(commandListId, entry.key, bought),
         updateGroceryItemCategory: (key: string, category: string, _mutationUser?: AuthUser | null) =>
           commands.update(commandListId, key, { category }),
+        updateGroceryItemUrgency: (key: string, urgency: 'normal' | 'wanted' | 'urgent', _mutationUser?: AuthUser | null) =>
+          commands.update(commandListId, key, { urgency }),
         saveItemDetails: async (
           key: string,
           details: {

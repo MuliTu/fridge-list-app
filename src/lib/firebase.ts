@@ -1161,6 +1161,10 @@ export function createListApi(ownerEmail: string) {
     setBought,
     recordPurchaseEvent,
     updateGroceryItemCategory,
+    updateGroceryItemUrgency: (key: string, urgency: 'normal' | 'wanted' | 'urgent', user?: AuthUser | null) => {
+      if (!['normal', 'wanted', 'urgent'].includes(urgency)) return Promise.reject(new Error('Invalid urgency'))
+      return touchModified(key, { urgency }, user)
+    },
     saveItemDetails,
     updateGroceryItemName,
     updateGroceryItemQuantity,

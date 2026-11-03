@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 import { Menu, Leaf } from 'lucide-react'
 import { DirectionProvider } from '@radix-ui/react-direction'
@@ -31,6 +31,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui
 import { cn } from '../lib/utils'
 import { WelcomeScreen } from './WelcomeScreen'
 import { WorkspaceNavigation } from './WorkspaceNavigation'
+import BehaviorSettingsModal from './BehaviorSettingsModal'
+import { BehaviorSettingsProvider, useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 
 // Shared Tailwind utility strings for sidebar rows — kept as constants rather than
 // repeating the same long className string at every call site below.
@@ -39,9 +41,27 @@ const sidebarItemClass =
 const sidebarItemActiveClass = 'bg-accent ring-1 ring-border'
 const sidebarSectionLabelClass = 'mx-0.5 mb-0.5 mt-3 text-[11px] text-muted-foreground opacity-80'
 const sidebarDividerClass = 'my-2.5 h-px shrink-0 bg-border'
+const LocalShoppingProviders = import.meta.env.DEV
+  ? lazy(() => import('../dev/LocalShoppingProviders'))
+  : null
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+
+  if (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_DATA === 'true' && pathname === '/' && LocalShoppingProviders) {
+    return (
+      <DirectionProvider dir={i18n.dir()}>
+        <DialogServiceProvider>
+          <Suspense fallback={<div className="all-empty">טוען נתוני דמו…</div>}>
+            <LocalShoppingProviders>
+              <ListPickerActionsProvider><BehaviorSettingsBoundary><LayoutContent>{children}</LayoutContent></BehaviorSettingsBoundary></ListPickerActionsProvider>
+            </LocalShoppingProviders>
+          </Suspense>
+        </DialogServiceProvider>
+      </DirectionProvider>
+    )
+  }
 
   return (
     <DirectionProvider dir={i18n.dir()}>
@@ -50,7 +70,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <BoughtItemsPreferenceBoundary>
             <GroceriesFeedProvider>
               <ListPickerActionsProvider>
-                <LayoutContent>{children}</LayoutContent>
+                <BehaviorSettingsBoundary><LayoutContent>{children}</LayoutContent></BehaviorSettingsBoundary>
               </ListPickerActionsProvider>
             </GroceriesFeedProvider>
           </BoughtItemsPreferenceBoundary>
@@ -58,6 +78,12 @@ export default function Layout({ children }: { children: ReactNode }) {
       </DialogServiceProvider>
     </DirectionProvider>
   )
+}
+
+function BehaviorSettingsBoundary({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const scope = user?.email ? `user:${user.email}` : 'local-mock'
+  return <BehaviorSettingsProvider key={scope} scope={scope}>{children}</BehaviorSettingsProvider>
 }
 
 function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
@@ -68,6 +94,8 @@ function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
 }
 
 function LayoutContent({ children }: { children: ReactNode }) {
+  const { settings: behavior } = useBehaviorSettings()
+  const [showBehaviorSettings, setShowBehaviorSettings] = useState(false)
   const { t, i18n } = useTranslation()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const currentPage =
@@ -157,6 +185,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       </a>
       {canView && (
         <WorkspaceNavigation
+          showChef={behavior.showChef}
           householdName={activeList?.name || t('workspace.sharedSpace')}
           remainingCount={isLoading ? null : entries.filter((entry) => !entry.bought).length}
         />
@@ -264,6 +293,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   )}
 
                   <div className={sidebarDividerClass} />
+                  <button className={sidebarItemClass} onClick={() => runAfterSidebarCloses(() => setShowBehaviorSettings(true))}>
+                    {t('shoppingList:behavior.title')}
+                  </button>
                   <button
                     className={sidebarItemClass}
                     onClick={() => runAfterSidebarCloses(() => setShowWhatsNew(true))}
@@ -458,6 +490,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
           </footer>
         )}
       </div>
+      {showBehaviorSettings && <BehaviorSettingsModal onClose={() => setShowBehaviorSettings(false)} />}
       {showCategories && (
         <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />
       )}

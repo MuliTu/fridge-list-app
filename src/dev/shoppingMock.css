@@ -1,0 +1,21 @@
+.mock-workspace .mock-reset {
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--chalk-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mock-workspace .mock-search {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px;
+  background: var(--board);
+  color: var(--chalk);
+  border: 1px solid var(--border-alpha);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+}

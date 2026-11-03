@@ -12,7 +12,7 @@ interface GroceriesFeedValue {
   isLoading: boolean
 }
 
-const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
+export const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
 
 // Single shared onValue subscription for the active list's /groceries, mounted once
 // at the layout level so the "new item" toast and status line stay visible across

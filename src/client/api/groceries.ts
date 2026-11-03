@@ -14,6 +14,7 @@ export type AddGroceryRequest = {
 }
 
 export type UpdateGroceryRequest = {
+  urgency?: 'normal' | 'wanted' | 'urgent'
   name?: string
   category?: string
   listName?: string | null

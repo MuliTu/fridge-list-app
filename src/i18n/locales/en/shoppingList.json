@@ -57,7 +57,8 @@
     "nameAsc": "Name (A-Z)",
     "nameDesc": "Name (Z-A)",
     "updatedNewest": "Last updated (newest)",
-    "updatedOldest": "Last updated (oldest)"
+    "updatedOldest": "Last updated (oldest)",
+    "urgency": "Urgency (highest first)"
   },
   "newListPrompt": "Name of the new list (e.g. party)",
   "deleteListConfirm": "Delete the list \"{{listName}}\" and all {{count}} items in it? This cannot be undone.",
@@ -144,6 +145,36 @@
     "markUnbought": "Return {{item}} to the shopping list",
     "bought": "✓ Checked off by {{name}} · {{date}}",
     "added": "Added by {{name}} · {{date}}",
-    "siri": "Siri"
+    "siri": "Siri",
+    "purchasePending": "Moving to purchased in {{count}} seconds",
+    "cancelPurchase": "Undo",
+    "holdHint": "Hold for one second, or use Space on the checkbox.",
+    "purchasePendingNoTimer": "Purchase pending — you can still undo"
+  },
+  "behavior": {
+    "title": "Settings",
+    "description": "Choose how your shopping list behaves. Changes apply immediately on this device.",
+    "section": "Behavior",
+    "countdown": "Show purchase countdown",
+    "countdownHint": "Undo remains available for 5 seconds. Leaving the list or changing its view cancels pending purchases.",
+    "gesture": "Mark an item as purchased",
+    "tap": "Regular tap",
+    "hold": "Hold for 1 second",
+    "presentation": "List presentation",
+    "categories": "Categories",
+    "flat": "Simple list",
+    "urgent": "Show urgent items at the top",
+    "chef": "Show Chef",
+    "saveFailed": "Could not save preferences. Your changes apply until this page is closed.",
+    "holdImmediate": "The item is marked immediately after one second, without an additional countdown.",
+    "countdownDisabled": "The countdown is inactive in long-press mode."
+  },
+  "urgency": {
+    "label": "Urgency",
+    "normal": "Normal",
+    "wanted": "Wanted",
+    "urgent": "Urgent",
+    "section": "Urgent items",
+    "saveFailed": "Could not save urgency. Please try again."
   }
 }

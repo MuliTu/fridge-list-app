@@ -95,3 +95,16 @@ describe('sortGroceryItems', () => {
     expect(entries).toEqual(original)
   })
 })
+
+it('sorts urgency stably and treats missing or invalid legacy values as normal', () => {
+  const base = { category: 'Other', bought: false, added_at: '2026-01-01' }
+  const entries = [
+    { ...base, key: 'legacy', item: 'Legacy' },
+    { ...base, key: 'wanted', item: 'Wanted', urgency: 'wanted' as const },
+    { ...base, key: 'urgent-a', item: 'Urgent A', urgency: 'urgent' as const },
+    { ...base, key: 'normal', item: 'Normal', urgency: 'normal' as const },
+    { ...base, key: 'urgent-b', item: 'Urgent B', urgency: 'urgent' as const }
+  ]
+  expect(sortGroceryItems(entries, 'urgency', 'en').map(e => e.key)).toEqual(['urgent-a', 'urgent-b', 'wanted', 'legacy', 'normal'])
+  expect(entries[0].key).toBe('legacy')
+})

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
+import { LocalCategoriesContext } from './LocalCategoriesContext'
 import { onValue } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { useIsPrerendering } from './useIsPrerendering'
@@ -6,12 +7,13 @@ import { useActiveList } from './ListContext'
 import type { Category } from '../types'
 
 export function useCategories() {
+  const localCategories = useContext(LocalCategoriesContext)
   const [categories, setCategories] = useState<Category[]>([])
   const isPrerendering = useIsPrerendering()
   const { listApi } = useActiveList()
 
   useEffect(() => {
-    if (isPrerendering || !listApi) return
+    if (localCategories || isPrerendering || !listApi) return
     setCategories([])
     listApi.seedCategoriesIfEmpty()
     return onValue(listApi.categoriesRef, (snapshot) => {
@@ -28,10 +30,11 @@ export function useCategories() {
       })
       setCategories(list)
     })
-  }, [isPrerendering, listApi])
+  }, [isPrerendering, listApi, localCategories])
 
-  const categoryMap = new Map(categories.map((c) => [c.name, c]))
-  const fallback = categories.find((c) => c.name === OTHER_CATEGORY_NAME)
+  const resolvedCategories = localCategories ?? categories
+  const categoryMap = new Map(resolvedCategories.map((c) => [c.name, c]))
+  const fallback = resolvedCategories.find((c) => c.name === OTHER_CATEGORY_NAME)
 
-  return { categories, categoryMap, fallback }
+  return { categories: resolvedCategories, categoryMap, fallback }
 }
