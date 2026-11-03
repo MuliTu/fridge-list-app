@@ -1,16 +1,9 @@
+import { configuredWebhook } from '../../lib/configuredWebhook.server'
 import { createFileRoute } from '@tanstack/react-router'
 import { logger } from '../../lib/logger'
 import { verifyAuthToken } from '../../lib/verifyAuthToken'
 
-// NOT YET BUILT/VERIFIED ON THE N8N SIDE — see the P3 ticket's PR description. This
-// follows the exact same URL/credential shape as every other n8n proxy route in this
-// app (categorize-item.tsx, scan-receipt.tsx, submit-feedback.tsx): same ngrok host,
-// same `/webhook/<path>` convention, no separate credential of its own expected (same
-// shared Gemini credential the other workflows use). Whoever builds the actual n8n
-// workflow ("Purchase Habit Summary (Hebrew/English)" or similar) should point it at
-// this exact path.
-const PURCHASE_HABIT_SUMMARY_URL = 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/purchase-habit-summary'
-
+// Optional workflow: receiver authentication and live behavior require separate verification.
 // Forwards a small, already-aggregated list of detected habit changes (see
 // computeHabitChanges in src/lib/purchaseHabitChanges.ts) to n8n, which is expected to
 // run them through Gemini and come back with 1-3 short, plain-language sentences a
@@ -50,6 +43,11 @@ export const Route = createFileRoute('/api/purchase-habit-summary')({
           return Response.json({ error: true, message: 'unauthorized' }, { status: 401 })
         }
 
+        let endpoint: string
+        try { endpoint = configuredWebhook(process.env.PURCHASE_HABIT_SUMMARY_URL) } catch {
+          return Response.json({ error: true, message: 'not_configured' }, { status: 503 })
+        }
+
         const body = await request.json()
         const changes = Array.isArray(body?.changes) ? body.changes : []
 
@@ -65,7 +63,7 @@ export const Route = createFileRoute('/api/purchase-habit-summary')({
         logger.success(`[purchase-habit-summary] request received: ${changes.length} change(s)`)
         try {
           logger.success('[purchase-habit-summary] forwarding to n8n webhook...')
-          const upstream = await fetch(PURCHASE_HABIT_SUMMARY_URL, {
+          const upstream = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ changes })

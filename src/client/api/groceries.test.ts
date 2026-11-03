@@ -63,3 +63,18 @@ describe('grocery API client', () => {
     ])
   })
 })
+
+
+it('reuses an add operation after uncertain failure and allocates a new one after success', async () => {
+  const fetchMock = jest.fn()
+    .mockRejectedValueOnce(new Error('connection lost after write'))
+    .mockImplementation(async () => new Response(JSON.stringify({ key: 'item' }), { status: 200 }))
+  const client = createGroceryApiClient({ getIdToken: async () => 'token', fetch: fetchMock })
+  const input = { name: 'Milk', category: 'Dairy' }
+  await expect(client.add('list', input)).rejects.toThrow('connection lost')
+  await client.add('list', input)
+  await client.add('list', input)
+  const ids = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).operationId)
+  expect(ids[0]).toBe(ids[1])
+  expect(ids[1]).not.toBe(ids[2])
+})

@@ -15,6 +15,7 @@ import { createGroceryApiClient } from '../client/api/groceries'
 import { useIsPrerendering } from './useIsPrerendering'
 import { useAuth } from './AuthContext'
 import type { AuthUser, UserList } from '../types'
+import { DEMO_CLIENT_MODE } from '../lib/demoRuntime'
 import { normalizeName } from '../lib/normalizeName'
 
 const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
@@ -22,7 +23,7 @@ const ACTIVE_LIST_STORAGE_KEY = 'activeListId'
 // grocery commands. This build-time switch supports a safe staged rollout and
 // immediate rollback while the realtime Firebase read projection remains intact.
 const GROCERY_COMMAND_API_ENABLED =
-  import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
+  DEMO_CLIENT_MODE || import.meta.env.VITE_GROCERY_COMMAND_API_ENABLED === 'true'
 
 type ActiveListApi = Omit<ListApi, 'addGroceryItem'> & {
   addGroceryItem(

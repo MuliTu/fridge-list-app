@@ -10,6 +10,7 @@
  */
 jest.mock('firebase/app', () => ({ initializeApp: jest.fn() }))
 jest.mock('firebase/database', () => ({
+  goOffline: jest.fn(),
   getDatabase: jest.fn(),
   ref: jest.fn((_db: unknown, path: string) => ({ path })),
   onValue: jest.fn(() => jest.fn()),

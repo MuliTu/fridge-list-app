@@ -12,3 +12,4 @@ export type {
   AuthenticatedUserUseCase,
   UserRequestContext
 } from './infrastructure/authenticatedUserHandler.server'
+export { withRequestDeadline } from './infrastructure/requestDeadline.server'

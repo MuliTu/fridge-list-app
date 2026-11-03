@@ -23,7 +23,6 @@ import {
   type SuggestRecipesInput
 } from '../../domain/recipeSchemas'
 import { applyRecipeGuardrails } from './recipeGuardrails'
-import { defaultPantryBasics } from './pantryBasics'
 
 export const DEFAULT_PERSONAL_CHEF_RECURSION_LIMIT = 8
 
@@ -42,6 +41,7 @@ export interface PersonalChefGenerator {
     request: SuggestRecipesInput
     pantryBasics: string[]
     runId: string
+    signal?: AbortSignal
   }): Promise<RecipeSuggestionResponse>
 }
 
@@ -51,6 +51,7 @@ export interface PersonalChefNutritionEstimator {
     pantryBasics: string[]
     recipes: RecipeCandidateInput[]
     runId: string
+    signal?: AbortSignal
   }): Promise<RecipeNutritionResponse>
 }
 
@@ -88,6 +89,8 @@ const PersonalChefState = Annotation.Root({
 
 export interface PersonalChefGraphOptions {
   recursionLimit?: number
+  timeoutMs?: number
+  signal?: AbortSignal
 }
 
 const parseMessageRequest = (message: string | undefined): unknown => {
@@ -123,23 +126,6 @@ const validatedRequestFromState = (
   return state.request
 }
 
-const fallbackImageTerms = (
-  title: string,
-  products: SuggestRecipesInput['products']
-): string => {
-  const productNames = products
-    .slice(0, 3)
-    .map((product) => product.name)
-    .join(' ')
-  return encodeURIComponent(`${title} ${productNames} meal`.trim())
-}
-
-const recipeFallbackImageUrl = (
-  title: string,
-  products: SuggestRecipesInput['products']
-): string =>
-  `https://source.unsplash.com/featured/900x600/?${fallbackImageTerms(title, products)}`
-
 const normalizeNutrition = (
   nutrition: Partial<RecipeNutritionInput> | null | undefined
 ): RecipeNutritionInput => ({
@@ -155,19 +141,10 @@ const recipeWithNutrition = (
   nutrition: normalizeNutrition(nutrition)
 })
 
-const deterministicNutritionFor = (recipe: RecipeCandidateInput): RecipeNutritionInput => {
-  const selectedCount = Math.max(1, recipe.selectedProducts.length)
-  const ingredientCount = Math.max(selectedCount, recipe.ingredients.length)
-  return {
-    calories: 160 + selectedCount * 70 + ingredientCount * 20,
-    proteinGrams: Math.round((selectedCount * 5 + ingredientCount * 1.5) * 10) / 10,
-    fatGrams: Math.round((selectedCount * 3 + ingredientCount * 1.2) * 10) / 10,
-    carbsGrams: Math.round((selectedCount * 9 + ingredientCount * 2) * 10) / 10,
-    fiberGrams: Math.round(selectedCount * 1.5 * 10) / 10,
-    sugarGrams: Math.round(selectedCount * 1.8 * 10) / 10,
-    sodiumMg: 320 + ingredientCount * 35
-  }
-}
+// Without verified weights and food composition data, quantities are unknown.
+const deterministicNutritionFor = (_recipe: RecipeCandidateInput): RecipeNutritionInput => ({
+  ...emptyRecipeNutrition, estimateSource: 'unavailable'
+})
 
 const deterministicRecipeProductGroups = (
   products: SuggestRecipesInput['products']
@@ -188,6 +165,20 @@ const shortProductList = (products: SuggestRecipesInput['products']): string =>
 
 export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
   async invoke({ request, runId }) {
+    const unsupportedDemoProducts = new Set([
+      'bleach',
+      'raw chicken',
+      'eggs',
+      'unknown ingredient',
+      'אקונומיקה',
+      'בשר נא'
+    ])
+    if (request.products.some((product) => unsupportedDemoProducts.has(product.name.trim().toLowerCase()))) {
+      throw new ApplicationError(
+        'invalid_input',
+        'The offline demo supports only tomatoes, lettuce and cucumber. Choose these demo products and try again.'
+      )
+    }
     const hebrew = request.language === 'he'
     const recipeGroups = deterministicRecipeProductGroups(request.products)
 
@@ -234,7 +225,7 @@ export const createDeterministicChefGenerator = (): PersonalChefGenerator => ({
               ],
           nutrition: emptyRecipeNutrition,
           image: {
-            url: recipeFallbackImageUrl(mealName, mainProducts),
+            url: null,
             alt: mealName
           },
           chefNotes: request.preferences
@@ -277,7 +268,7 @@ export const createStructuredModelChefGenerator = (
   ])
 
   return {
-    async invoke({ request, pantryBasics, runId }) {
+    async invoke({ request, pantryBasics, runId, signal }) {
       try {
         const messages = await prompt.invoke({
           runId,
@@ -290,7 +281,7 @@ export const createStructuredModelChefGenerator = (
           pantryBasics: JSON.stringify(pantryBasics)
         })
         return recipeSuggestionResponseSchema.parse(
-          await model.invoke(messages.toChatMessages())
+          await model.invoke(messages.toChatMessages(), { signal })
         )
       } catch (error) {
         throw new PersonalChefModelError(error)
@@ -406,14 +397,6 @@ const normalizeLooseRecipeResponse = (
               })
               .filter((ingredient) => typeof ingredient.name === 'string' && ingredient.name.trim())
             : []
-          const safeIngredients = ingredients.length > 0
-            ? ingredients
-            : request.products.slice(0, 3).map((product) => ({
-                name: product.name,
-                quantity: product.quantity && product.unit ? `${product.quantity} ${product.unit}` : null,
-                fromSelectedProducts: true,
-                pantryBasic: false
-              }))
 
           const image = recipe.image && typeof recipe.image === 'object'
             ? recipe.image as Record<string, unknown>
@@ -436,11 +419,11 @@ const normalizeLooseRecipeResponse = (
             assumedBasics: Array.isArray(recipe.assumedBasics)
               ? recipe.assumedBasics.map(String)
               : [],
-            ingredients: safeIngredients,
+            ingredients,
             image: {
               url: typeof image.url === 'string' && image.url.trim()
                 ? image.url
-                : recipeFallbackImageUrl(title, request.products),
+                : null,
               sourceUrl: typeof image.sourceUrl === 'string' ? image.sourceUrl : undefined,
               sourceName: typeof image.sourceName === 'string' ? image.sourceName : undefined,
               alt: typeof image.alt === 'string' && image.alt.trim()
@@ -480,7 +463,7 @@ export const createJsonTextChefGenerator = (
   ])
 
   return {
-    async invoke({ request, pantryBasics, runId }) {
+    async invoke({ request, pantryBasics, runId, signal }) {
       try {
         const messages = await prompt.invoke({
           runId,
@@ -492,7 +475,7 @@ export const createJsonTextChefGenerator = (
           products: JSON.stringify(request.products),
           pantryBasics: JSON.stringify(pantryBasics)
         })
-        const response = await model.invoke(messages.toChatMessages())
+        const response = await model.invoke(messages.toChatMessages(), { signal })
         const content = stringifyModelContent((response as { content?: unknown })?.content)
         return recipeSuggestionResponseSchema.parse(
           normalizeLooseRecipeResponse(
@@ -530,7 +513,7 @@ export const createStructuredModelNutritionEstimator = (
   ])
 
   return {
-    async invoke({ request, pantryBasics, recipes, runId }) {
+    async invoke({ request, pantryBasics, recipes, runId, signal }) {
       try {
         const messages = await prompt.invoke({
           runId,
@@ -542,7 +525,7 @@ export const createStructuredModelNutritionEstimator = (
           recipes: JSON.stringify(nutritionPromptRecipes(recipes))
         })
         return recipeNutritionResponseSchema.parse(
-          await model.invoke(messages.toChatMessages())
+          await model.invoke(messages.toChatMessages(), { signal })
         )
       } catch (error) {
         throw new PersonalChefModelError(error)
@@ -560,7 +543,7 @@ export const createJsonTextNutritionEstimator = (
   ])
 
   return {
-    async invoke({ request, pantryBasics, recipes, runId }) {
+    async invoke({ request, pantryBasics, recipes, runId, signal }) {
       try {
         const messages = await prompt.invoke({
           runId,
@@ -571,7 +554,7 @@ export const createJsonTextNutritionEstimator = (
           pantryBasics: JSON.stringify(pantryBasics),
           recipes: JSON.stringify(nutritionPromptRecipes(recipes))
         })
-        const response = await model.invoke(messages.toChatMessages())
+        const response = await model.invoke(messages.toChatMessages(), { signal })
         const content = stringifyModelContent((response as { content?: unknown })?.content)
         return recipeNutritionResponseSchema.parse(parseJsonObject(content))
       } catch (error) {
@@ -588,21 +571,23 @@ export const createCompiledPersonalChefGraph = (
 ) => {
   const recursionLimit =
     options.recursionLimit ?? DEFAULT_PERSONAL_CHEF_RECURSION_LIMIT
-  if (!Number.isInteger(recursionLimit) || recursionLimit <= 0) {
-    throw new TypeError('recursionLimit must be a positive integer')
+  if (!Number.isInteger(recursionLimit) || recursionLimit <= 0 || recursionLimit > 10) {
+    throw new TypeError('recursionLimit must be an integer between 1 and 10')
   }
 
   const validateRequest = (state: typeof PersonalChefState.State) => ({
     request: requestFromState(state),
-    pantryBasics: defaultPantryBasics()
+    pantryBasics: []
   })
 
   const generateCandidates = async (state: typeof PersonalChefState.State) => {
     const request = validatedRequestFromState(state)
+    options.signal?.throwIfAborted()
     const result = await generator.invoke({
       request,
       pantryBasics: state.pantryBasics,
-      runId: state.runId
+      runId: state.runId,
+      signal: options.signal
     })
     return {
       candidateRecipes: result.recipes,
@@ -627,15 +612,33 @@ export const createCompiledPersonalChefGraph = (
 
   const estimateNutrition = async (state: typeof PersonalChefState.State) => {
     const request = validatedRequestFromState(state)
+    const knownWeights = request.products.every((product) =>
+      product.quantity != null && product.quantity > 0 &&
+      ['g', 'kg', 'גרם', 'ק"ג'].includes(product.unit?.trim().toLowerCase() ?? '')
+    )
+    if (!knownWeights) return {
+      finalRecipes: state.finalRecipes.map((recipe) => recipeWithNutrition(recipe, deterministicNutritionFor(recipe))),
+      warnings: [...state.warnings, 'Nutrition is unavailable without explicit ingredient weights.']
+    }
     try {
+      options.signal?.throwIfAborted()
       const result = await nutritionEstimator.invoke({
         request,
         pantryBasics: state.pantryBasics,
         recipes: state.finalRecipes,
-        runId: state.runId
+        runId: state.runId,
+        signal: options.signal
       })
+      const ids = result.estimates.map((estimate) => estimate.recipeId)
+      if (new Set(ids).size !== ids.length || ids.some((id) => !state.finalRecipes.some((recipe) => recipe.id === id))) {
+        throw new Error('Nutrition response does not match recipe IDs')
+      }
       const byRecipeId = new Map(
-        result.estimates.map((estimate) => [estimate.recipeId, estimate.nutrition])
+        result.estimates.map((estimate) => [estimate.recipeId, {
+          ...estimate.nutrition,
+          estimateSource: Object.values(estimate.nutrition).some((value) => typeof value === 'number') ? 'model' as const : 'unavailable' as const,
+          estimateBasis: 'selected-weights-per-serving' as const
+        }])
       )
       return {
         finalRecipes: state.finalRecipes.map((recipe) =>
@@ -654,7 +657,7 @@ export const createCompiledPersonalChefGraph = (
         ),
         warnings: [
           ...state.warnings,
-          'Nutrition AI was unavailable, so local nutrition estimates were used.'
+          'Nutrition estimates are unavailable; no values were invented.'
         ]
       }
     }
@@ -686,9 +689,24 @@ export const personalChefGraph = (
   nutritionEstimator: PersonalChefNutritionEstimator = createDeterministicNutritionEstimator(),
   options: PersonalChefGraphOptions = {}
 ) => {
-  const graph = createCompiledPersonalChefGraph(generator, nutritionEstimator, options)
   return async (input: PersonalChefAgentInput): Promise<PersonalChefAgentResult> => {
+    const timeoutMs = options.timeoutMs ?? 30_000
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30_000) throw new TypeError('timeoutMs must be in (0, 30000]')
+    const controller = new AbortController()
+    const abort = () => controller.abort()
+    options.signal?.addEventListener('abort', abort, { once: true })
+    if (options.signal?.aborted) controller.abort()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let rejectAbort: (() => void) | undefined
     try {
+      const interrupted = new Promise<never>((_resolve, reject) => {
+        rejectAbort = () => reject(new ApplicationError('unavailable', 'Recipe request timed out or was cancelled'))
+        controller.signal.addEventListener('abort', rejectAbort, { once: true })
+        if (controller.signal.aborted) rejectAbort()
+        timer = setTimeout(() => controller.abort(), timeoutMs)
+      })
+      if (controller.signal.aborted) return await interrupted
+      const graph = createCompiledPersonalChefGraph(generator, nutritionEstimator, { ...options, signal: controller.signal })
       const initialState = {
         runId: input.runId,
         request: suggestRecipesInputSchema.parse(input),
@@ -698,15 +716,17 @@ export const personalChefGraph = (
         finalRecipes: [],
         warnings: []
       }
-      const result = await graph.invoke(initialState, {
-        recursionLimit: options.recursionLimit ?? DEFAULT_PERSONAL_CHEF_RECURSION_LIMIT
-      })
+      const result = await Promise.race([graph.invoke(initialState, {
+        recursionLimit: options.recursionLimit ?? DEFAULT_PERSONAL_CHEF_RECURSION_LIMIT,
+        signal: controller.signal
+      }), interrupted])
       return {
         runId: result.runId,
         recipes: result.finalRecipes,
         warnings: result.warnings
       }
     } catch (error) {
+      if (controller.signal.aborted) throw new ApplicationError('unavailable', 'Recipe request timed out or was cancelled')
       if (
         error instanceof Error &&
         /Recursion limit/i.test(error.message)
@@ -714,6 +734,10 @@ export const personalChefGraph = (
         throw new ApplicationError('unavailable', 'Personal chef graph reached its step limit', error)
       }
       throw error
+    } finally {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', abort)
+      if (rejectAbort) controller.signal.removeEventListener('abort', rejectAbort)
     }
   }
 }

@@ -25,6 +25,7 @@ const quantity = (value: unknown): number | null => {
 }
 
 export type AddGroceryInput = {
+  operationId?: unknown
   name: unknown
   category: unknown
   listName?: unknown
@@ -54,7 +55,7 @@ export class GroceryCommandService {
 
   private async authorize(context: RequestContext, listId: string): Promise<string> {
     const normalizedListId = text(listId, 'listId', 200)
-    await this.authorization.assertAccessible(context.principal, normalizedListId)
+    await this.authorization.assertAccessible(context.principal, normalizedListId, 'write')
     return normalizedListId
   }
 
@@ -64,6 +65,7 @@ export class GroceryCommandService {
 
   async add(context: RequestContext, listId: string, input: AddGroceryInput): Promise<{ key: string }> {
     const authorizedListId = await this.authorize(context, listId)
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ApplicationError('invalid_input', 'Grocery input must be an object')
     const record: NewGroceryRecord = {
       item: text(input.name, 'name', limits.item),
       category: text(input.category, 'category', limits.category),
@@ -75,6 +77,12 @@ export class GroceryCommandService {
       note: nullableText(input.note, 'note', limits.note),
       quantity: quantity(input.quantity),
       unit: nullableText(input.unit, 'unit', limits.unit)
+    }
+    if (input.operationId !== undefined) {
+      const operationId = text(input.operationId, 'operationId', 100)
+      if (!/^[a-zA-Z0-9_-]{16,100}$/.test(operationId)) throw new ApplicationError('invalid_input', 'Invalid operationId')
+      const actor = context.principal.kind === 'user' ? context.principal.uid : context.principal.service
+      return { key: await this.repository.insertIdempotent(authorizedListId, `${actor}:${operationId}`, record) }
     }
     return { key: await this.repository.insert(authorizedListId, record) }
   }

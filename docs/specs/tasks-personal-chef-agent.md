@@ -1,7 +1,12 @@
 # Tasks: AI Personal Chef Agent
 
-Spec: `.specs/spec-personal-chef-agent.md`
-Plan: `.specs/plan-personal-chef-agent.md`
+> Historical design input. The current [flagship spec](spec-flagship-readiness.md)
+> supersedes pantry assumptions: only explicitly selected purchased ingredients are
+> permitted; no implicit pantry additions. Old task completion is not live validation.
+
+
+Spec: [Chef spec](spec-personal-chef-agent.md)
+Plan: [Chef plan](plan-personal-chef-agent.md)
 Status: Draft backlog
 
 ## Task Legend
@@ -27,7 +32,7 @@ Likely files:
 
 - `database.rules.json`
 - `database.rules.md`
-- `.specs/spec-personal-chef-agent.md`
+- [Chef spec](spec-personal-chef-agent.md)
 
 Acceptance criteria:
 

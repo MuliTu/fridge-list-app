@@ -11,6 +11,8 @@
  * nothing to summarize), and does it still forward to n8n once authorized with real
  * changes.
  */
+jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
+
 const verifyAuthTokenMock = jest.fn()
 jest.mock('../../lib/verifyAuthToken', () => ({ verifyAuthToken: (...args: unknown[]) => verifyAuthTokenMock(...args) }))
 
@@ -36,7 +38,22 @@ const sampleChange = {
 }
 
 describe('POST /api/purchase-habit-summary auth gating', () => {
+  const previousEndpoint = process.env.PURCHASE_HABIT_SUMMARY_URL
+  afterAll(() => {
+    if (previousEndpoint === undefined) delete process.env.PURCHASE_HABIT_SUMMARY_URL
+    else process.env.PURCHASE_HABIT_SUMMARY_URL = previousEndpoint
+  })
+
+  it('disables an unconfigured workflow without fetching', async () => {
+    delete process.env.PURCHASE_HABIT_SUMMARY_URL
+    verifyAuthTokenMock.mockResolvedValue({ ok: true })
+    const response = await callPost({ changes: [sampleChange] })
+    expect(response.status).toBe(503)
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
+    process.env.PURCHASE_HABIT_SUMMARY_URL = 'https://workflow.example.test/hook'
     verifyAuthTokenMock.mockReset()
     ;(globalThis as any).fetch = jest.fn()
   })

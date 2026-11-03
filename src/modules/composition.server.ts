@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { initializeFirestore } from 'firebase-admin/firestore'
 
 import { logger } from '../lib/logger'
+import { assertDemoRuntimeEnvironment } from '../lib/demoRuntime'
 import { verifyAuthToken } from '../lib/verifyAuthToken'
 import { CatalogCommandService, CategorizeItemService } from './catalog'
 import { createFirebaseAdminCatalogCommandRepository, N8nCategorizationProvider } from './catalog/server'
@@ -14,7 +15,7 @@ import {
   PersistN8nGroceryService,
   type ListAuthorizationRepository
 } from './groceries'
-import { createFirebaseAdminGroceryWriteRepository } from './groceries/server'
+import { createFirebaseAdminGroceryWriteRepository, createFirebaseSdkGroceryRepository } from './groceries/server'
 import { AuthenticateUserService } from './identity'
 import {
   AuthenticatedUserHandler,
@@ -55,6 +56,8 @@ import {
 } from './ticketing/server'
 
 export type ServerEnvironment = Readonly<{
+  FRIDGE_DEMO_MODE?: string
+  [key: string]: string | undefined
   FIREBASE_DATABASE_URL?: string
   FIREBASE_PROJECT_ID?: string
   FIREBASE_SERVICE_ACCOUNT_JSON?: string
@@ -97,6 +100,10 @@ const configured = (
 }
 
 const firebaseDatabaseUrl = (environment: ServerEnvironment): string => {
+  if (environment.FRIDGE_DEMO_MODE === 'true') {
+    assertDemoRuntimeEnvironment(environment, process.env)
+    return environment.FIREBASE_DATABASE_URL!
+  }
   const value = configured(environment, 'FIREBASE_DATABASE_URL')
   let url: URL
   try {
@@ -192,19 +199,22 @@ export class ServerComposition {
   private householdSnapshotService: HouseholdSnapshotService | undefined
 
   constructor(private readonly options: ServerCompositionOptions) {
+    if (options.environment.FRIDGE_DEMO_MODE === 'true') {
+      assertDemoRuntimeEnvironment(options.environment, process.env)
+    }
     this.generateRequestId = options.generateRequestId ?? randomUUID
     this.now = options.now ?? (() => new Date())
   }
 
   getAuthenticationService(): AuthenticateUserService {
     if (!this.authenticationService) {
-      const app = getFirebaseAdminApp({
-        FIREBASE_PROJECT_ID: this.options.environment.FIREBASE_PROJECT_ID,
-        FIREBASE_SERVICE_ACCOUNT_JSON:
-          this.options.environment.FIREBASE_SERVICE_ACCOUNT_JSON
-      })
+      const app = getFirebaseAdminApp(this.options.environment)
       this.authenticationService = new AuthenticateUserService(
-        new FirebaseAdminTokenVerifier(app)
+        new FirebaseAdminTokenVerifier(app),
+        this.options.environment.NODE_ENV === 'development' &&
+        this.options.environment.VITE_DEV_AUTH_BYPASS === 'true'
+          ? { email: this.options.environment.VITE_DEV_AUTH_EMAIL || 'dev@example.com' }
+          : null
       )
     }
     return this.authenticationService
@@ -257,24 +267,11 @@ export class ServerComposition {
 
   getGroceryCommandService(): GroceryCommandService {
     if (!this.groceryCommandService) {
-      // MM19 replaces this fail-closed port with the membership-aware Firebase
-      // adapter. Keeping the port explicit prevents listId from becoming authority.
-      const authorization: ListAuthorizationRepository = {
-        assertAccessible: async () => {
-          throw new ApplicationError(
-            'not_configured',
-            'List authorization repository is not configured'
-          )
-        }
-      }
+      const app = getFirebaseAdminApp(this.options.environment)
+      const databaseUrl = firebaseDatabaseUrl(this.options.environment)
       this.groceryCommandService = new GroceryCommandService(
-        createFirebaseAdminGroceryWriteRepository({
-          FIREBASE_DATABASE_URL: firebaseDatabaseUrl(this.options.environment),
-          FIREBASE_SERVICE_ACCOUNT_JSON: firebaseServiceAccountJson(
-            this.options.environment
-          )
-        }),
-        authorization
+        createFirebaseSdkGroceryRepository(app, databaseUrl),
+        createFirebaseAdminListAuthorizationRepository(app, databaseUrl)
       )
     }
     return this.groceryCommandService
@@ -353,22 +350,22 @@ export class ServerComposition {
 
   getCategorizeItemService(): CategorizeItemService {
     this.categorizeItemService ??= new CategorizeItemService(
-      new N8nCategorizationProvider()
+      new N8nCategorizationProvider(this.options.environment.CATEGORIZE_ITEM_WEBHOOK_URL)
     )
     return this.categorizeItemService
   }
 
   getSubmitFeedbackService(): SubmitFeedbackService {
     this.submitFeedbackService ??= new SubmitFeedbackService(
-      new N8nFeedbackProvider()
+      new N8nFeedbackProvider(this.options.environment.FEEDBACK_WEBHOOK_URL)
     )
     return this.submitFeedbackService
   }
 
   private getReceiptScanner(): N8nReceiptScanner {
     this.receiptScanner ??= new N8nReceiptScanner(
-      this.options.environment.RECEIPT_SCAN_URL ?? 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-scan',
-      this.options.environment.RECEIPT_URL_SCAN_ENDPOINT ?? 'https://whiny-idealist-unseen.ngrok-free.dev/webhook/receipt-url-scan'
+      this.options.environment.RECEIPT_SCAN_URL,
+      this.options.environment.RECEIPT_URL_SCAN_ENDPOINT
     )
     return this.receiptScanner
   }
@@ -409,10 +406,7 @@ export class ServerComposition {
   }
 
   private getRecipeFirebaseApp() {
-    return getFirebaseAdminApp({
-      FIREBASE_PROJECT_ID: this.options.environment.FIREBASE_PROJECT_ID,
-      FIREBASE_SERVICE_ACCOUNT_JSON: this.options.environment.FIREBASE_SERVICE_ACCOUNT_JSON
-    })
+    return getFirebaseAdminApp(this.options.environment)
   }
 
   getRecipeCommandService(): RecipeCommandService {
@@ -460,7 +454,9 @@ export class ServerComposition {
             model,
             apiKey,
             configuration,
-            temperature: 0.2
+            temperature: 0.2,
+            maxRetries: 0,
+            timeout: 25_000
           })
         : null
       const generator = chatModel
@@ -472,8 +468,10 @@ export class ServerComposition {
                 strict: true
               })
             )
-        : createDeterministicChefGenerator()
-      const nutritionEstimator = chatModel
+        : this.options.environment.FRIDGE_DEMO_MODE === 'true'
+          ? createDeterministicChefGenerator()
+          : { invoke: async () => { throw new ApplicationError('unavailable', 'Recipe provider is not configured') } }
+      const nutritionEstimator = chatModel && this.options.environment.PERSONAL_CHEF_NUTRITION_ENABLED === 'true'
         ? provider === 'groq'
           ? createJsonTextNutritionEstimator(chatModel)
           : createStructuredModelNutritionEstimator(

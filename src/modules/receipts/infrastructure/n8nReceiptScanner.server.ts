@@ -1,12 +1,14 @@
+import { configuredWebhook } from '../../../lib/configuredWebhook.server'
 import { ApplicationError } from '../../shared'
 import type { ReceiptScanner, ReceiptScanResult } from '../application/receiptScanner'
 
 export class N8nReceiptScanner implements ReceiptScanner {
-  constructor(private readonly fileEndpoint: string, private readonly urlEndpoint: string, private readonly fetcher: typeof fetch = fetch) {}
+  constructor(private readonly fileEndpoint: string | undefined, private readonly urlEndpoint: string | undefined, private readonly fetcher: typeof fetch = fetch) {}
 
-  private async post(endpoint: string, body: unknown): Promise<ReceiptScanResult> {
+  private async post(endpoint: string | undefined, body: unknown): Promise<ReceiptScanResult> {
+    const destination = configuredWebhook(endpoint)
     try {
-      const response = await this.fetcher(endpoint, {
+      const response = await this.fetcher(destination, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       })
       return { body: await response.json(), status: response.status }
