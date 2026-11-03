@@ -398,6 +398,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                     >
                       {t('auth.signOut')}
                     </button>
+                    <div className="px-2 pt-2 text-xs text-muted-foreground">
+                      {t('menu.version', { version: appVersion })}
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>

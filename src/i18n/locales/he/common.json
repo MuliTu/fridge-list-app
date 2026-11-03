@@ -32,7 +32,8 @@
     "stockSuggestionOff": "📦 הצעת מלאי: כבוי",
     "boughtItemsInCategories": "✓ פריטים שנקנו: בתוך הקטגוריות",
     "boughtItemsInCompletedSection": "✓ פריטים שנקנו: באזור נפרד",
-    "preferenceSaveFailed": "שמירת ההגדרה נכשלה. נסו שוב."
+    "preferenceSaveFailed": "שמירת ההגדרה נכשלה. נסו שוב.",
+    "version": "גרסה {{version}}"
   },
   "actions": {
     "cancel": "ביטול",
