@@ -44,15 +44,24 @@ import ListSkeleton from '../components/ListSkeleton'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
 import { partitionGroceryItemsByPlacement } from '../lib/boughtItemsPlacement'
 import type { GroceryItem, StockItem } from '../types'
+import ListSharingBar from '../components/ListSharingBar'
+import SharedShoppingList, { SharedShoppingListsNavigation } from '../components/SharedShoppingLists'
 
 const PERMANENT_LIST = null
 
 export const Route = createFileRoute('/')({
-  validateSearch: (search: Record<string, unknown>): { list?: string } => ({
-    list: typeof search.list === 'string' ? search.list : undefined
+  validateSearch: (search: Record<string, unknown>): { list?: string; shared?: string } => ({
+    list: typeof search.list === 'string' ? search.list : undefined,
+    shared: typeof search.shared === 'string' ? search.shared : undefined
   }),
-  component: ShoppingListPage
+  component: ShoppingListRoute
 })
+
+function ShoppingListRoute() {
+  const { shared } = Route.useSearch()
+  const { user } = useAuth()
+  return shared ? <SharedShoppingList key={`${shared}:${user?.email}`} shareId={shared} /> : <ShoppingListPage />
+}
 
 function ShoppingListPage() {
   const { settings: behavior } = useBehaviorSettings()
@@ -63,7 +72,7 @@ function ShoppingListPage() {
   const activeList = list || PERMANENT_LIST
 
   const { user, onSignIn } = useAuth()
-  const { canEdit } = useActiveList()
+  const { canEdit, isOwner, activeList: household } = useActiveList()
   const listApi = useListApi()
   const { entries: allEntries, isLoading } = useGroceriesFeed()
   const { confirm, prompt, alert } = useDialogService()
@@ -352,6 +361,8 @@ function ShoppingListPage() {
 
   return (
     <>
+      {!localMock && <SharedShoppingListsNavigation />}
+      {!localMock && isOwner && household && <ListSharingBar key={`${household.id}:${activeList}`} householdId={household.id.trim().toLowerCase().replace(/[.#$[\]]/g, '_')} listName={activeList} />}
       <div className={`shopping-workspace${behavior.showChef ? '' : ' no-chef'}`}>
         <section className="shopping-primary" aria-label={t('tabs.shoppingList')}>
           <div className="shop-overview">

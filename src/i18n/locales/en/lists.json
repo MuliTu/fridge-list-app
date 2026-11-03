@@ -3,5 +3,31 @@
   "loadError": "Couldn't load your lists. The server-side permissions may not be set up yet — please try again later.",
   "renamePrompt": "New name for this list",
   "renameMenuItem": "✏️ Rename list",
-  "sectionLabel": "My lists"
+  "sectionLabel": "My lists",
+  "sharing": {
+    "shareList": "Share this list",
+    "title": "Share {{name}}",
+    "explanation": "People you add can view and edit this list only. Other lists, stock and receipts stay private. Sign in with the invited email address.",
+    "members": "List members",
+    "owner": "Owner",
+    "email": "Email address",
+    "add": "Add person",
+    "remove": "Remove {{email}} from this list",
+    "failed": "Couldn't update sharing. Check your permissions and connection, then try again.",
+    "retry": "Retry",
+    "loading": "Loading list…",
+    "sharedWithMe": "Shared with me",
+    "myLists": "Back to my lists",
+    "discoveryFailed": "Couldn't load lists shared with you.",
+    "permanentList": "Permanent list",
+    "sharedList": "Shared list",
+    "sharedBy": "Shared by {{name}} · Changes sync automatically",
+    "unavailable": "Couldn't access this list or save changes. Sharing may have been revoked, or the connection was lost.",
+    "empty": "This list is empty. Add the first item.",
+    "editItem": "Edit item",
+    "itemName": "Item name",
+    "itemNote": "Note",
+    "save": "Save",
+    "delete": "Delete item"
+  }
 }
