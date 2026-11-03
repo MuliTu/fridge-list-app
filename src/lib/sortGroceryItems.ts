@@ -1,8 +1,9 @@
 import type { GroceryItem } from '../types'
+import { urgencyRank } from './groceryUrgency'
 
-export type SortOption = 'default' | 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc'
+export type SortOption = 'default' | 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc' | 'urgency'
 
-export const SORT_OPTIONS: SortOption[] = ['default', 'name-asc', 'name-desc', 'updated-desc', 'updated-asc']
+export const SORT_OPTIONS: SortOption[] = ['default', 'urgency', 'name-asc', 'name-desc', 'updated-desc', 'updated-asc']
 
 // "Last updated" per this app's actual data model: `modified_at` is stamped on every
 // web-app write (bought/note/image — see Data Model in CLAUDE.md), so it does reflect a
@@ -27,6 +28,8 @@ export function sortGroceryItems(entries: GroceryItem[], sortOption: SortOption,
   const compareNames = collatorCompare(locale)
 
   switch (sortOption) {
+    case 'urgency':
+      return sorted.sort((a, b) => urgencyRank(b.urgency) - urgencyRank(a.urgency))
     case 'name-asc':
       return sorted.sort((a, b) => compareNames(a.item || '', b.item || ''))
     case 'name-desc':

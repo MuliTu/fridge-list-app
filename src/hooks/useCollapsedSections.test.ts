@@ -49,6 +49,15 @@ describe('useCollapsedSections', () => {
     expect(result.current.isCollapsed('vegetables')).toBe(false)
   })
 
+  it('keeps shopping categories open independently of the inventory preference', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(['fruits']))
+    const { result } = renderHook(() => useCollapsedSections('shoppingCollapsedCategories'))
+    expect(result.current.isCollapsed('fruits')).toBe(false)
+    act(() => result.current.toggle('vegetables'))
+    expect(JSON.parse(localStorage.getItem('shoppingCollapsedCategories') || '[]')).toEqual(['vegetables'])
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')).toEqual(['fruits'])
+  })
+
   it('falls back to nothing collapsed if localStorage holds malformed JSON', () => {
     localStorage.setItem(STORAGE_KEY, '{not valid json')
 

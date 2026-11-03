@@ -11,7 +11,7 @@ interface BoughtItemsPreferenceContextValue {
   toggleBoughtItemsPlacement: () => Promise<void>
 }
 
-const BoughtItemsPreferenceContext = createContext<BoughtItemsPreferenceContextValue | null>(null)
+export const BoughtItemsPreferenceContext = createContext<BoughtItemsPreferenceContextValue | null>(null)
 
 // Cross-device display preference stored at
 // /users/{email}/config/keepBoughtItemsInCategories. An absent key preserves the

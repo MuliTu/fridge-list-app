@@ -18,6 +18,7 @@ export interface UserList {
 }
 
 export interface GroceryItem {
+  urgency?: 'normal' | 'wanted' | 'urgent'
   key: string
   item: string
   category: string

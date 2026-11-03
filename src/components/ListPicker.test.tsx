@@ -15,17 +15,22 @@ const baseProps = {
 }
 
 describe('ListPicker', () => {
+  beforeAll(() => {
+    HTMLElement.prototype.hasPointerCapture = () => false
+    HTMLElement.prototype.scrollIntoView = jest.fn()
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+  })
   afterEach(() => jest.clearAllMocks())
 
   it('always renders the permanent list pill', () => {
     render(<ListPicker {...baseProps} />)
-    expect(screen.getByText('shoppingList:listPicker.permanentList')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'shoppingList:listPicker.permanentList' })).toBeInTheDocument()
   })
 
   it('renders a pill per custom list', () => {
     render(<ListPicker {...baseProps} customLists={['מסיבה', 'טיול']} />)
-    expect(screen.getByText('מסיבה')).toBeInTheDocument()
-    expect(screen.getByText('טיול')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'מסיבה' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'טיול' })).toBeInTheDocument()
   })
 
   it('calls onSelectList(null) when the permanent list pill is clicked', async () => {
@@ -33,7 +38,7 @@ describe('ListPicker', () => {
     const user = userEvent.setup()
     render(<ListPicker {...baseProps} onSelectList={onSelectList} />)
 
-    await user.click(screen.getByText('shoppingList:listPicker.permanentList'))
+    await user.click(screen.getByRole('button', { name: 'shoppingList:listPicker.permanentList' }))
     expect(onSelectList).toHaveBeenCalledWith(null)
   })
 
@@ -42,8 +47,23 @@ describe('ListPicker', () => {
     const user = userEvent.setup()
     render(<ListPicker {...baseProps} customLists={['מסיבה']} onSelectList={onSelectList} />)
 
-    await user.click(screen.getByText('מסיבה'))
+    await user.click(screen.getByRole('button', { name: 'מסיבה' }))
     expect(onSelectList).toHaveBeenCalledWith('מסיבה')
+  })
+
+  it('switches between custom and permanent lists using the mobile picker', async () => {
+    const onSelectList = jest.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <ListPicker {...baseProps} customLists={['טיול']} onSelectList={onSelectList} />
+    )
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'טיול' }))
+    expect(onSelectList).toHaveBeenLastCalledWith('טיול')
+    rerender(<ListPicker {...baseProps} activeList="טיול" customLists={['טיול']} onSelectList={onSelectList} />)
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'shoppingList:listPicker.permanentList' }))
+    expect(onSelectList).toHaveBeenLastCalledWith(null)
   })
 
   it('does not render list-management actions (they live in the sidebar now)', () => {

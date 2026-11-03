@@ -2,9 +2,9 @@ import { Link } from '@tanstack/react-router'
 import { CookingPot, Leaf, Package, ReceiptText, ShoppingBasket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-type WorkspaceNavigationProps = { householdName: string; remainingCount: number | null }
+type WorkspaceNavigationProps = { householdName: string; remainingCount: number | null; showChef?: boolean }
 
-export function WorkspaceNavigation({ householdName, remainingCount }: WorkspaceNavigationProps) {
+export function WorkspaceNavigation({ householdName, remainingCount, showChef = true }: WorkspaceNavigationProps) {
   const { t } = useTranslation()
   return (
     <aside className="workspace-rail">
@@ -23,7 +23,7 @@ export function WorkspaceNavigation({ householdName, remainingCount }: Workspace
           <strong>{householdName}</strong>
         </div>
       </div>
-      <nav className="workspace-nav" aria-label={t('tabs.label')}>
+      <nav className={`workspace-nav${showChef ? '' : ' without-chef'}`} aria-label={t('tabs.label')}>
         <Link to="/" activeOptions={{ exact: true }} activeProps={{ className: 'active' }}>
           <ShoppingBasket aria-hidden="true" />
           <span>{t('workspace.nav.shop')}</span>
@@ -33,10 +33,10 @@ export function WorkspaceNavigation({ householdName, remainingCount }: Workspace
           <Package aria-hidden="true" />
           <span>{t('workspace.nav.kitchen')}</span>
         </Link>
-        <Link to="/recipes" activeProps={{ className: 'active' }}>
+        {showChef && <Link to="/recipes" activeProps={{ className: 'active' }}>
           <CookingPot aria-hidden="true" />
           <span>{t('workspace.nav.cook')}</span>
-        </Link>
+        </Link>}
         <Link to="/receipts" activeProps={{ className: 'active' }}>
           <ReceiptText aria-hidden="true" />
           <span>{t('workspace.nav.receipts')}</span>

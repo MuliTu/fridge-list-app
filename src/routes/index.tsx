@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
+import { useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
+import { LocalCategoriesContext } from '../hooks/LocalCategoriesContext'
 import type { DragEvent } from 'react'
 import {
   ArrowUpRight,
@@ -53,6 +55,8 @@ export const Route = createFileRoute('/')({
 })
 
 function ShoppingListPage() {
+  const { settings: behavior } = useBehaviorSettings()
+  const localMock = useContext(LocalCategoriesContext) !== null
   const { t, i18n } = useTranslation()
   const { list } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -83,7 +87,7 @@ function ShoppingListPage() {
   // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
   // so it resets when navigating away and back — the ticket explicitly wants this.
   const [search, setSearch] = useState('')
-  const { isCollapsed, toggle } = useCollapsedSections()
+  const { isCollapsed, toggle } = useCollapsedSections('shoppingCollapsedCategories')
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(
     activeList || '__permanent__'
   )
@@ -159,8 +163,14 @@ function ShoppingListPage() {
     i18n.language
   )
 
+  const urgentEntries = behavior.showUrgent
+    ? sortGroceryItems(searchedEntries.filter(entry => !entry.bought && entry.urgency === 'urgent'), sortOption, i18n.language)
+    : []
+  const urgentKeys = new Set(urgentEntries.map(entry => entry.key))
+  const mainEntries = searchedEntries.filter(entry => !urgentKeys.has(entry.key))
+
   const grouped: Record<string, GroceryItem[]> = {}
-  searchedEntries.forEach((entry) => {
+  mainEntries.forEach((entry) => {
     const catName = categoryMap.has(entry.category) ? entry.category : OTHER_CATEGORY_NAME
     if (!grouped[catName]) grouped[catName] = []
     grouped[catName].push(entry)
@@ -170,7 +180,7 @@ function ShoppingListPage() {
   })
 
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
-  const activeResultsEmpty = visibleCategories.length === 0
+  const activeResultsEmpty = searchedEntries.length === 0
   const allResultsEmpty = activeResultsEmpty && searchedPurchasedEntries.length === 0
 
   const handleToggleBought = async (entry: GroceryItem) => {
@@ -200,6 +210,10 @@ function ShoppingListPage() {
   }
 
   const handleQuickAdd = async (name: string, aiCategory?: string) => {
+    if (localMock) {
+      await addGroceryItemUnlessActiveDuplicate({ name, category: aiCategory ?? OTHER_CATEGORY_NAME })
+      return
+    }
     if (aiCategory) {
       await addGroceryItemUnlessActiveDuplicate({ name, category: aiCategory })
       return
@@ -318,9 +332,27 @@ function ShoppingListPage() {
     // every render would be harmless but pointless churn through the context.
   }, [activeList, canEdit, visibleEntries.length])
 
+  const renderItem = (entry: GroceryItem) => (
+    <ShoppingListItemRow
+      key={entry.key}
+      delayPurchase
+      showCountdown={behavior.showCountdown}
+      purchaseGesture={behavior.purchaseGesture}
+      entry={entry}
+      canEdit={canEdit}
+      draggable={canEdit && behavior.purchaseGesture === 'tap' && !entry.bought}
+      dragging={draggingKey === entry.key}
+      onDragStart={handleDragStart(entry)}
+      onDragEnd={handleDragEnd}
+      onCheckedChange={() => handleItemCheckedChange(entry)}
+      onEditClick={() => setSelectedEntry(entry)}
+      onUrgencyChange={urgency => listApi.updateGroceryItemUrgency(entry.key, urgency, user)}
+    />
+  )
+
   return (
     <>
-      <div className="shopping-workspace">
+      <div className={`shopping-workspace${behavior.showChef ? '' : ' no-chef'}`}>
         <section className="shopping-primary" aria-label={t('tabs.shoppingList')}>
           <div className="shop-overview">
             <div>
@@ -360,6 +392,27 @@ function ShoppingListPage() {
               <SlidersHorizontal size={18} aria-hidden="true" />
             </button>
           </div>
+          {canEdit && (
+            <div className="shopping-composer">
+              <QuickAddBar
+                aiAvailable={!localMock}
+                ref={quickAddInputRef}
+                categories={categories}
+                onAdd={handleQuickAdd}
+                onAddCategory={(category) => listApi.addCategory(category)}
+              />
+              <button
+                className="detailed-add"
+                onClick={() => {
+                  setAddModalInitialName(undefined)
+                  setShowAddGrocery(true)
+                }}
+              >
+                <Plus size={15} aria-hidden="true" />
+                {t('workspace.addDetails')}
+              </button>
+            </div>
+          )}
           {toolsOpen && (
             <div id="shopping-filters" className="list-controls-row">
               <ShoppingListSearch value={search} onChange={setSearch} />
@@ -383,7 +436,11 @@ function ShoppingListPage() {
                   {t('shoppingList:search.noResults', { query: search.trim() })}
                 </div>
               )}
-              {visibleCategories.map(({ name, color, icon }) => (
+              {urgentEntries.length > 0 && <section className="urgent-products" aria-label={t('shoppingList:urgency.section')}>
+                <h2>{t('shoppingList:urgency.section')} <small>{urgentEntries.length}</small></h2>
+                <ul className="items">{urgentEntries.map(renderItem)}</ul>
+              </section>}
+              {behavior.listPresentation === 'flat' ? <ul className="items simple-shopping-list">{sortGroceryItems(mainEntries, sortOption, i18n.language).map(renderItem)}</ul> : visibleCategories.map(({ name, color, icon }) => (
                 <CategorySection
                   key={name}
                   name={name}
@@ -400,19 +457,7 @@ function ShoppingListPage() {
                   onDragLeave={canEdit ? handleDragLeaveCategory(name) : undefined}
                   onDrop={canEdit ? handleDropOnCategory(name) : undefined}
                 >
-                  {grouped[name].map((entry) => (
-                    <ShoppingListItemRow
-                      key={entry.key}
-                      entry={entry}
-                      canEdit={canEdit}
-                      draggable={canEdit}
-                      dragging={draggingKey === entry.key}
-                      onDragStart={handleDragStart(entry)}
-                      onDragEnd={handleDragEnd}
-                      onCheckedChange={() => handleItemCheckedChange(entry)}
-                      onEditClick={() => setSelectedEntry(entry)}
-                    />
-                  ))}
+                  {grouped[name].map(renderItem)}
                 </CategorySection>
               ))}
 
@@ -425,15 +470,7 @@ function ShoppingListPage() {
                   onToggle={toggleShowPurchased}
                 >
                   {searchedPurchasedEntries.length > 0 ? (
-                    searchedPurchasedEntries.map((entry) => (
-                      <ShoppingListItemRow
-                        key={entry.key}
-                        entry={entry}
-                        canEdit={canEdit}
-                        onCheckedChange={() => handleItemCheckedChange(entry)}
-                        onEditClick={() => setSelectedEntry(entry)}
-                      />
-                    ))
+                    searchedPurchasedEntries.map(renderItem)
                   ) : (
                     <li className="completed-filter-empty">
                       {t('shoppingList:search.noResults', { query: search.trim() })}
@@ -443,28 +480,9 @@ function ShoppingListPage() {
               )}
             </div>
           )}
-          {canEdit && (
-            <div className="shopping-composer">
-              <QuickAddBar
-                ref={quickAddInputRef}
-                categories={categories}
-                onAdd={handleQuickAdd}
-                onAddCategory={(category) => listApi.addCategory(category)}
-              />
-              <button
-                className="detailed-add"
-                onClick={() => {
-                  setAddModalInitialName(undefined)
-                  setShowAddGrocery(true)
-                }}
-              >
-                <Plus size={15} aria-hidden="true" />
-                {t('workspace.addDetails')}
-              </button>
-            </div>
-          )}
+
         </section>
-        <aside className="shopping-aside">
+        {behavior.showChef && <aside className="shopping-aside">
           <div className="next-meal-card">
             <span className="workspace-kicker">{t('workspace.nextMeal')}</span>
             <CookingPot size={46} strokeWidth={1.2} aria-hidden="true" />
@@ -487,7 +505,7 @@ function ShoppingListPage() {
             </span>
             <ArrowUpRight size={20} aria-hidden="true" />
           </Link>
-        </aside>
+        </aside>}
       </div>
       {selectedEntry && (
         <ItemDetailModal

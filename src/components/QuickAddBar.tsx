@@ -8,6 +8,7 @@ import type { Category } from '../types'
 import { Checkbox } from './ui/checkbox'
 
 interface QuickAddBarProps {
+  aiAvailable?: boolean
   categories?: Category[]
   onAdd: (name: string, category?: string) => Promise<unknown> | PromiseLike<unknown>
   onAddCategory?: (category: {
@@ -18,7 +19,7 @@ interface QuickAddBarProps {
   }) => Promise<unknown> | PromiseLike<unknown>
 }
 
-const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ categories = [], onAdd, onAddCategory }, ref) => {
+const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ categories = [], onAdd, onAddCategory, aiAvailable = true }, ref) => {
   const { t, i18n } = useTranslation()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
@@ -33,7 +34,7 @@ const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ categories
     setSaving(true)
     setError(null)
     try {
-      if (aiEnabled) {
+      if (aiEnabled && aiAvailable) {
         const result = await enrichItemsWithAi({
           language: i18n?.language === 'en' ? 'en' : 'he',
           categories: categories.length > 0 ? categories.map((entry) => entry.name) : [OTHER_CATEGORY_NAME],
@@ -81,7 +82,7 @@ const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ categories
         <Plus aria-hidden="true" />
         <span>{saving ? t('shoppingList:quickAdd.adding') : t('shoppingList:quickAdd.button')}</span>
       </button>
-      <label className="quick-add-ai">
+      {aiAvailable && <label className="quick-add-ai">
         <Checkbox
           checked={aiEnabled}
           disabled={saving}
@@ -90,7 +91,7 @@ const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ categories
           }}
         />
         {t('shoppingList:quickAdd.aiAssistant')}
-      </label>
+      </label>}
       {error && (
         <div id="quick-add-error" className="quick-add-error" role="alert">
           {error}

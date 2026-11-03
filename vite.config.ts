@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { readFile } from 'node:fs/promises'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -24,6 +25,28 @@ export default defineConfig(({ command, mode, isPreview }) => {
     build: demo ? { outDir: 'dist-demo' } : undefined,
     define: { __FRIDGE_DEMO_MODE__: JSON.stringify(demo) },
     plugins: [
+      // The standalone fixture preview is unavailable in isolated emulator mode.
+      ...(demo ? [] : [
+    {
+      name: 'local-shopping-mock',
+      apply: 'serve' as const,
+      configureServer(server) {
+        // Serve the standalone preview before Start's app-shell catch-all.
+        server.middlewares.use(async (request, response, next) => {
+          if (request.url?.split('?')[0] !== '/mock.html') return next()
+          try {
+            const source = await readFile(new URL('./mock.html', import.meta.url), 'utf8')
+            const html = await server.transformIndexHtml('/mock.html', source)
+            response.setHeader('Content-Type', 'text/html; charset=utf-8')
+            response.setHeader('Cache-Control', 'no-store')
+            response.end(html)
+          } catch (error) {
+            next(error as Error)
+          }
+        })
+      }
+    }
+      ]),
       ...(demo ? [demoSafetyPlugin()] : []),
       ...(demo ? isolateStartPlugins(startPlugins) : startPlugins),
       tailwindcss(),

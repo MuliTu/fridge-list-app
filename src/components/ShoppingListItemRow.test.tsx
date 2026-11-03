@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ShoppingListItemRow from './ShoppingListItemRow'
 import type { GroceryItem } from '../types'
@@ -76,5 +76,103 @@ describe('ShoppingListItemRow', () => {
   it('disables purchase changes in read-only mode', () => {
     renderRow({ canEdit: false })
     expect(screen.getByRole('checkbox')).toBeDisabled()
+  })
+})
+
+
+describe('delayed purchase', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  it('waits five seconds before committing the purchase', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ delayPurchase: true, onCheckedChange })
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    act(() => jest.advanceTimersByTime(4999))
+    expect(onCheckedChange).not.toHaveBeenCalled()
+    act(() => jest.advanceTimersByTime(1))
+    expect(onCheckedChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels without writing and restores the checkbox', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ delayPurchase: true, onCheckedChange })
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'shoppingList:item.cancelPurchase' }))
+    act(() => jest.advanceTimersByTime(5000))
+    expect(onCheckedChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('checkbox')).not.toBeChecked()
+  })
+
+  it('cancels a pending purchase when the row unmounts', () => {
+    const onCheckedChange = jest.fn()
+    const { unmount } = renderRow({ delayPurchase: true, onCheckedChange })
+    fireEvent.click(screen.getByRole('checkbox'))
+    unmount()
+    act(() => jest.advanceTimersByTime(5000))
+    expect(onCheckedChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('purchase gestures and urgency', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    // jsdom does not implement PointerEvent; mouse coordinates exercise the handlers.
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+  })
+  afterEach(() => jest.useRealTimers())
+  it('requires a full second and suppresses the trailing pointer click', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ purchaseGesture: 'hold', delayPurchase: true, onCheckedChange })
+    const name = screen.getByText('חלב')
+    fireEvent.pointerDown(name, { button: 0, clientX: 10, clientY: 10 })
+    act(() => jest.advanceTimersByTime(999))
+    expect(onCheckedChange).not.toHaveBeenCalled()
+    act(() => jest.advanceTimersByTime(1))
+    expect(onCheckedChange).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    fireEvent.pointerUp(name)
+    fireEvent.click(name, { detail: 1 })
+    act(() => jest.advanceTimersByTime(5000))
+    expect(onCheckedChange).toHaveBeenCalledTimes(1)
+  })
+  it('cancels early release, movement and scrolling without a purchase', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ purchaseGesture: 'hold', onCheckedChange })
+    const name = screen.getByText('חלב')
+    fireEvent.pointerDown(name, { button: 0, clientX: 10, clientY: 10 })
+    act(() => jest.advanceTimersByTime(500))
+    fireEvent.pointerUp(name)
+    act(() => jest.advanceTimersByTime(1000))
+    fireEvent.pointerDown(name, { button: 0, clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(name, { clientX: 10, clientY: 40 })
+    act(() => jest.advanceTimersByTime(1000))
+    fireEvent.pointerDown(name, { button: 0, clientX: 10, clientY: 10 })
+    fireEvent.scroll(window)
+    act(() => jest.advanceTimersByTime(1000))
+    expect(onCheckedChange).not.toHaveBeenCalled()
+  })
+  it('keeps a keyboard checkbox action available in hold mode', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ purchaseGesture: 'hold', onCheckedChange })
+    fireEvent.click(screen.getByRole('checkbox'), { detail: 0 })
+    expect(onCheckedChange).toHaveBeenCalledTimes(1)
+  })
+  it('keeps Undo when countdown text is hidden', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ delayPurchase: true, showCountdown: false, onCheckedChange })
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(screen.getByRole('status')).toHaveTextContent('shoppingList:item.purchasePendingNoTimer')
+    fireEvent.click(screen.getByRole('button', { name: 'shoppingList:item.cancelPurchase' }))
+    act(() => jest.advanceTimersByTime(5000))
+    expect(onCheckedChange).not.toHaveBeenCalled()
+  })
+  it('does not mark a purchase when holding the information button', () => {
+    const onCheckedChange = jest.fn()
+    renderRow({ purchaseGesture: 'hold', onCheckedChange })
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'shoppingList:item.info' }), { button: 0 })
+    act(() => jest.advanceTimersByTime(1500))
+    expect(onCheckedChange).not.toHaveBeenCalled()
   })
 })

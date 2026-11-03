@@ -20,7 +20,7 @@ interface AuthContextValue {
   authError: string | null
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+export const AuthContext = createContext<AuthContextValue | null>(null)
 
 // Local-dev-only auth bypass, enabled via .env.local (gitignored, never pushed) — lets
 // you exercise canEdit-gated actions without a real Google sign-in popup. Has no

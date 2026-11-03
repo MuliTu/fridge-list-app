@@ -8,6 +8,7 @@ interface ShoppingListSortProps {
 }
 
 const LABEL_KEY: Record<SortOption, string> = {
+  urgency: 'shoppingList:sort.urgency',
   default: 'shoppingList:sort.default',
   'name-asc': 'shoppingList:sort.nameAsc',
   'name-desc': 'shoppingList:sort.nameDesc',

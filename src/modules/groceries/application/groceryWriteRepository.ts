@@ -1,4 +1,5 @@
 export interface NewGroceryRecord {
+  urgency?: 'normal' | 'wanted' | 'urgent'
   item: string
   category: string
   added_at: string
@@ -21,7 +22,7 @@ export interface ReactivateGroceryRecord {
 export type GroceryPatch = Partial<
   Pick<
     NewGroceryRecord,
-    'item' | 'category' | 'bought' | 'list_name' | 'note' | 'quantity' | 'unit' | 'modified_at' | 'modified_by'
+    'item' | 'category' | 'bought' | 'list_name' | 'note' | 'quantity' | 'unit' | 'modified_at' | 'modified_by' | 'urgency'
   >
 >
 
