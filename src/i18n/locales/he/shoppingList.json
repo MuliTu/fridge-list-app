@@ -48,6 +48,8 @@
     "button": "הוספה",
     "adding": "מוסיף…",
     "failed": "לא הצלחנו להוסיף את הפריט: {{message}}",
+    "tooManyItems": "אפשר להוסיף עד {{max}} פריטים בכל פעם.",
+    "itemTooLong": "שם של פריט יכול להכיל עד {{max}} תווים.",
     "aiAssistant": "עוזר AI",
     "aiNoResult": "ה-AI לא החזיר הצעה לפריט"
   },

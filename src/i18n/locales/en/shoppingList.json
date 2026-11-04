@@ -48,6 +48,8 @@
     "button": "Add",
     "adding": "Adding…",
     "failed": "We couldn't add the item: {{message}}",
+    "tooManyItems": "You can add up to {{max}} items at once.",
+    "itemTooLong": "Each item name can contain up to {{max}} characters.",
     "aiAssistant": "AI assistant",
     "aiNoResult": "AI did not return an item suggestion"
   },
