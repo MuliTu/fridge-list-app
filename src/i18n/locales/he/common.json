@@ -20,6 +20,7 @@
   "menu": {
     "button": "תפריט",
     "sectionSettings": "הגדרות",
+    "sectionList": "ניהול הרשימה",
     "manageCategories": "🗂 ניהול קטגוריות",
     "shareEditing": "👥 שיתוף עריכה – {{listName}}",
     "users": "👥 משתמשים ושיתוף",
@@ -35,6 +36,25 @@
     "boughtItemsInCompletedSection": "✓ פריטים שנקנו: באזור נפרד",
     "preferenceSaveFailed": "שמירת ההגדרה נכשלה. נסו שוב.",
     "version": "גרסה {{version}}"
+  },
+  "settings": {
+    "open": "⚙️ הגדרות",
+    "title": "הגדרות",
+    "description": "בחרו מה תרצו לשנות.",
+    "panelDescription": "השינויים נשמרים בהעדפה הקיימת.",
+    "sectionsLabel": "חלקי ההגדרות",
+    "back": "חזרה להגדרות",
+    "languageTitle": "שפה",
+    "chooseLanguage": "בחירת שפה",
+    "behaviorTitle": "התנהגות קנייה",
+    "behaviorSummary": "מחוות קנייה, ספירה לאחור ותצוגת הרשימה",
+    "preferencesTitle": "העדפות קנייה",
+    "preferencesSummary": "הצעות מלאי ומיקום פריטים שנקנו",
+    "categoriesSummary": "שמות, סמלים, צבעים וסדר",
+    "stockSuggestion": "להציע הוספת פריטים שנקנו למלאי",
+    "stockSuggestionHint": "הצגת שאלת המלאי אחרי סימון פריט כנקנה.",
+    "boughtItemsPlacement": "להשאיר פריטים שנקנו בתוך הקטגוריות",
+    "boughtItemsPlacementHint": "כיבוי יעביר פריטים שנקנו לאזור נפרד של פריטים שהושלמו."
   },
   "actions": {
     "cancel": "ביטול",

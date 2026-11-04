@@ -20,6 +20,7 @@
   "menu": {
     "button": "Menu",
     "sectionSettings": "Settings",
+    "sectionList": "List management",
     "manageCategories": "🗂 Manage categories",
     "shareEditing": "👥 Share editing – {{listName}}",
     "users": "👥 Users and sharing",
@@ -35,6 +36,25 @@
     "boughtItemsInCompletedSection": "✓ Bought items: Separate section",
     "preferenceSaveFailed": "Couldn't save this setting. Try again.",
     "version": "Version {{version}}"
+  },
+  "settings": {
+    "open": "⚙️ Settings",
+    "title": "Settings",
+    "description": "Choose what you want to adjust.",
+    "panelDescription": "Changes are saved with the existing preference.",
+    "sectionsLabel": "Settings sections",
+    "back": "Back to settings",
+    "languageTitle": "Language",
+    "chooseLanguage": "Choose your language",
+    "behaviorTitle": "Shopping behavior",
+    "behaviorSummary": "Purchase gesture, countdown and list appearance",
+    "preferencesTitle": "Shopping preferences",
+    "preferencesSummary": "Stock suggestions and purchased-item placement",
+    "categoriesSummary": "Names, icons, colors and order",
+    "stockSuggestion": "Suggest adding purchased items to stock",
+    "stockSuggestionHint": "Show the stock prompt after an item is marked bought.",
+    "boughtItemsPlacement": "Keep bought items inside their categories",
+    "boughtItemsPlacementHint": "Turn off to move bought items into a separate completed section."
   },
   "actions": {
     "cancel": "Cancel",
