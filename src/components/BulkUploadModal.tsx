@@ -10,7 +10,6 @@ import type { Category } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Textarea } from './ui/textarea'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Checkbox } from './ui/checkbox'
@@ -198,7 +197,6 @@ export default function BulkUploadModal({
   const { t, i18n } = useTranslation(['shoppingList', 'common', 'stock'])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<'input' | 'review'>('input')
-  const [raw, setRaw] = useState('')
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -206,19 +204,7 @@ export default function BulkUploadModal({
 
   const categoryMap = new Map(categories.map((c) => [c.name, c]))
 
-  const handleFile = async (fileList: FileList | null) => {
-    const file = fileList?.[0]
-    if (!file) return
-    try {
-      const text = await file.text()
-      // Append to whatever's already there rather than clobbering a paste in progress.
-      setRaw((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text))
-    } catch (err: any) {
-      setError(t('shoppingList:bulkUpload.fileReadFailed', { message: err.message }))
-    }
-  }
-
-  const handleParse = async () => {
+  const handleParse = async (raw: string) => {
     const parsed = parseRawList(raw)
     if (parsed.length === 0) {
       setError(t('shoppingList:bulkUpload.empty'))
@@ -325,6 +311,16 @@ export default function BulkUploadModal({
     }
   }
 
+  const handleFile = async (fileList: FileList | null) => {
+    const file = fileList?.[0]
+    if (!file) return
+    try {
+      await handleParse(await file.text())
+    } catch (err: any) {
+      setError(t('shoppingList:bulkUpload.fileReadFailed', { message: err.message }))
+    }
+  }
+
   const updateRow = (
     index: number,
     field: 'name' | 'category' | 'quantityText' | 'unit' | 'customUnit' | 'note',
@@ -353,23 +349,6 @@ export default function BulkUploadModal({
 
   const removeRow = (index: number) => {
     setRows((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const addRow = () => {
-    setRows((prev) => [
-      ...prev,
-      {
-        name: '',
-        category: categories[0]?.name || OTHER_CATEGORY_NAME,
-        quantityText: '',
-        unit: NO_UNIT,
-        customUnit: '',
-        note: '',
-        noteProvided: false,
-        matchCandidates: [],
-        matchKey: null
-      }
-    ])
   }
 
   const handleSave = async () => {
@@ -460,21 +439,20 @@ export default function BulkUploadModal({
         {stage === 'input' ? (
           <>
             <p className="modal-note-readonly">{t('shoppingList:bulkUpload.instructions')}</p>
-            <Textarea
-              rows={8}
-              placeholder={t('shoppingList:bulkUpload.placeholder')}
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-            />
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv,.txt,text/csv,text/plain"
               className="hidden"
-              onChange={(e) => handleFile(e.target.files)}
+              aria-label={t('shoppingList:bulkUpload.chooseFile')}
+              disabled={working}
+              onChange={(e) => {
+                void handleFile(e.target.files)
+                e.target.value = ''
+              }}
             />
-            <Button variant="outline" className="w-fit" onClick={() => fileInputRef.current?.click()}>
-              {t('shoppingList:bulkUpload.chooseFile')}
+            <Button variant="outline" className="w-fit" disabled={working} onClick={() => fileInputRef.current?.click()}>
+              {working ? t('shoppingList:bulkUpload.categorizing') : t('shoppingList:bulkUpload.chooseFile')}
             </Button>
 
             {error && <div className="text-sm text-destructive">{error}</div>}
@@ -490,9 +468,6 @@ export default function BulkUploadModal({
               </Label>
               <Button variant="secondary" onClick={onClose} disabled={working}>
                 {t('common:actions.cancel')}
-              </Button>
-              <Button onClick={handleParse} disabled={working}>
-                {working ? t('shoppingList:bulkUpload.categorizing') : t('shoppingList:bulkUpload.parse')}
               </Button>
             </DialogFooter>
           </>
@@ -623,10 +598,6 @@ export default function BulkUploadModal({
                 </div>
               ))}
             </div>
-
-            <Button variant="outline" className="w-fit" onClick={addRow}>
-              {t('shoppingList:bulkUpload.addRow')}
-            </Button>
 
             {error && <div className="text-sm text-destructive">{error}</div>}
 
