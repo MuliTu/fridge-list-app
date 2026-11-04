@@ -7,6 +7,14 @@ import { normalizeName } from '../lib/normalizeName'
 import type { Category } from '../types'
 import { Checkbox } from './ui/checkbox'
 
+const MAX_BATCH_ITEMS = 100
+const MAX_ITEM_NAME_LENGTH = 100
+
+type PendingItem = {
+  id: string
+  name: string
+}
+
 interface QuickAddBarProps {
   aiAvailable?: boolean
   categories?: Category[]
@@ -28,30 +36,67 @@ const QuickAddBar = forwardRef<HTMLInputElement, QuickAddBarProps>(({ categories
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const name = value.trim()
-    if (!name || saving) return
+    const items: PendingItem[] = value
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((name, index) => ({ id: `quick-add-${index}`, name }))
+    if (items.length === 0 || saving) return
+
+    if (items.length > MAX_BATCH_ITEMS) {
+      setError(t('shoppingList:quickAdd.tooManyItems', { max: MAX_BATCH_ITEMS }))
+      return
+    }
+    if (items.some((item) => item.name.length > MAX_ITEM_NAME_LENGTH)) {
+      setError(t('shoppingList:quickAdd.itemTooLong', { max: MAX_ITEM_NAME_LENGTH }))
+      return
+    }
 
     setSaving(true)
     setError(null)
     try {
+      const categoryNames = new Map(categories.map((entry) => [normalizeName(entry.name), entry.name]))
+      let nextCategoryOrder = categories.reduce((max, entry) => Math.max(max, entry.order ?? 0), 0) + 1
+      let preparedItems = items.map((item) => ({ ...item, correctedName: item.name, category: undefined as string | undefined }))
+
       if (aiEnabled && aiAvailable) {
         const result = await enrichItemsWithAi({
           language: i18n?.language === 'en' ? 'en' : 'he',
           categories: categories.length > 0 ? categories.map((entry) => entry.name) : [OTHER_CATEGORY_NAME],
-          items: [{ id: 'quick-add-item', name }]
+          items
         })
-        const suggestion = result.items[0]
-        if (!suggestion) throw new Error(t('shoppingList:quickAdd.aiNoResult'))
-        const existingCategory = categories.find(
-          (entry) => normalizeName(entry.name) === normalizeName(suggestion.category)
-        )?.name
-        if (!existingCategory && onAddCategory) {
-          const nextOrder = categories.reduce((max, entry) => Math.max(max, entry.order ?? 0), 0) + 1
-          await onAddCategory({ name: suggestion.category, color: '#94a3b8', icon: '📌', order: nextOrder })
+        const suggestions = new Map(result.items.map((item) => [item.id, item]))
+        preparedItems = items.map((item) => {
+          const suggestion = suggestions.get(item.id)
+          if (!suggestion) throw new Error(t('shoppingList:quickAdd.aiNoResult'))
+          return { ...item, correctedName: suggestion.correctedName, category: suggestion.category }
+        })
+      }
+
+      for (let index = 0; index < preparedItems.length; index += 1) {
+        const item = preparedItems[index]
+        try {
+          let category = item.category
+          if (category) {
+            const normalizedCategory = normalizeName(category)
+            const knownCategory = categoryNames.get(normalizedCategory)
+            if (knownCategory) {
+              category = knownCategory
+            } else if (onAddCategory) {
+              await onAddCategory({ name: category, color: '#94a3b8', icon: '📌', order: nextCategoryOrder })
+              categoryNames.set(normalizedCategory, category)
+              nextCategoryOrder += 1
+            }
+          }
+          if (category) {
+            await onAdd(item.correctedName, category)
+          } else {
+            await onAdd(item.correctedName)
+          }
+        } catch (cause) {
+          setValue(items.slice(index).map((entry) => entry.name).join(', '))
+          throw cause
         }
-        await onAdd(suggestion.correctedName, existingCategory ?? suggestion.category)
-      } else {
-        await onAdd(name)
       }
       setValue('')
     } catch (cause) {

@@ -27,8 +27,9 @@ const categories: Category[] = [
 
 const parseAndReview = async (raw: string) => {
   const user = userEvent.setup()
-  await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), raw)
-  await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+  const file = new File([raw], 'items.csv', { type: 'text/csv' })
+  Object.defineProperty(file, 'text', { value: jest.fn().mockResolvedValue(raw) })
+  await user.upload(screen.getByLabelText('shoppingList:bulkUpload.chooseFile'), file)
   return user
 }
 
@@ -39,6 +40,86 @@ const clickSave = async (user: ReturnType<typeof userEvent.setup>) => {
 describe('BulkUploadModal — existing-product matching (bulk update)', () => {
   beforeEach(() => {
     ;(categorizeItem as jest.Mock).mockReset()
+  })
+
+  it('offers file import without exposing a competing manual batch-entry path', () => {
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={jest.fn()}
+        onUpdateDetails={jest.fn()}
+      />
+    )
+
+    expect(screen.getByLabelText('shoppingList:bulkUpload.chooseFile')).toHaveAttribute(
+      'accept',
+      '.csv,.txt,text/csv,text/plain'
+    )
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'shoppingList:bulkUpload.parse' })).not.toBeInTheDocument()
+  })
+
+  it('keeps an empty imported file in the input stage with a useful error', async () => {
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={jest.fn()}
+        onUpdateDetails={jest.fn()}
+      />
+    )
+
+    await parseAndReview('')
+
+    expect(await screen.findByText('shoppingList:bulkUpload.empty')).toBeInTheDocument()
+    expect(screen.getByLabelText('shoppingList:bulkUpload.chooseFile')).toBeInTheDocument()
+  })
+
+  it('reports an unreadable file without entering review', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={jest.fn()}
+        onAdd={jest.fn()}
+        onUpdateDetails={jest.fn()}
+      />
+    )
+    const file = new File(['broken'], 'items.csv', { type: 'text/csv' })
+    Object.defineProperty(file, 'text', { value: jest.fn().mockRejectedValue(new Error('unreadable')) })
+
+    await user.upload(screen.getByLabelText('shoppingList:bulkUpload.chooseFile'), file)
+
+    expect(await screen.findByText(/shoppingList:bulkUpload.fileReadFailed/)).toBeInTheDocument()
+    expect(screen.getByLabelText('shoppingList:bulkUpload.chooseFile')).toBeInTheDocument()
+  })
+
+  it('cancels without importing or writing any item', async () => {
+    const user = userEvent.setup()
+    const onClose = jest.fn()
+    const onAdd = jest.fn()
+    render(
+      <BulkUploadModal
+        listName={null}
+        categories={categories}
+        existingEntries={[]}
+        onClose={onClose}
+        onAdd={onAdd}
+        onUpdateDetails={jest.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'common:actions.cancel' }))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onAdd).not.toHaveBeenCalled()
   })
 
   it('defaults an exact-name match to updating the existing item, not creating a duplicate', async () => {
@@ -59,6 +140,7 @@ describe('BulkUploadModal — existing-product matching (bulk update)', () => {
 
     const user = await parseAndReview('חלב\nלחם,מאפים')
     expect(await screen.findByText('shoppingList:bulkUpload.matchFound')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'shoppingList:bulkUpload.addRow' })).not.toBeInTheDocument()
 
     await clickSave(user)
 
@@ -245,9 +327,10 @@ describe('BulkUploadModal — AI assistant', () => {
       />
     )
 
-    await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), 'חללב\nסושי\nפיצה')
     await user.click(screen.getByText('shoppingList:bulkUpload.aiAssistant'))
-    await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+    const file = new File(['חללב\nסושי\nפיצה'], 'items.txt', { type: 'text/plain' })
+    Object.defineProperty(file, 'text', { value: jest.fn().mockResolvedValue('חללב\nסושי\nפיצה') })
+    await user.upload(screen.getByLabelText('shoppingList:bulkUpload.chooseFile'), file)
 
     expect(enrichItemsWithAi).toHaveBeenCalledWith(expect.objectContaining({
       categories: ['מוצרי חלב', 'מאפים', 'אחר'],
@@ -284,9 +367,10 @@ describe('BulkUploadModal — AI assistant', () => {
       />
     )
 
-    await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), 'חללב')
     await user.click(screen.getByText('shoppingList:bulkUpload.aiAssistant'))
-    await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+    const file = new File(['חללב'], 'items.txt', { type: 'text/plain' })
+    Object.defineProperty(file, 'text', { value: jest.fn().mockResolvedValue('חללב') })
+    await user.upload(screen.getByLabelText('shoppingList:bulkUpload.chooseFile'), file)
     await clickSave(user)
 
     expect(onUpdateDetails).toHaveBeenCalledWith('milk', { quantity: null, unit: null })
@@ -313,9 +397,10 @@ describe('BulkUploadModal — AI assistant', () => {
       />
     )
 
-    await user.type(screen.getByPlaceholderText('shoppingList:bulkUpload.placeholder'), 'חללב\nחלב')
     await user.click(screen.getByText('shoppingList:bulkUpload.aiAssistant'))
-    await user.click(screen.getByRole('button', { name: 'shoppingList:bulkUpload.parse' }))
+    const file = new File(['חללב\nחלב'], 'items.txt', { type: 'text/plain' })
+    Object.defineProperty(file, 'text', { value: jest.fn().mockResolvedValue('חללב\nחלב') })
+    await user.upload(screen.getByLabelText('shoppingList:bulkUpload.chooseFile'), file)
     await clickSave(user)
 
     expect(onAdd).toHaveBeenCalledTimes(1)
