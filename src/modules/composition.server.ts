@@ -13,9 +13,17 @@ import { N8nFeedbackProvider } from './feedback/server'
 import {
   GroceryCommandService,
   PersistN8nGroceryService,
+  SemanticGroceryMatchService,
+  semanticGroceryProviderOutputSchema,
   type ListAuthorizationRepository
 } from './groceries'
-import { createFirebaseAdminGroceryWriteRepository, createFirebaseSdkGroceryRepository } from './groceries/server'
+import {
+  createFirebaseAdminGroceryWriteRepository,
+  createFirebaseAdminSemanticGroceryRepository,
+  createFirebaseSdkGroceryRepository,
+  StructuredModelSemanticGroceryMatchProvider,
+  UnavailableSemanticGroceryMatchProvider
+} from './groceries/server'
 import { AuthenticateUserService } from './identity'
 import {
   AuthenticatedUserHandler,
@@ -26,6 +34,7 @@ import {
   N8nMachineAuthenticator,
   type N8nRequestContext
 } from './integrations/n8n/server'
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { ChatOpenAI } from '@langchain/openai'
 import { RecordClientEventService } from './observability'
 import { StructuredClientEventLogger } from './observability/server'
@@ -66,6 +75,8 @@ export type ServerEnvironment = Readonly<{
   RECEIPT_URL_SCAN_ENDPOINT?: string
   N8N_ALLOWED_LIST_ID?: string
   N8N_WRITE_SECRET?: string
+  GOOGLE_API_KEY?: string
+  GEMINI_API_KEY?: string
   OPENAI_API_KEY?: string
   GROQ_API_KEY?: string
   XAI_API_KEY?: string
@@ -182,6 +193,7 @@ export class ServerComposition {
   private n8nGroceryService: PersistN8nGroceryService | undefined
   private n8nGroceryDependencies: N8nGroceryWriteDependencies | undefined
   private groceryCommandService: GroceryCommandService | undefined
+  private semanticGroceryMatchService: SemanticGroceryMatchService | undefined
   private releasesService: GetReleasesService | undefined
   private recordClientEventService: RecordClientEventService | undefined
   private ticketingServer: TicketingServer | undefined
@@ -275,6 +287,35 @@ export class ServerComposition {
       )
     }
     return this.groceryCommandService
+  }
+
+  getSemanticGroceryMatchService(): SemanticGroceryMatchService {
+    if (!this.semanticGroceryMatchService) {
+      const app = this.getRecipeFirebaseApp()
+      const databaseUrl = firebaseDatabaseUrl(this.options.environment)
+      const apiKey =
+        this.options.environment.GOOGLE_API_KEY?.trim() ||
+        this.options.environment.GEMINI_API_KEY?.trim()
+      const provider = apiKey
+        ? new StructuredModelSemanticGroceryMatchProvider(
+            new ChatGoogleGenerativeAI({
+              model: 'gemini-2.5-flash',
+              apiKey,
+              temperature: 0,
+              maxRetries: 1
+            }).withStructuredOutput(semanticGroceryProviderOutputSchema, {
+              name: 'semantic_grocery_match',
+              method: 'jsonSchema'
+            })
+          )
+        : new UnavailableSemanticGroceryMatchProvider()
+      this.semanticGroceryMatchService = new SemanticGroceryMatchService(
+        createFirebaseAdminSemanticGroceryRepository(app, databaseUrl),
+        createFirebaseAdminListAuthorizationRepository(app, databaseUrl),
+        provider
+      )
+    }
+    return this.semanticGroceryMatchService
   }
 
   getStockCommandService(): StockCommandService {
@@ -513,6 +554,9 @@ export const getN8nGroceryWriteDependencies = (): N8nGroceryWriteDependencies =>
 
 export const getGroceryCommandService = (): GroceryCommandService =>
   getServerComposition().getGroceryCommandService()
+
+export const getSemanticGroceryMatchService = (): SemanticGroceryMatchService =>
+  getServerComposition().getSemanticGroceryMatchService()
 
 export const getStockCommandService = (): StockCommandService =>
   getServerComposition().getStockCommandService()

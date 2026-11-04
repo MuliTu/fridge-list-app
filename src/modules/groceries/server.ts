@@ -3,6 +3,18 @@ export {
   createFirebaseAdminGroceryWriteRepository
 } from './infrastructure/firebaseAdminGroceryWriteRepository.server'
 export {
+  FirebaseAdminSemanticGroceryRepository,
+  createFirebaseAdminSemanticGroceryRepository
+} from './infrastructure/firebaseAdminSemanticGroceryRepository.server'
+export {
+  StructuredModelSemanticGroceryMatchProvider,
+  UnavailableSemanticGroceryMatchProvider
+} from './infrastructure/semanticGroceryMatchProvider.server'
+export {
+  createSemanticGroceryMatchPostHandler,
+  type SemanticGroceryMatchHttpDependencies
+} from './infrastructure/semanticGroceryMatchHttp.server'
+export {
   createGroceryCollectionPostHandler,
   createGroceryItemDeleteHandler,
   createGroceryItemPatchHandler,
