@@ -10,8 +10,8 @@ test('removes only Start env loading in demo and fails closed if its identity ch
   assert.throws(() => isolateStartPlugins([{ name: 'renamed-loader' }]), /must be reviewed/)
 })
 
-test('allows pages, Vite assets and isolated recipe/grocery APIs', () => {
-  for (const path of ['/', '/recipes', '/src/main.tsx', '/@vite/client', '/api/recipes', '/api/lists/owner@example_test/groceries', '/api/lists/owner@example_test/groceries/item/purchased', '/api/personal-chef/suggest-recipes?x=1']) {
+test('allows pages, Vite assets and isolated recipe/grocery/sharing APIs', () => {
+  for (const path of ['/', '/recipes', '/src/main.tsx', '/@vite/client', '/api/recipes', '/api/shopping-sharing', '/api/lists/owner@example_test/groceries', '/api/lists/owner@example_test/groceries/item/purchased', '/api/personal-chef/suggest-recipes?x=1']) {
     assert.equal(demoRequestPolicy(path), true, path)
   }
 })

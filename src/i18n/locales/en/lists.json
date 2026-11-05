@@ -28,6 +28,13 @@
     "itemName": "Item name",
     "itemNote": "Note",
     "save": "Save",
-    "delete": "Delete item"
+    "delete": "Delete item",
+    "theme": "Shared list color",
+    "otherCategory": "Other",
+    "themeColors": {
+      "blue": "Blue",
+      "purple": "Purple",
+      "green": "Green"
+    }
   }
 }

@@ -17,8 +17,9 @@ export const demoRequestPolicy = (requestUrl) => {
     return false
   }
   if (!path.toLowerCase().startsWith('/api')) return true
-  // Only isolated recipe and grocery commands are enabled.
+  // Only isolated recipe, grocery, and list-sharing commands are enabled.
   return path === '/api/recipes' || path === '/api/personal-chef/suggest-recipes' ||
+    path === '/api/shopping-sharing' ||
     /^\/api\/lists\/[^/]+\/groceries(?:\/[^/]+(?:\/purchased)?)?$/.test(path)
 }
 

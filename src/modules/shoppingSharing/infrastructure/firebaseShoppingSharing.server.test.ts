@@ -12,8 +12,13 @@ const householdId = 'owner@example_com'
 // A stateful repository double exercises authorization across successive calls,
 // including revocation and items moved after a guest opened a list.
 function fixture() {
-  const state: any = { users: { [householdId]: { ownerUid: owner.uid, groceries: {
+  const state: any = { users: { [householdId]: { ownerUid: owner.uid, categories: {
+    dairy: { name: 'Dairy', color: '#f0c96b', icon: '🥛', order: 2 },
+    custom: { name: 'Custom shelf', color: '#123456', icon: '✨', order: 1 },
+    private: { name: 'Health', color: '#ff0000', icon: '🔒', order: 0 }
+  }, groceries: {
     a: { item: 'Milk', category: 'Dairy', bought: false, list_name: 'A', added_at: '2026-11-03' },
+    custom: { item: 'Special', category: 'Custom shelf', bought: false, list_name: 'A', added_at: '2026-11-03' },
     b: { item: 'Private medicine', category: 'Health', bought: false, list_name: 'B', added_at: '2026-11-03', image_ref: 'private-image' },
     permanent: { item: 'Bread', category: 'Bakery', bought: false, list_name: null }
   } } } }
@@ -71,7 +76,12 @@ describe('per-shopping-list sharing isolation', () => {
     const f = fixture()
     const id = await f.invite()
     const result = await f.service.execute(guest, { action: 'snapshot', shareId: id }) as ShoppingShareSnapshot
-    expect(result.items.map(item => item.key)).toEqual(['a'])
+    expect(result.items.map(item => item.key)).toEqual(['a', 'custom'])
+    expect(result.categories).toEqual([
+      { name: 'Custom shelf', color: '#123456', icon: '✨', order: 1 },
+      { name: 'Dairy', color: '#f0c96b', icon: '🥛', order: 2 }
+    ])
+    expect(result.categories).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Health' })]))
     expect(JSON.stringify(result)).not.toContain('Private medicine')
     expect(f.read(`users/${householdId}/members`)).toBeNull()
     expect(f.read(`users/${householdId}/invites`)).toBeNull()
