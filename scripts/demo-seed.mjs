@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,6 +10,9 @@ export const DEMO_LIST_ID = 'owner@example_test'
 export const DEMO_USERS = ['owner', 'editor', 'viewer', 'pending', 'outsider'].map((role) => ({
   uid: `demo-${role}`, email: `${role}@example.test`, displayName: `Demo ${role}`, role
 }))
+const digest = (value) => createHash('sha256').update(value).digest('hex')
+export const DEMO_SHARE_ID = digest(JSON.stringify([DEMO_LIST_ID, null]))
+const editorEmailKey = digest('editor@example.test')
 
 export const readDemoEnvironment = () => {
   const errors = checkDemoConfigFile('.env.demo', process.env)
@@ -39,6 +43,8 @@ export const seedDemo = async (configuration) => {
   }
   const users = Object.fromEntries(DEMO_USERS.map((user) => [user.email.replaceAll('.', '_'), {
     ownerUid: user.uid, name: `Demo ${user.role} list`, members: {},
+    config: { onboardingDismissed: true },
+    categories: { default: { name: 'Other', color: '#64748b', icon: '📌', order: 0 } },
     ...(user.role === 'editor' || user.role === 'viewer' ? { memberOf: { [DEMO_LIST_ID]: 'approved' } } : {})
   }]))
   users[DEMO_LIST_ID] = {
@@ -51,13 +57,31 @@ export const seedDemo = async (configuration) => {
     groceries: {
       'demo-tomato': { item: 'tomatoes', category: 'Vegetables', bought: true, quantity: 4, unit: 'pcs' },
       'demo-lettuce': { item: 'lettuce', category: 'Vegetables', bought: true, quantity: 1, unit: 'pcs' },
-      'demo-unbought': { item: 'cucumbers', category: 'Vegetables', bought: false }
+      'demo-unbought': { item: 'cucumbers', category: 'Vegetables', bought: false },
+      'demo-yogurt': { item: 'yogurt', category: 'Local dairy', bought: false }
     },
-    categories: { vegetables: { name: 'Vegetables', sortOrder: 0 } }
+    categories: {
+      vegetables: { name: 'Vegetables', color: '#3f7d4a', icon: '🥬', order: 0 },
+      localDairy: { name: 'Local dairy', color: '#7652a6', icon: '🥛', order: 1 }
+    }
   }
   const written = await fetch('http://127.0.0.1:9000/.json?ns=demo-fridge-list-default-rtdb', {
     method: 'PUT', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ users })
+    body: JSON.stringify({
+      users,
+      shoppingListShares: {
+        [DEMO_SHARE_ID]: {
+          householdId: DEMO_LIST_ID,
+          listName: null,
+          ownerUid: 'demo-owner',
+          owner: { email: 'owner@example.test', displayName: 'Demo owner', photoURL: null },
+          members: {
+            [editorEmailKey]: { email: 'editor@example.test', displayName: 'Demo editor', photoURL: null }
+          }
+        }
+      },
+      shoppingListShareIndex: { [editorEmailKey]: { [DEMO_SHARE_ID]: true } }
+    })
   })
   if (!written.ok) throw new Error('Local database fixture reset failed.')
   return auth

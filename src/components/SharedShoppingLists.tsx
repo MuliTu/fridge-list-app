@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { discoverShoppingShares, getShoppingShare, shoppingSharingRequest } from '../client/api/shoppingSharing'
@@ -6,6 +6,8 @@ import type { ShoppingShareSnapshot, ShoppingShareSummary } from '../modules/sho
 import type { GroceryItem } from '../types'
 import { useAuth } from '../hooks/AuthContext'
 import { useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
+import CategorySection from './CategorySection'
+import { DEFAULT_CATEGORIES } from '../lib/categories'
 import ShoppingListItemRow from './ShoppingListItemRow'
 import QuickAddBar from './QuickAddBar'
 import { ListMemberAvatars } from './ListSharingBar'
@@ -35,7 +37,7 @@ export function SharedShoppingListsNavigation({ selected }: { selected?: string 
   if (!selected && !shares.length && !failed) return null
   return <nav className="shared-shopping-navigation" aria-label={t('sharing.sharedWithMe')}>
     <span>{t('sharing.sharedWithMe')}</span>
-    {selected && <Link to="/" search={{}}>{t('sharing.myLists')}</Link>}
+    {selected && <Link to="/" search={{ shared: undefined }} activeOptions={{ exact: true, includeSearch: true }}>{t('sharing.myLists')}</Link>}
     {shares.map(share => <Link key={share.id} to="/" search={{ shared: share.id }} aria-current={share.id === selected ? 'page' : undefined}>
       {share.name || t('sharing.permanentList')} · {share.owner.displayName}
     </Link>)}
@@ -55,6 +57,35 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const rootRef = useRef<HTMLElement>(null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const themeKey = `shared-list-theme:${user?.email || ''}:${shareId}`
+  const [theme, setTheme] = useState('blue')
+  useEffect(() => {
+    try { setTheme(localStorage.getItem(themeKey) || 'blue') } catch { setTheme('blue') }
+    setCollapsed(new Set())
+  }, [themeKey])
+  useEffect(() => {
+    const workspace = rootRef.current?.closest<HTMLElement>('.workspace')
+    if (!workspace || !snapshot) return
+    const previous = workspace.getAttribute('data-shared-theme')
+    workspace.setAttribute('data-shared-theme', ['blue', 'purple', 'green'].includes(theme) ? theme : 'blue')
+    return () => {
+      if (previous === null) workspace.removeAttribute('data-shared-theme')
+      else workspace.setAttribute('data-shared-theme', previous)
+    }
+  }, [snapshot, theme])
+  const groups = new Map<string, GroceryItem[]>()
+  for (const entry of snapshot?.items || []) {
+    const category = entry.category || t('sharing.otherCategory')
+    groups.set(category, [...(groups.get(category) || []), entry])
+  }
+  const categoryPresentation = new Map(snapshot?.categories.map(category => [category.name, category]) || [])
+  const orderedGroups = [...groups].sort(([left], [right]) => {
+    const leftOrder = categoryPresentation.get(left)?.order ?? Number.MAX_SAFE_INTEGER
+    const rightOrder = categoryPresentation.get(right)?.order ?? Number.MAX_SAFE_INTEGER
+    return leftOrder - rightOrder || left.localeCompare(right)
+  })
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
@@ -92,20 +123,47 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
   }
   return <>
     <SharedShoppingListsNavigation selected={shareId} />
-    <section className="shared-shopping-list" aria-label={snapshot?.name || t('sharing.sharedList')}>
+    <section ref={rootRef} className="shared-shopping-list shopping-primary" aria-label={snapshot?.name || t('sharing.sharedList')}>
       {failed && <p role="alert">{t('sharing.unavailable')}</p>}
       {!snapshot && !failed && <p role="status">{t('sharing.loading')}</p>}
       {snapshot && <>
-        <div className="list-sharing-bar"><h2>{snapshot.name || t('sharing.permanentList')}</h2><ListMemberAvatars members={[snapshot.owner, ...snapshot.members]} /></div>
-        <p className="text-sm text-muted-foreground">{t('sharing.sharedBy', { name: snapshot.owner.displayName })}</p>
+        <header className="shared-list-banner" aria-label={t('sharing.sharedList')}>
+          <div>
+            <p className="shared-list-eyebrow">{t('sharing.sharedWithMe')}</p>
+            <h2>{snapshot.name || t('sharing.permanentList')}</h2>
+            <p>{t('sharing.sharedBy', { name: snapshot.owner.displayName })}</p>
+          </div>
+          <ListMemberAvatars members={[snapshot.owner, ...snapshot.members]} />
+          <label className="shared-theme-picker">{t('sharing.theme')}
+            <select value={theme} onChange={event => {
+              const next = event.target.value
+              setTheme(next)
+              try { localStorage.setItem(themeKey, next) } catch { /* Session choice still applies. */ }
+            }}>
+              {['blue', 'purple', 'green'].map(color => <option key={color} value={color}>{t(`sharing.themeColors.${color}`)}</option>)}
+            </select>
+          </label>
+        </header>
         <QuickAddBar aiAvailable={false} onAdd={async name => mutate({ operation: 'add', item: { name } })} />
-        <ul className="item-list">
-          {snapshot.items.map(entry => <ShoppingListItemRow key={entry.key} entry={entry} canEdit delayPurchase
-            showCountdown={settings.showCountdown} purchaseGesture={settings.purchaseGesture}
-            onCheckedChange={() => { void mutate({ operation: 'update', itemId: entry.key, item: { bought: !entry.bought } }).catch(() => {}) }}
-            onUrgencyChange={urgency => mutate({ operation: 'update', itemId: entry.key, item: { urgency } })}
-            onEditClick={() => { setEditing(entry); setName(entry.item); setNote(entry.note || '') }} />)}
-        </ul>
+        <div className="shared-list-categories">
+          {orderedGroups.map(([category, items]) => {
+            const presentation = categoryPresentation.get(category) || Object.values(DEFAULT_CATEGORIES).find(entry => entry.name === category)
+            return <CategorySection key={category} name={category} icon={presentation?.icon || '📌'} color={presentation?.color || '#94a3b8'}
+              uncheckedCount={items.filter(entry => !entry.bought).length}
+              collapsed={collapsed.has(category)} onToggle={() => setCollapsed(previous => {
+                const next = new Set(previous)
+                if (next.has(category)) next.delete(category)
+                else next.add(category)
+                return next
+              })}>
+              {items.map(entry => <ShoppingListItemRow key={entry.key} entry={entry} canEdit delayPurchase
+                showCountdown={settings.showCountdown} purchaseGesture={settings.purchaseGesture}
+                onCheckedChange={() => { void mutate({ operation: 'update', itemId: entry.key, item: { bought: !entry.bought } }).catch(() => {}) }}
+                onUrgencyChange={urgency => mutate({ operation: 'update', itemId: entry.key, item: { urgency } })}
+                onEditClick={() => { setEditing(entry); setName(entry.item); setNote(entry.note || '') }} />)}
+            </CategorySection>
+          })}
+        </div>
         {!snapshot.items.length && <p>{t('sharing.empty')}</p>}
       </>}
     </section>
