@@ -6,6 +6,14 @@ import type { App } from 'firebase-admin/app'
 import { ApplicationError } from '../../shared'
 import type { GroceryRepository, GroceryPatch, NewGroceryRecord, ReactivateGroceryRecord } from '../application/groceryWriteRepository'
 
+type StoredGrocery = Partial<NewGroceryRecord> & { creationFingerprint?: unknown }
+type StoredOperation = { fingerprint?: unknown; groceryKey?: unknown }
+type StoredList = {
+  groceries?: Record<string, StoredGrocery | null> | null
+  grocery_operations?: Record<string, StoredOperation | null> | null
+  [key: string]: unknown
+}
+
 const segment = (value: string): string => {
   if (!value || value.length > 200 || value.trim() !== value || /[.#$/[\]\u0000-\u001f\u007f]/.test(value)) {
     throw new ApplicationError('invalid_input', 'Invalid Firebase key')
@@ -22,6 +30,10 @@ export class FirebaseSdkGroceryRepository implements GroceryRepository {
     return this.database.ref(`users/${segment(listId)}/groceries${itemId !== undefined ? `/${segment(itemId)}` : ''}`)
   }
 
+  private listReference(listId: string) {
+    return this.database.ref(`users/${segment(listId)}`)
+  }
+
   private async persist<T>(action: () => Promise<T>): Promise<T> {
     try { return await action() } catch (error) {
       if (error instanceof ApplicationError) throw error
@@ -35,6 +47,93 @@ export class FirebaseSdkGroceryRepository implements GroceryRepository {
       if (!ref.key) throw new ApplicationError('upstream_failed', 'No grocery key allocated')
       await ref.set(record)
       return ref.key
+    })
+  }
+
+  async insertActiveUnique(
+    listId: string,
+    normalizedName: string,
+    operation: string | null,
+    record: NewGroceryRecord
+  ): Promise<string> {
+    if (!normalizedName || normalizedName !== normalizedName.trim() || normalizedName.length > 200) {
+      throw new ApplicationError('invalid_input', 'Invalid normalized grocery name')
+    }
+    if (operation !== null && (!operation.trim() || operation.length > 500)) {
+      throw new ApplicationError('invalid_input', 'idempotencyKey is invalid')
+    }
+
+    return this.persist(async () => {
+      const { added_at: _created, modified_at: _modified, ...intent } = record
+      const fingerprint = createHash('sha256').update(JSON.stringify(intent)).digest('hex')
+      const operationId = operation === null ? null : `manual_${createHash('sha256').update(operation).digest('hex')}`
+      const baseId = `active_${createHash('sha256').update(normalizedName).digest('hex')}`
+      let selectedId: string | undefined
+      let operationConflict = false
+
+      const result = await this.listReference(listId).transaction((current: StoredList | null) => {
+        selectedId = undefined
+        operationConflict = false
+        const list = current && typeof current === 'object' ? current : {}
+        const groceries = list.groceries && typeof list.groceries === 'object' ? list.groceries : {}
+        const operations = list.grocery_operations && typeof list.grocery_operations === 'object'
+          ? list.grocery_operations
+          : {}
+
+        if (operationId) {
+          const legacy = groceries[operationId]
+          if (legacy) {
+            if (legacy.creationFingerprint !== fingerprint) {
+              operationConflict = true
+              return undefined
+            }
+            selectedId = operationId
+            return list
+          }
+          const replay = operations[operationId]
+          if (replay) {
+            if (replay.fingerprint !== fingerprint || typeof replay.groceryKey !== 'string') {
+              operationConflict = true
+              return undefined
+            }
+            selectedId = replay.groceryKey
+            return list
+          }
+        }
+
+        const existing = Object.entries(groceries).find(([, grocery]) =>
+          grocery && grocery.bought === false && typeof grocery.item === 'string' &&
+          grocery.item.trim().normalize('NFKC').toLocaleLowerCase() === normalizedName
+        )
+        if (existing) selectedId = existing[0]
+        else {
+          let candidate = operationId ?? baseId
+          let suffix = 0
+          while (Object.prototype.hasOwnProperty.call(groceries, candidate)) {
+            suffix += 1
+            candidate = `${operationId ?? baseId}_${suffix}`
+          }
+          selectedId = candidate
+        }
+
+        const nextGroceries = existing ? groceries : {
+          ...groceries,
+          [selectedId]: operationId ? { ...record, creationFingerprint: fingerprint } : record
+        }
+        const nextOperations = operationId ? {
+          ...operations,
+          [operationId]: { fingerprint, groceryKey: selectedId }
+        } : operations
+        return { ...list, groceries: nextGroceries, grocery_operations: nextOperations }
+      })
+
+      if (!result.committed || !selectedId) {
+        if (operationConflict) {
+          throw new ApplicationError('conflict', 'Operation was already used for different grocery data')
+        }
+        throw new ApplicationError('upstream_failed', 'Atomic grocery insert did not commit')
+      }
+      return selectedId
     })
   }
 

@@ -29,6 +29,13 @@ export type GroceryPatch = Partial<
 /** Persistence boundary for the existing users/{listId}/groceries RTDB collection. */
 export interface GroceryRepository {
   insert(listId: string, record: NewGroceryRecord): Promise<string>
+  /** Atomically creates an active normalized-name item, preserving operation replay/conflict semantics when supplied. */
+  insertActiveUnique(
+    listId: string,
+    normalizedName: string,
+    idempotencyKey: string | null,
+    record: NewGroceryRecord
+  ): Promise<string>
   insertIdempotent(listId: string, idempotencyKey: string, record: NewGroceryRecord): Promise<string>
   reactivate(listId: string, itemKey: string, record: ReactivateGroceryRecord): Promise<void>
   update(listId: string, itemKey: string, patch: GroceryPatch): Promise<void>

@@ -3,6 +3,7 @@ import type { GroceryWriteRepository } from './groceryWriteRepository'
 
 const createRepository = (): jest.Mocked<GroceryWriteRepository> => ({
   insert: jest.fn(),
+  insertActiveUnique: jest.fn(),
   insertIdempotent: jest.fn(),
   reactivate: jest.fn(),
   update: jest.fn(),

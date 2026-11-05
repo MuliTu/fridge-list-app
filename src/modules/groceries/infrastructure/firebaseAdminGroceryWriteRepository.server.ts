@@ -20,6 +20,13 @@ export type AdminAccessTokenProvider = {
 }
 
 type FetchImplementation = typeof fetch
+type StoredGrocery = Partial<NewGroceryRecord> & { creationFingerprint?: unknown }
+type StoredOperation = { fingerprint?: unknown; groceryKey?: unknown }
+type StoredUser = {
+  groceries?: Record<string, StoredGrocery | null> | null
+  grocery_operations?: Record<string, StoredOperation | null> | null
+  [key: string]: unknown
+}
 
 const MAX_FIREBASE_SEGMENT_LENGTH = 200
 const FORBIDDEN_FIREBASE_KEY_CHARACTERS = /[.#$/[\]\u0000-\u001f\u007f]/
@@ -125,6 +132,120 @@ export class FirebaseAdminGroceryWriteRepository implements GroceryWriteReposito
       throw new ApplicationError('upstream_failed', 'Firebase did not return a grocery item key')
     }
     return key
+  }
+
+  async insertActiveUnique(
+    listId: string,
+    normalizedName: string,
+    operation: string | null,
+    record: NewGroceryRecord
+  ): Promise<string> {
+    assertSafePathSegment(listId, 'listId')
+    if (!normalizedName || normalizedName !== normalizedName.trim() || normalizedName.length > MAX_FIREBASE_SEGMENT_LENGTH) {
+      throw new ApplicationError('invalid_input', 'normalizedName is invalid')
+    }
+    if (operation !== null && (!operation.trim() || operation.length > 500)) {
+      throw new ApplicationError('invalid_input', 'idempotencyKey is invalid')
+    }
+
+    const { added_at: _created, modified_at: _modified, ...intent } = record
+    const fingerprint = createHash('sha256').update(JSON.stringify(intent)).digest('hex')
+    const operationId = operation === null ? null : `manual_${createHash('sha256').update(operation).digest('hex')}`
+    const baseId = `active_${createHash('sha256').update(normalizedName).digest('hex')}`
+
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      let accessToken: string
+      try {
+        accessToken = (await this.credential.getAccessToken()).access_token
+      } catch (error) {
+        throw new ApplicationError('unavailable', 'Firebase Admin credential could not issue an access token', error)
+      }
+      if (!accessToken) throw new ApplicationError('unavailable', 'Firebase Admin credential returned an empty access token')
+
+      let response: Response
+      try {
+        response = await this.fetchImplementation(`${this.databaseUrl}/users/${listId}.json`, {
+          headers: { Authorization: `Bearer ${accessToken}`, 'X-Firebase-ETag': 'true' }
+        })
+      } catch (error) {
+        throw new ApplicationError('upstream_failed', 'Firebase Realtime Database request failed', error)
+      }
+      if (!response.ok) throw new ApplicationError('upstream_failed', `Firebase Realtime Database returned HTTP ${response.status}`)
+      const etag = response.headers.get('etag')
+      if (!etag) throw new ApplicationError('upstream_failed', 'Firebase transaction response omitted an ETag')
+
+      let user: StoredUser
+      try {
+        const value: unknown = await response.json()
+        user = value && typeof value === 'object' && !Array.isArray(value) ? value as StoredUser : {}
+      } catch (error) {
+        throw new ApplicationError('upstream_failed', 'Firebase returned an invalid user record', error)
+      }
+      const groceries = user.groceries && typeof user.groceries === 'object' ? user.groceries : {}
+      const operations = user.grocery_operations && typeof user.grocery_operations === 'object'
+        ? user.grocery_operations
+        : {}
+
+      if (operationId) {
+        const legacy = groceries[operationId]
+        if (legacy) {
+          if (legacy.creationFingerprint !== fingerprint) {
+            throw new ApplicationError('conflict', 'Operation was already used for different grocery data')
+          }
+          return operationId
+        }
+        const replay = operations[operationId]
+        if (replay) {
+          if (replay.fingerprint !== fingerprint || typeof replay.groceryKey !== 'string') {
+            throw new ApplicationError('conflict', 'Operation was already used for different grocery data')
+          }
+          return replay.groceryKey
+        }
+      }
+
+      const existing = Object.entries(groceries).find(([, grocery]) =>
+        grocery && grocery.bought === false && typeof grocery.item === 'string' &&
+        grocery.item.trim().normalize('NFKC').toLocaleLowerCase() === normalizedName
+      )
+      if (existing && !operationId) return existing[0]
+
+      let selectedId = existing?.[0] ?? operationId ?? baseId
+      if (!existing) {
+        let suffix = 0
+        while (Object.prototype.hasOwnProperty.call(groceries, selectedId)) {
+          suffix += 1
+          selectedId = `${operationId ?? baseId}_${suffix}`
+        }
+      }
+      const nextUser: StoredUser = {
+        ...user,
+        groceries: existing ? groceries : {
+          ...groceries,
+          [selectedId]: operationId ? { ...record, creationFingerprint: fingerprint } : record
+        },
+        grocery_operations: operationId ? {
+          ...operations,
+          [operationId]: { fingerprint, groceryKey: selectedId }
+        } : operations
+      }
+      try {
+        response = await this.fetchImplementation(`${this.databaseUrl}/users/${listId}.json`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'If-Match': etag
+          },
+          body: JSON.stringify(nextUser)
+        })
+      } catch (error) {
+        throw new ApplicationError('upstream_failed', 'Firebase Realtime Database request failed', error)
+      }
+      if (response.status === 412) continue
+      if (!response.ok) throw new ApplicationError('upstream_failed', `Firebase Realtime Database returned HTTP ${response.status}`)
+      return selectedId
+    }
+    throw new ApplicationError('upstream_failed', 'Firebase grocery transaction did not converge')
   }
 
   async insertIdempotent(listId: string, idempotencyKey: string, record: NewGroceryRecord): Promise<string> {
