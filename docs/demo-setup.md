@@ -47,6 +47,7 @@ In a third terminal:
 ```bash
 npm run demo:smoke -- --api
 npm run test:demo-config
+FRIDGE_DEMO_E2E=true E2E_BASE_URL=http://127.0.0.1:5173 npm run demo:verify-shared-list
 ```
 
 Smoke resets the local demo fixtures before checking them, so do not use it to
@@ -70,6 +71,7 @@ household data. Restart after changing `.env.demo` or its configuration contract
 | `FIRESTORE_EMULATOR_HOST` | Admin | Loopback Firestore 8080 |
 | `PERSONAL_CHEF_PROVIDER` | Server | Curated salad fixtures and unknown nutrition; no model API key |
 | `FRIDGE_OPTIONAL_INTEGRATIONS` | Server/browser | Optional provider APIs disabled in the demo server |
+| `SHOPPING_LIST_SHARING_ENABLED` | Server | Enables only the emulator-backed list-sharing route in demo mode |
 | `VITE_DEV_AUTH_BYPASS` | Server/browser | False; actual emulator tokens required |
 
 The browser SDK explicitly connects Auth, RTDB and Firestore to loopback. The Admin
@@ -81,8 +83,9 @@ fails closed if that plugin identity changes. The normal configuration path is
 preserved. Do not launch this demo through ordinary `npm run dev` or copy the demo
 settings over household `.env.local`.
 
-The demo middleware returns 503 for all API integrations except recipe suggestions
-and explicit recipe saves, plus authenticated grocery add/update/purchased/delete commands. CSP restricts browser connections/images/frames to self
+The demo middleware returns 503 for all API integrations except recipe suggestions,
+explicit recipe saves, authenticated grocery commands, and the emulator-backed
+shopping-sharing route. CSP restricts browser connections/images/frames to self
 and local emulators; remote recipe images therefore stay unavailable. This is a
 bounded development mode, not a production network firewall. Browser egress was not
 independently audited at packet level. `npm run demo:build` now writes isolated artifacts to ignored `dist-demo/` and
@@ -105,6 +108,12 @@ read denial; client grocery write denial; member reread. API smoke verifies 401 
 missing token, 403 for outsider, 503 for disabled integration, authoritative product
 names, deterministic suggestion, explicit save and approved-member recipe reread.
 Browser owner sign-in and persisted login after reload were observed in Hebrew.
+
+MYW-56 browser verification uses the real shopping-sharing API and UI with isolated
+owner, editor, and outsider Auth-emulator identities. It checks desktop/mobile width,
+measured selected-link contrast, custom category collapse, per-user theme cleanup,
+outsider denial, owner revocation, and stale recipient-content removal. It never uses
+the `inviteeMock` preview or a production Firebase project.
 
 Role checks now cover recipe and grocery writes: viewers/pending/outsiders are denied;
 anonymous tokens are rejected; revocation is honored on the next request. Grocery

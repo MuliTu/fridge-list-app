@@ -28,6 +28,13 @@
     "itemName": "שם הפריט",
     "itemNote": "הערה",
     "save": "שמירה",
-    "delete": "מחיקת פריט"
+    "delete": "מחיקת פריט",
+    "theme": "צבע הרשימה המשותפת",
+    "otherCategory": "אחר",
+    "themeColors": {
+      "blue": "כחול",
+      "purple": "סגול",
+      "green": "ירוק"
+    }
   }
 }

@@ -56,7 +56,9 @@ import { ReceiptCommandService, ScanReceiptFileService, ScanReceiptUrlService } 
 import { FirebaseAdminReceiptImageRepository, FirebaseAdminReceiptRepository, N8nReceiptScanner, SafeReceiptUrlFetcher } from './receipts/server'
 import { ApplicationError } from './shared'
 import { MemberCommandService } from './members'
+import { FirebaseAdminMemberCommandRepository } from './members/server'
 import { HouseholdSnapshotService } from './household'
+import { FirebaseAdminHouseholdSnapshotRepository } from './household/server'
 import { StockCommandService } from './stock'
 import { createFirebaseAdminStockRepository } from './stock/server'
 import {
@@ -341,8 +343,7 @@ export class ServerComposition {
       const app = getFirebaseAdminApp(this.options.environment)
       const databaseUrl = firebaseDatabaseUrl(this.options.environment)
       this.memberCommandService = new MemberCommandService(
-        app,
-        databaseUrl,
+        new FirebaseAdminMemberCommandRepository(app, databaseUrl),
         createFirebaseAdminListAuthorizationRepository(app, databaseUrl)
       )
     }
@@ -354,8 +355,7 @@ export class ServerComposition {
       const app = getFirebaseAdminApp(this.options.environment)
       const databaseUrl = firebaseDatabaseUrl(this.options.environment)
       this.householdSnapshotService = new HouseholdSnapshotService(
-        app,
-        databaseUrl,
+        new FirebaseAdminHouseholdSnapshotRepository(app, databaseUrl),
         createFirebaseAdminListAuthorizationRepository(app, databaseUrl)
       )
     }

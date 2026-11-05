@@ -12,8 +12,16 @@ export interface ShoppingShareSummary {
   owner: ShoppingShareMember
 }
 
+export interface ShoppingShareCategory {
+  name: string
+  color: string
+  icon: string
+  order: number
+}
+
 export interface ShoppingShareSnapshot extends ShoppingShareSummary {
   isOwner: boolean
   members: ShoppingShareMember[]
   items: GroceryItem[]
+  categories: ShoppingShareCategory[]
 }

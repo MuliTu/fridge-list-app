@@ -6,7 +6,7 @@ import type { Database } from 'firebase-admin/database'
 import { z } from 'zod'
 import { ApplicationError, type UserPrincipal } from '../../shared'
 import type { GroceryItem } from '../../../types'
-import type { ShoppingShareMember, ShoppingShareSnapshot, ShoppingShareSummary } from '..'
+import type { ShoppingShareCategory, ShoppingShareMember, ShoppingShareSnapshot, ShoppingShareSummary } from '..'
 
 const emailSchema = z.string().trim().toLowerCase().email().max(254)
 const keySchema = z.string().min(1).max(200).regex(/^[^.#$/\[\]\u0000-\u001f\u007f]+$/)
@@ -150,8 +150,20 @@ export class FirebaseShoppingSharingService {
             added_at: row.added_at, note: row.note ?? null, quantity: row.quantity ?? null,
             unit: row.unit ?? null, urgency: row.urgency ?? 'normal' }
         })
+      const itemCategories = new Set(items.map(item => item.category).filter((name): name is string => !!name))
+      const categoryRows = (await this.database.ref(`users/${share.householdId}/categories`).get()).val() || {}
+      const categories: ShoppingShareCategory[] = Object.values(categoryRows)
+        .filter((value): value is Record<string, unknown> => !!value && typeof value === 'object')
+        .filter(value => typeof value.name === 'string' && itemCategories.has(value.name))
+        .map(value => ({
+          name: value.name as string,
+          color: typeof value.color === 'string' ? value.color : '#94a3b8',
+          icon: typeof value.icon === 'string' ? value.icon : '📌',
+          order: typeof value.order === 'number' ? value.order : Number.MAX_SAFE_INTEGER
+        }))
+        .sort((left, right) => left.order - right.order || left.name.localeCompare(right.name, 'he'))
       return { ...summary(input.shareId, share), isOwner: share.ownerUid === principal.uid,
-        members: Object.values(share.members || {}), items } satisfies ShoppingShareSnapshot
+        members: Object.values(share.members || {}), items, categories } satisfies ShoppingShareSnapshot
     }
     const [id, share] = await this.ownShare(principal, input.householdId, input.listName)
     if (input.action === 'invite' || input.action === 'revoke') {
@@ -164,7 +176,7 @@ export class FirebaseShoppingSharingService {
       })
       return { ok: true }
     }
-    return { ...summary(id, share), isOwner: true, members: Object.values(share.members || {}), items: [] } satisfies ShoppingShareSnapshot
+    return { ...summary(id, share), isOwner: true, members: Object.values(share.members || {}), items: [], categories: [] } satisfies ShoppingShareSnapshot
   }
 
   private async mutate(principal: UserPrincipal, share: Share, mutation: z.infer<typeof mutationSchema>): Promise<void> {

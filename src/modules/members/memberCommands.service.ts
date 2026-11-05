@@ -1,16 +1,17 @@
-import type { App } from 'firebase-admin/app'
-import { getDatabaseWithUrl } from 'firebase-admin/database'
-
 import type { CatalogAuthorizationRepository } from '../catalog'
 import { ApplicationError, type RequestContext } from '../shared'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const emailKey = (email: string) => email.toLowerCase().replace(/[.#$[\]]/g, '_')
 
+export interface MemberCommandRepository {
+  invite(listId: string, inviteId: string, email: string, ownerEmail: string, invitedAt: string): Promise<void>
+  remove(listId: string, inviteId: string): Promise<void>
+}
+
 export class MemberCommandService {
   constructor(
-    private readonly app: App,
-    private readonly databaseUrl: string,
+    private readonly repository: MemberCommandRepository,
     private readonly authorization: CatalogAuthorizationRepository
   ) {}
 
@@ -24,23 +25,21 @@ export class MemberCommandService {
     if (context.principal.kind === 'user' && context.principal.email && normalized === context.principal.email.toLowerCase()) {
       throw new ApplicationError('conflict', 'The list owner is already a member')
     }
-    const database = getDatabaseWithUrl(this.databaseUrl, this.app)
     const inviteId = emailKey(normalized)
-    await database.ref().update({
-      [`users/${listId}/invites/${inviteId}`]: { email: normalized, status: 'pending', invited_at: context.now.toISOString() },
-      [`users/${inviteId}/memberOf/${listId}`]: { ownerEmail: context.principal.kind === 'user' ? context.principal.email ?? '' : '', status: 'pending' }
-    })
+    await this.repository.invite(
+      listId,
+      inviteId,
+      normalized,
+      context.principal.kind === 'user' ? context.principal.email ?? '' : '',
+      context.now.toISOString()
+    )
   }
 
   async remove(context: RequestContext, listId: string, email: string): Promise<void> {
     await this.authorization.assertOwner(context.principal, listId)
     const normalized = email.trim().toLowerCase()
     if (!emailPattern.test(normalized)) throw new ApplicationError('invalid_input', 'A valid member email is required')
-    const database = getDatabaseWithUrl(this.databaseUrl, this.app)
     const inviteId = emailKey(normalized)
-    await database.ref().update({
-      [`users/${listId}/invites/${inviteId}`]: null,
-      [`users/${inviteId}/memberOf/${listId}`]: null
-    })
+    await this.repository.remove(listId, inviteId)
   }
 }

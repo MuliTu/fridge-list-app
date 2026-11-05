@@ -1,20 +1,18 @@
-import type { App } from 'firebase-admin/app'
-import { getDatabaseWithUrl } from 'firebase-admin/database'
-
 import type { ListAuthorizationRepository } from '../groceries'
 import type { RequestContext } from '../shared'
 
+export interface HouseholdSnapshotRepository {
+  get(listId: string): Promise<Record<string, unknown>>
+}
+
 export class HouseholdSnapshotService {
   constructor(
-    private readonly app: App,
-    private readonly databaseUrl: string,
+    private readonly repository: HouseholdSnapshotRepository,
     private readonly authorization: ListAuthorizationRepository
   ) {}
 
   async get(context: RequestContext, listId: string): Promise<Record<string, unknown>> {
     await this.authorization.assertAccessible(context.principal, listId)
-    const snapshot = await getDatabaseWithUrl(this.databaseUrl, this.app).ref(`users/${listId}`).get()
-    const household = snapshot.val()
-    return household && typeof household === 'object' ? household as Record<string, unknown> : {}
+    return this.repository.get(listId)
   }
 }
