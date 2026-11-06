@@ -65,7 +65,7 @@ function ShoppingListRoute() {
   return shared ? <SharedShoppingList key={`${shared}:${user?.email}`} shareId={shared} /> : <ShoppingListPage />
 }
 
-function ShoppingListPage() {
+export function ShoppingListPage() {
   const { settings: behavior } = useBehaviorSettings()
   const localMock = useContext(LocalCategoriesContext) !== null
   const { t, i18n } = useTranslation()
@@ -97,6 +97,11 @@ function ShoppingListPage() {
   // Ephemeral query shared with the unified search/add control. It filters the
   // rendered list immediately while semantic duplicate checking runs separately.
   const [search, setSearch] = useState('')
+  const [semanticFilter, setSemanticFilter] = useState<{
+    listId: string
+    query: string
+    matchIds: string[]
+  }>({ listId: '', query: '', matchIds: [] })
   const { isCollapsed, toggle } = useCollapsedSections('shoppingCollapsedCategories')
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(
     activeList || '__permanent__'
@@ -161,11 +166,17 @@ function ShoppingListPage() {
     keepBoughtItemsInCategories
   )
 
-  // Client-side name search: case-insensitive substring match on the item name, layered
-  // on top of the selected bought-item placement. Empty query = no-op.
-  const query = search.trim().toLowerCase()
+  // Immediate normalized substring matches and current server-verified semantic IDs
+  // both filter the canonical rows. The semantic payload is query/list bound so an
+  // older response cannot reveal an item in a newer search or another list.
+  const query = normalizeName(search)
+  const semanticListId = sanitizeEmailKey(household?.id ?? user?.email ?? '__local__')
+  const semanticMatchIds = semanticFilter.listId === semanticListId &&
+    normalizeName(semanticFilter.query) === query
+    ? new Set(semanticFilter.matchIds)
+    : new Set<string>()
   const matchesSearch = (entry: GroceryItem) =>
-    !query || (entry.item || '').toLowerCase().includes(query)
+    !query || normalizeName(entry.item).includes(query) || semanticMatchIds.has(entry.key)
   const searchedEntries = categoryEntries.filter(matchesSearch)
   const searchedPurchasedEntries = sortGroceryItems(
     completedEntries.filter(matchesSearch),
@@ -190,7 +201,7 @@ function ShoppingListPage() {
   })
 
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
-  const activeResultsEmpty = searchedEntries.length === 0
+  const resultsEmpty = searchedEntries.length === 0 && searchedPurchasedEntries.length === 0
   const handleToggleBought = async (entry: GroceryItem) => {
     const newBought = !entry.bought
     try {
@@ -399,7 +410,7 @@ function ShoppingListPage() {
           {canEdit && (
             <div className="shopping-composer">
               <UnifiedGrocerySearchAdd
-                listId={sanitizeEmailKey(household?.id ?? user?.email ?? '__local__')}
+                listId={semanticListId}
                 entries={visibleEntries}
                 canEdit={canEdit}
                 localOnly={localMock}
@@ -409,7 +420,7 @@ function ShoppingListPage() {
                   onAddCategory: (category) => listApi.addCategory(category)
                 }}
                 onQueryChange={setSearch}
-                onOpenItem={setSelectedEntry}
+                onSemanticMatchesChange={setSemanticFilter}
                 onMatch={requestSemanticMatches}
               />
               <button
@@ -439,7 +450,7 @@ function ShoppingListPage() {
             </div>
           ) : (
             <div className="shopping-list-scroll">
-              {activeResultsEmpty && query && (
+              {resultsEmpty && query && (
                 <div className="shopping-empty-card">
                   {t('shoppingList:search.noResults', { query: search.trim() })}
                 </div>
@@ -458,7 +469,7 @@ function ShoppingListPage() {
                   uncheckedCountLabel={t('shoppingList:category.uncheckedCount', {
                     count: uncheckedCountByCategory[name] || 0
                   })}
-                  collapsed={isCollapsed(name)}
+                  collapsed={query ? false : isCollapsed(name)}
                   onToggle={() => toggle(name)}
                   dragOver={dragOverCategory === name}
                   onDragOver={canEdit ? handleDragOverCategory(name) : undefined}
@@ -469,21 +480,16 @@ function ShoppingListPage() {
                 </CategorySection>
               ))}
 
-              {!keepBoughtItemsInCategories && purchasedCount > 0 && (
+              {!keepBoughtItemsInCategories && purchasedCount > 0 &&
+                (!query || searchedPurchasedEntries.length > 0) && (
                 <CategorySection
                   name={t('shoppingList:purchased.sectionLabel', { count: purchasedCount })}
                   color="#8ee6a8"
                   icon="✓"
-                  collapsed={!showPurchased}
+                  collapsed={query && searchedPurchasedEntries.length > 0 ? false : !showPurchased}
                   onToggle={toggleShowPurchased}
                 >
-                  {searchedPurchasedEntries.length > 0 ? (
-                    searchedPurchasedEntries.map(renderItem)
-                  ) : (
-                    <li className="completed-filter-empty">
-                      {t('shoppingList:search.noResults', { query: search.trim() })}
-                    </li>
-                  )}
+                  {searchedPurchasedEntries.map(renderItem)}
                 </CategorySection>
               )}
             </div>
