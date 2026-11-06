@@ -50,6 +50,23 @@
     "aiAssistant": "AI assistant",
     "aiNoResult": "AI did not return an item suggestion"
   },
+  "unifiedAdd": {
+    "label": "Search or add a grocery item",
+    "placeholder": "Search or add an item…",
+    "checking": "Checking for similar items…",
+    "unavailable": "We couldn't verify whether this item is already on the list. Try again.",
+    "notFound": "This item is not on your list yet.",
+    "matchRequired": "Wait until duplicate checking is complete before adding.",
+    "batchNeedsReview": "One item already exists or needs review. Only the remaining items were kept.",
+    "showExisting": "Show existing",
+    "addDistinct": "Add as a different item",
+    "results": "Matching grocery items",
+    "purchased": "Purchased",
+    "exact": "Already on your list",
+    "partial": "Name match",
+    "similar": "Similar item",
+    "related": "Related item"
+  },
   "sort": {
     "label": "Sort list",
     "default": "Sort: Default",

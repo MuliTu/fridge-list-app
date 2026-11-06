@@ -23,6 +23,25 @@ export type UpdateGroceryRequest = {
   unit?: string | null
 }
 
+export type SemanticGroceryMatch = {
+  id: string
+  name: string
+  category: string
+  bought: boolean
+  hidden: boolean
+  collapsed: boolean
+  matchType: 'exact' | 'similar' | 'related'
+}
+
+export type SemanticGroceryMatchResult = {
+  status: 'ok' | 'provider_unavailable' | 'stale_request' | 'candidate_limit_exceeded'
+  evaluatedName: string
+  snapshotId: string
+  classification: 'exact' | 'similar' | 'related' | 'distinct'
+  matches: SemanticGroceryMatch[]
+  candidateCount: number
+}
+
 export class GroceryApiError extends Error {
   constructor(
     readonly status: number,
@@ -78,6 +97,12 @@ export const createGroceryApiClient = ({
   const pendingAdds = new Map<string, string>()
 
   return {
+    match: (listId: string, query: string, signal?: AbortSignal) =>
+      request<SemanticGroceryMatchResult>(`${collection(listId)}/matches`, {
+        method: 'POST',
+        body: JSON.stringify({ query }),
+        signal
+      }),
     add: async (listId: string, input: AddGroceryRequest) => {
       const intent = JSON.stringify([listId, input])
       const operationId = input.operationId ?? pendingAdds.get(intent) ?? crypto.randomUUID()
