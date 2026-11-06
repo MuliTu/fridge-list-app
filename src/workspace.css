@@ -540,44 +540,6 @@ textarea {
   color: var(--chalk-dim);
   font-size: 10px;
 }
-.unified-grocery-results {
-  position: absolute;
-  z-index: 20;
-  inset-inline: 0;
-  top: calc(100% - 18px);
-  max-height: 220px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 6px;
-  list-style: none;
-  border: 1px solid var(--border-alpha);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: 0 14px 30px rgb(0 0 0 / 28%);
-}
-.unified-grocery-results button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-height: 42px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--chalk);
-  text-align: start;
-  cursor: pointer;
-}
-.unified-grocery-results button:hover,
-.unified-grocery-results button:focus-visible {
-  background: var(--input-alpha);
-}
-.unified-grocery-results small {
-  color: var(--chalk-dim);
-  font-size: 9px;
-}
 .detailed-add {
   display: flex;
   align-items: center;

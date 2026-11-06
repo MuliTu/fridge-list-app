@@ -68,7 +68,7 @@ const renderControl = (overrides: Partial<Parameters<typeof UnifiedGrocerySearch
     canEdit: true,
     addContext: { categories, onAdd: jest.fn() },
     onQueryChange: jest.fn(),
-    onOpenItem: jest.fn(),
+    onSemanticMatchesChange: jest.fn(),
     onMatch: jest.fn().mockResolvedValue({
       status: 'ok',
       evaluatedName: 'bread',
@@ -90,16 +90,27 @@ describe('UnifiedGrocerySearchAdd', () => {
     })
   })
 
-  it('surfaces an exact active item and does not create it again', async () => {
-    const onOpenItem = jest.fn()
+  it('publishes an exact active item for in-place filtering and does not render a result dropdown', async () => {
+    const onSemanticMatchesChange = jest.fn()
     const onAdd = jest.fn()
     const user = userEvent.setup()
-    renderControl({ entries: [milk], onOpenItem, addContext: { categories, onAdd } })
+    renderControl({
+      entries: [milk],
+      localOnly: true,
+      onSemanticMatchesChange,
+      addContext: { categories, onAdd }
+    })
 
     await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), ' milk ')
-    await user.click(screen.getByRole('button', { name: /unifiedAdd.showExisting/ }))
 
-    expect(onOpenItem).toHaveBeenCalledWith(milk)
+    await waitFor(() => expect(onSemanticMatchesChange).toHaveBeenLastCalledWith({
+      listId: 'list-1',
+      query: 'milk',
+      matchIds: ['milk']
+    }))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(document.querySelector('.unified-grocery-results')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'shoppingList:unifiedAdd.showExisting' })).toBeDisabled()
     expect(onAdd).not.toHaveBeenCalled()
   })
 
@@ -158,44 +169,48 @@ describe('UnifiedGrocerySearchAdd', () => {
     ])
   })
 
-  it('surfaces a purchased exact item without allowing a duplicate add', async () => {
-    const onOpenItem = jest.fn()
+  it('publishes a purchased exact item for the canonical list without allowing a duplicate add', async () => {
+    const onSemanticMatchesChange = jest.fn()
     const onAdd = jest.fn()
     const user = userEvent.setup()
     renderControl({
       entries: [purchasedMilk],
       localOnly: true,
-      onOpenItem,
+      onSemanticMatchesChange,
       addContext: { categories, onAdd }
     })
 
     await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'milk')
 
-    expect(screen.getByText('shoppingList:unifiedAdd.purchased')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'shoppingList:unifiedAdd.addDistinct' })).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: /Milk/ }))
-    expect(onOpenItem).toHaveBeenCalledWith(purchasedMilk)
+    await waitFor(() => expect(onSemanticMatchesChange).toHaveBeenLastCalledWith({
+      listId: 'list-1',
+      query: 'milk',
+      matchIds: ['purchased-milk']
+    }))
+    expect(screen.getByRole('button', { name: 'shoppingList:unifiedAdd.showExisting' })).toBeDisabled()
     expect(onAdd).not.toHaveBeenCalled()
   })
 
   it.each(['similar', 'related'] as const)(
-    'requires an explicit distinct action for a %s semantic match',
+    'filters to a %s semantic match and keeps Add disabled',
     async (classification) => {
       const onAdd = jest.fn().mockResolvedValue(undefined)
+      const onSemanticMatchesChange = jest.fn()
       const user = userEvent.setup()
       renderControl({
         onMatch: jest.fn().mockResolvedValue(semanticResult(classification)),
+        onSemanticMatchesChange,
         addContext: { categories, onAdd }
       })
 
       await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'bread')
-      const addDistinct = await screen.findByRole('button', {
-        name: 'shoppingList:unifiedAdd.addDistinct'
-      })
-      await waitFor(() => expect(addDistinct).toBeEnabled())
-      await user.click(addDistinct)
-
-      await waitFor(() => expect(onAdd).toHaveBeenCalledWith('Bread', 'Other'))
+      await waitFor(() => expect(onSemanticMatchesChange).toHaveBeenLastCalledWith({
+        listId: 'list-1',
+        query: 'bread',
+        matchIds: ['milk']
+      }))
+      expect(screen.getByRole('button', { name: 'shoppingList:unifiedAdd.showExisting' })).toBeDisabled()
+      expect(onAdd).not.toHaveBeenCalled()
     }
   )
 
@@ -325,16 +340,22 @@ describe('UnifiedGrocerySearchAdd', () => {
     expect(enrichItemsWithAi).not.toHaveBeenCalled()
   })
 
-  it('opens a matching result with keyboard activation', async () => {
-    const onOpenItem = jest.fn()
+  it('clears published semantic IDs when the query is cleared', async () => {
+    const onSemanticMatchesChange = jest.fn()
     const user = userEvent.setup()
-    renderControl({ entries: [milk], localOnly: true, onOpenItem })
+    renderControl({ entries: [milk], localOnly: true, onSemanticMatchesChange })
     await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'mil')
-    const result = screen.getByRole('button', { name: /Milk/ })
+    await waitFor(() => expect(onSemanticMatchesChange).toHaveBeenLastCalledWith({
+      listId: 'list-1',
+      query: 'mil',
+      matchIds: ['milk']
+    }))
+    await user.clear(screen.getByLabelText('shoppingList:unifiedAdd.label'))
 
-    result.focus()
-    await user.keyboard('{Enter}')
-
-    expect(onOpenItem).toHaveBeenCalledWith(milk)
+    await waitFor(() => expect(onSemanticMatchesChange).toHaveBeenLastCalledWith({
+      listId: 'list-1',
+      query: '',
+      matchIds: []
+    }))
   })
 })

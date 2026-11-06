@@ -25,7 +25,11 @@ type UnifiedGrocerySearchAddProps = {
   localOnly?: boolean
   addContext: AddContext
   onQueryChange: (query: string) => void
-  onOpenItem: (entry: GroceryItem) => void
+  onSemanticMatchesChange: (filter: {
+    listId: string
+    query: string
+    matchIds: string[]
+  }) => void
   onMatch: (listId: string, query: string, signal?: AbortSignal) => Promise<SemanticGroceryMatchResult>
 }
 
@@ -81,7 +85,7 @@ export function UnifiedGrocerySearchAdd({
   localOnly = false,
   addContext,
   onQueryChange,
-  onOpenItem,
+  onSemanticMatchesChange,
   onMatch
 }: UnifiedGrocerySearchAddProps) {
   const { t, i18n } = useTranslation()
@@ -92,6 +96,7 @@ export function UnifiedGrocerySearchAdd({
   const requestIdentity = useRef(0)
   const submissionIdentity = useRef(0)
   const submissionController = useRef<AbortController | null>(null)
+  const emittedFilterIdentity = useRef('')
   const mounted = useRef(true)
 
   const trimmed = value.trim()
@@ -107,6 +112,24 @@ export function UnifiedGrocerySearchAdd({
   useEffect(() => {
     onQueryChange(isBatch ? '' : trimmed)
   }, [isBatch, onQueryChange, trimmed])
+
+  const semanticReady = semantic.phase === 'ready' && semantic.query === trimmed
+  const semanticMatchIds = semanticReady && semantic.result.status === 'ok' &&
+    semantic.result.classification !== 'distinct'
+    ? semantic.result.matches.map((match) => match.id)
+    : []
+
+  useEffect(() => {
+    const filter = {
+      listId,
+      query: isBatch ? '' : trimmed,
+      matchIds: semanticMatchIds
+    }
+    const identity = `${filter.listId}\u0000${filter.query}\u0000${filter.matchIds.join('\u0000')}`
+    if (emittedFilterIdentity.current === identity) return
+    emittedFilterIdentity.current = identity
+    onSemanticMatchesChange(filter)
+  }, [isBatch, listId, onSemanticMatchesChange, semanticMatchIds, trimmed])
 
   const invalidateSubmission = () => {
     submissionIdentity.current += 1
@@ -242,19 +265,10 @@ export function UnifiedGrocerySearchAdd({
     }
     try {
       if (names.length === 1) {
-        if (exactActive) {
-          onOpenItem(exactActive)
-          return
-        }
         if (semantic.phase !== 'ready' || semantic.query !== trimmed || semantic.result.status !== 'ok') {
           throw new Error(t('shoppingList:unifiedAdd.matchRequired'))
         }
-        if (semantic.result.classification === 'exact') {
-          const match = semantic.result.matches[0]
-          const entry = match && entries.find((candidate) => candidate.key === match.id)
-          if (entry) onOpenItem(entry)
-          return
-        }
+        if (semantic.result.classification !== 'distinct') return
         await prepareAndAdd(names, assertCurrent)
       } else {
         const distinct: string[] = []
@@ -288,12 +302,8 @@ export function UnifiedGrocerySearchAdd({
     }
   }
 
-  const semanticReady = semantic.phase === 'ready' && semantic.query === trimmed
-  const semanticMatches = semanticReady && semantic.result.status === 'ok'
-    ? semantic.result.matches
-    : []
   const canCreate = canEdit && semanticReady && semantic.result.status === 'ok' &&
-    semantic.result.classification !== 'exact' && !exactActive
+    semantic.result.classification === 'distinct' && !exactActive
 
   return (
     <div className="unified-grocery-add">
@@ -329,13 +339,12 @@ export function UnifiedGrocerySearchAdd({
             <X aria-hidden="true" size={16} />
           </button>
         )}
-        <button type="submit" disabled={saving || (!isBatch && !canCreate && !exactActive)}>
+        <button type="submit" disabled={saving || (!isBatch && !canCreate)}>
           <Plus aria-hidden="true" size={17} />
-          <span>{saving ? t('shoppingList:quickAdd.adding') : exactActive
+          <span>{saving ? t('shoppingList:quickAdd.adding') : exactActive ||
+            (semanticReady && semantic.result.status === 'ok' && semantic.result.classification !== 'distinct')
             ? t('shoppingList:unifiedAdd.showExisting')
-            : semanticReady && semantic.result.classification !== 'distinct'
-              ? t('shoppingList:unifiedAdd.addDistinct')
-              : t('shoppingList:quickAdd.button')}</span>
+            : t('shoppingList:quickAdd.button')}</span>
         </button>
       </form>
       <div id="unified-grocery-status" className="unified-grocery-status" role="status" aria-live="polite">
@@ -345,40 +354,6 @@ export function UnifiedGrocerySearchAdd({
         {semanticReady && semantic.result.status === 'ok' && semantic.result.classification === 'distinct' &&
           t('shoppingList:unifiedAdd.notFound')}
       </div>
-      {!isBatch && trimmed && (localMatches.length > 0 || semanticMatches.length > 0) && (
-        <ul className="unified-grocery-results" aria-label={t('shoppingList:unifiedAdd.results')}>
-          {localMatches.map((entry) => (
-            <li key={`local-${entry.key}`}>
-              <button type="button" onClick={() => onOpenItem(entry)}>
-                <span>{entry.item}</span>
-                <small>{entry.bought
-                  ? t('shoppingList:unifiedAdd.purchased')
-                  : normalizeName(entry.item) === normalized
-                    ? t('shoppingList:unifiedAdd.exact')
-                    : t('shoppingList:unifiedAdd.partial')}</small>
-              </button>
-            </li>
-          ))}
-          {semanticMatches
-            .filter((match) => !localMatches.some((entry) => entry.key === match.id))
-            .map((match) => (
-              <li key={`semantic-${match.id}`}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const entry = entries.find((candidate) => candidate.key === match.id)
-                    if (entry) onOpenItem(entry)
-                  }}
-                >
-                  <span>{match.name}</span>
-                  <small>{match.bought
-                    ? t('shoppingList:unifiedAdd.purchased')
-                    : t(`shoppingList:unifiedAdd.${match.matchType}`)}</small>
-                </button>
-              </li>
-            ))}
-        </ul>
-      )}
       {error && <div className="quick-add-error" role="alert">{error}</div>}
     </div>
   )
