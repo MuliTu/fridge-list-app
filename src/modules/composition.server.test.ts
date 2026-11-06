@@ -34,10 +34,10 @@ describe('ServerComposition', () => {
 
   it('wires grocery commands through the shared Admin app and write authorization', async () => {
     const app = {} as any
-    const insert = jest.fn().mockResolvedValue('key')
+    const insertActiveUnique = jest.fn().mockResolvedValue('key')
     const assertAccessible = jest.fn()
     const appSpy = jest.spyOn(identityServer, 'getFirebaseAdminApp').mockReturnValue(app)
-    const repoSpy = jest.spyOn(groceryServer, 'createFirebaseSdkGroceryRepository').mockReturnValue({ insert } as any)
+    const repoSpy = jest.spyOn(groceryServer, 'createFirebaseSdkGroceryRepository').mockReturnValue({ insertActiveUnique } as any)
     const authSpy = jest.spyOn(recipeServer, 'createFirebaseAdminListAuthorizationRepository').mockReturnValue({ assertAccessible } as any)
     try {
       const composition = new ServerComposition({ environment: completeEnvironment })
@@ -46,7 +46,29 @@ describe('ServerComposition', () => {
         name: 'Milk', category: 'Dairy'
       })).resolves.toEqual({ key: 'key' })
       expect(assertAccessible).toHaveBeenCalledWith(principal, 'list-1', 'write')
+      expect(insertActiveUnique).toHaveBeenCalledWith('list-1', 'milk', null, expect.objectContaining({ item: 'Milk' }))
       expect(repoSpy).toHaveBeenCalledWith(app, completeEnvironment.FIREBASE_DATABASE_URL)
+    } finally {
+      appSpy.mockRestore(); repoSpy.mockRestore(); authSpy.mockRestore()
+    }
+  })
+
+  it.each(['read-only', 'revoked', 'cross-list'])('denies %s grocery writes before persistence', async () => {
+    const insertActiveUnique = jest.fn()
+    const assertAccessible = jest.fn().mockRejectedValue({ code: 'forbidden' })
+    const appSpy = jest.spyOn(identityServer, 'getFirebaseAdminApp').mockReturnValue({} as any)
+    const repoSpy = jest.spyOn(groceryServer, 'createFirebaseSdkGroceryRepository').mockReturnValue({ insertActiveUnique } as any)
+    const authSpy = jest.spyOn(recipeServer, 'createFirebaseAdminListAuthorizationRepository').mockReturnValue({ assertAccessible } as any)
+    try {
+      const composition = new ServerComposition({ environment: completeEnvironment })
+      const principal = { kind: 'user' as const, uid: 'denied-user', email: null, emailVerified: true }
+      await expect(composition.getGroceryCommandService().add(
+        { principal, requestId: 'denied', now: new Date() },
+        'another-list',
+        { name: 'Milk', category: 'Dairy' }
+      )).rejects.toMatchObject({ code: 'forbidden' })
+      expect(assertAccessible).toHaveBeenCalledWith(principal, 'another-list', 'write')
+      expect(insertActiveUnique).not.toHaveBeenCalled()
     } finally {
       appSpy.mockRestore(); repoSpy.mockRestore(); authSpy.mockRestore()
     }

@@ -16,6 +16,8 @@ const nullableText = (value: unknown, field: string, max: number): string | null
 
 const itemKey = (value: unknown): string => text(value, 'itemId', 200)
 
+const normalizedName = (value: string): string => value.normalize('NFKC').toLocaleLowerCase()
+
 const quantity = (value: unknown): number | null => {
   if (value == null) return null
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1_000_000) {
@@ -68,8 +70,9 @@ export class GroceryCommandService {
   async add(context: RequestContext, listId: string, input: AddGroceryInput): Promise<{ key: string }> {
     const authorizedListId = await this.authorize(context, listId)
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ApplicationError('invalid_input', 'Grocery input must be an object')
+    const item = text(input.name, 'name', limits.item)
     const record: NewGroceryRecord = {
-      item: text(input.name, 'name', limits.item),
+      item,
       category: text(input.category, 'category', limits.category),
       bought: false,
       added_at: context.now.toISOString(),
@@ -80,13 +83,16 @@ export class GroceryCommandService {
       quantity: quantity(input.quantity),
       unit: nullableText(input.unit, 'unit', limits.unit)
     }
+    let idempotencyKey: string | null = null
     if (input.operationId !== undefined) {
       const operationId = text(input.operationId, 'operationId', 100)
       if (!/^[a-zA-Z0-9_-]{16,100}$/.test(operationId)) throw new ApplicationError('invalid_input', 'Invalid operationId')
       const actor = context.principal.kind === 'user' ? context.principal.uid : context.principal.service
-      return { key: await this.repository.insertIdempotent(authorizedListId, `${actor}:${operationId}`, record) }
+      idempotencyKey = `${actor}:${operationId}`
     }
-    return { key: await this.repository.insert(authorizedListId, record) }
+    return {
+      key: await this.repository.insertActiveUnique(authorizedListId, normalizedName(item), idempotencyKey, record)
+    }
   }
 
   async update(context: RequestContext, listId: string, id: unknown, input: UpdateGroceryInput): Promise<void> {

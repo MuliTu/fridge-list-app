@@ -5,6 +5,7 @@ import type { ListAuthorizationRepository } from './listAuthorizationRepository'
 
 const repository = (): jest.Mocked<GroceryRepository> => ({
   insert: jest.fn().mockResolvedValue('new-key'),
+  insertActiveUnique: jest.fn().mockResolvedValue('new-key'),
   insertIdempotent: jest.fn(),
   reactivate: jest.fn(),
   update: jest.fn(),
@@ -31,11 +32,30 @@ describe('GroceryCommandService', () => {
     })
 
     expect(access.assertAccessible).toHaveBeenCalledWith(context.principal, 'owner_email_com', 'write')
-    expect(repo.insert).toHaveBeenCalledWith('owner_email_com', {
+    expect(repo.insertActiveUnique).toHaveBeenCalledWith('owner_email_com', 'milk', null, {
       item: 'Milk', category: 'Dairy', bought: false, added_at: '2026-08-02T10:30:00.000Z',
       raw_text: 'נוסף ידנית', list_name: null, created_by: 'user@example.com', note: 'Buy fresh', quantity: 2, unit: 'l'
     })
     expect(result).toEqual({ key: 'new-key' })
+  })
+
+  it('passes the actor-scoped operation to the atomic active-name boundary', async () => {
+    const repo = repository()
+    repo.insertActiveUnique.mockResolvedValue('stable-key')
+    const result = await new GroceryCommandService(repo, authorization()).add(context, 'shared-list', {
+      name: ' Milk ',
+      category: 'Dairy',
+      operationId: '00000000-0000-4000-8000-000000000001'
+    })
+
+    expect(repo.insertActiveUnique).toHaveBeenCalledWith(
+      'shared-list',
+      'milk',
+      'user-1:00000000-0000-4000-8000-000000000001',
+      expect.objectContaining({ item: 'Milk' })
+    )
+    expect(result).toEqual({ key: 'stable-key' })
+    expect(repo.insertIdempotent).not.toHaveBeenCalled()
   })
 
   it('authorizes update, purchased-state, detail, and delete commands', async () => {
@@ -70,6 +90,17 @@ describe('GroceryCommandService', () => {
       code: 'forbidden'
     })
     expect(repo.delete).not.toHaveBeenCalled()
+  })
+
+  it('does not inspect or write groceries when add authorization fails', async () => {
+    const repo = repository()
+    const access = authorization()
+    access.assertAccessible.mockRejectedValue({ code: 'forbidden' })
+
+    await expect(new GroceryCommandService(repo, access).add(context, 'forged-list', {
+      name: 'Milk', category: 'Dairy'
+    })).rejects.toMatchObject({ code: 'forbidden' })
+    expect(repo.insertActiveUnique).not.toHaveBeenCalled()
   })
 })
 
