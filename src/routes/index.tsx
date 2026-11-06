@@ -15,7 +15,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
-import { categorizeItem } from '../lib/firebase'
+import { categorizeItem, getCurrentUserIdToken, sanitizeEmailKey } from '../lib/firebase'
 import { isChefFoodProduct } from '../lib/chefProducts'
 import { StockUnit } from '../lib/units'
 import { useCategories } from '../hooks/useCategories'
@@ -34,20 +34,22 @@ import GroceryItemModal from '../components/GroceryItemModal'
 import BulkUploadModal from '../components/BulkUploadModal'
 import RestockPrompt from '../components/RestockPrompt'
 import ListPicker from '../components/ListPicker'
-import ShoppingListSearch from '../components/ShoppingListSearch'
-import SearchSuggestAdd from '../components/SearchSuggestAdd'
 import ShoppingListSort from '../components/ShoppingListSort'
 import ShoppingListItemRow from '../components/ShoppingListItemRow'
 import CategorySection from '../components/CategorySection'
-import QuickAddBar from '../components/QuickAddBar'
+import { UnifiedGrocerySearchAdd } from '../components/UnifiedGrocerySearchAdd'
 import ListSkeleton from '../components/ListSkeleton'
 import { sortGroceryItems } from '../lib/sortGroceryItems'
 import { partitionGroceryItemsByPlacement } from '../lib/boughtItemsPlacement'
 import type { GroceryItem, StockItem } from '../types'
 import ListSharingBar from '../components/ListSharingBar'
 import SharedShoppingList, { SharedShoppingListsNavigation } from '../components/SharedShoppingLists'
+import { createGroceryApiClient } from '../client/api/groceries'
 
 const PERMANENT_LIST = null
+const groceryApiClient = createGroceryApiClient({ getIdToken: getCurrentUserIdToken })
+const requestSemanticMatches = (listId: string, query: string, signal?: AbortSignal) =>
+  groceryApiClient.match(listId, query, signal)
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { list?: string; shared?: string } => ({
@@ -89,12 +91,11 @@ function ShoppingListPage() {
   const [addModalInitialName, setAddModalInitialName] = useState<string | undefined>(undefined)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
-  const quickAddInputRef = useRef<HTMLInputElement>(null)
   const pendingItemNamesRef = useRef(new Set<string>())
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
-  // Ephemeral, client-only search filter. Not persisted (no localStorage, no URL param)
-  // so it resets when navigating away and back — the ticket explicitly wants this.
+  // Ephemeral query shared with the unified search/add control. It filters the
+  // rendered list immediately while semantic duplicate checking runs separately.
   const [search, setSearch] = useState('')
   const { isCollapsed, toggle } = useCollapsedSections('shoppingCollapsedCategories')
   const { showPurchased, toggle: toggleShowPurchased } = useShowPurchased(
@@ -190,8 +191,6 @@ function ShoppingListPage() {
 
   const visibleCategories = categories.filter((c) => (grouped[c.name] || []).length > 0)
   const activeResultsEmpty = searchedEntries.length === 0
-  const allResultsEmpty = activeResultsEmpty && searchedPurchasedEntries.length === 0
-
   const handleToggleBought = async (entry: GroceryItem) => {
     const newBought = !entry.bought
     try {
@@ -298,11 +297,6 @@ function ShoppingListPage() {
     navigate({ search: { list: undefined } })
   }
 
-  const handleSuggestAdd = () => {
-    setAddModalInitialName(search.trim())
-    setShowAddGrocery(true)
-  }
-
   const handleShareMissing = () => {
     const missing = visibleEntries.filter((e) => !e.bought)
     if (missing.length === 0) return
@@ -397,7 +391,6 @@ function ShoppingListPage() {
               aria-controls="shopping-filters"
               onClick={() => {
                 setToolsOpen(!toolsOpen)
-                if (toolsOpen) setSearch('')
               }}
             >
               <SlidersHorizontal size={18} aria-hidden="true" />
@@ -405,12 +398,19 @@ function ShoppingListPage() {
           </div>
           {canEdit && (
             <div className="shopping-composer">
-              <QuickAddBar
-                aiAvailable={!localMock}
-                ref={quickAddInputRef}
-                categories={categories}
-                onAdd={handleQuickAdd}
-                onAddCategory={(category) => listApi.addCategory(category)}
+              <UnifiedGrocerySearchAdd
+                listId={sanitizeEmailKey(household?.id ?? user?.email ?? '__local__')}
+                entries={visibleEntries}
+                canEdit={canEdit}
+                localOnly={localMock}
+                addContext={{
+                  categories,
+                  onAdd: handleQuickAdd,
+                  onAddCategory: (category) => listApi.addCategory(category)
+                }}
+                onQueryChange={setSearch}
+                onOpenItem={setSelectedEntry}
+                onMatch={requestSemanticMatches}
               />
               <button
                 className="detailed-add"
@@ -426,14 +426,11 @@ function ShoppingListPage() {
           )}
           {toolsOpen && (
             <div id="shopping-filters" className="list-controls-row">
-              <ShoppingListSearch value={search} onChange={setSearch} />
               <ShoppingListSort value={sortOption} onChange={setSortOption} />
             </div>
           )}
           {isLoading && visibleEntries.length === 0 ? (
             <ListSkeleton variant="flat" sections={3} rows={3} />
-          ) : query && allResultsEmpty && canEdit ? (
-            <SearchSuggestAdd query={search.trim()} onSuggestAdd={handleSuggestAdd} />
           ) : visibleEntries.length === 0 ? (
             <div className="workspace-empty">
               <ShoppingBasket />

@@ -62,6 +62,30 @@ describe('grocery API client', () => {
       ['/api/lists/list/groceries/item', 'DELETE']
     ])
   })
+
+  it('requests semantic matches for the selected list and forwards cancellation', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ok',
+      evaluatedName: 'milk',
+      snapshotId: 'a'.repeat(64),
+      classification: 'distinct',
+      matches: [],
+      candidateCount: 0
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const client = createGroceryApiClient({ getIdToken: async () => 'token', fetch: fetchMock })
+    const controller = new AbortController()
+
+    await client.match('owner/list', 'milk', controller.signal)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/lists/owner%2Flist/groceries/matches',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ query: 'milk' }),
+        signal: controller.signal
+      })
+    )
+  })
 })
 
 
