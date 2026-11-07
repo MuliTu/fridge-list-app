@@ -1,5 +1,8 @@
 # Spec: LangGraph Create-Ticket Agent
 
+> Planning reconciliation — 2026-11-03: historical non-production LangGraph/Trello experiment. Code already exists; the original draft checklist has not been reconciled with live provider state. Do not treat its unchecked boxes as a new implementation backlog. New Settings, sharing, email and feedback-to-Kan work is governed by [the current plan](../plans/plan-settings-sharing-feedback.md). Preserve the original scope and Trello links as history.
+
+
 Status: Draft (non-production)
 Language: TypeScript
 API route: `POST /api/agent/create-ticket`

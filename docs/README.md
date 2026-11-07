@@ -29,3 +29,16 @@ Other specs/plans are historical design inputs, not evidence of shipped behavior
 The [external remediation proposal](plans/external-remediation-proposal.md) records
 separate privacy and production approval boundaries. Personal agent workflows and
 session transcripts are local and are not required to build or understand the app.
+
+## Product planning and delivery
+
+- [Settings, sharing and feedback specification](specs/spec-settings-sharing-feedback.md)
+- [Binding decisions and assumptions](specs/DECISIONS.md)
+- [Acceptance test plan](specs/TEST_PLAN.md)
+- [Delivery plan and ticket register](plans/plan-settings-sharing-feedback.md)
+- [Local development progress](plans/development-progress-2026-11-03.md)
+- [Feedback pipeline audit](audits/feedback-pipeline-2026-11-03.md)
+
+These documents distinguish requirements, decisions, planned verification and
+delivery evidence. A documented requirement or local candidate is not evidence that
+it was tested, merged, deployed or released.
