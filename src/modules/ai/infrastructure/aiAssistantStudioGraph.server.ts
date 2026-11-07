@@ -15,7 +15,7 @@ import { AiRequestResponseLoggingMiddleware } from './aiRequestResponseMiddlewar
  * environment. A missing Gemini key becomes a focused invocation error.
  */
 class StudioGeminiAnalyzer implements AiAnalyzer {
-  async analyze(context: RetrievedAiContext): Promise<AiAssistantResult> {
+  async analyze(context: RetrievedAiContext, signal?: AbortSignal): Promise<AiAssistantResult> {
     const apiKey = process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) {
       throw new Error('GOOGLE_API_KEY or GEMINI_API_KEY is required to invoke the ai_assistant graph')
@@ -24,7 +24,7 @@ class StudioGeminiAnalyzer implements AiAnalyzer {
     return new GeminiAiAnalyzer(
       apiKey,
       process.env.AI_LIST_MODEL?.trim() || 'gemini-2.5-flash'
-    ).analyze(context)
+    ).analyze(context, signal)
   }
 }
 
