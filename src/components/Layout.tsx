@@ -12,7 +12,7 @@ import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceC
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
 import CategoriesModal from './CategoriesModal'
-import ListMembersModal from './ListMembersModal'
+import { UsersManagementModal } from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
 import WhatsNewModal from './WhatsNewModal'
 import AiAssistantModal from './AiAssistantModal'
@@ -328,14 +328,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
                       >
                         {t('menu.manageCategories')}
                       </button>
-                      {isOwner && (
-                        <button
-                          className={sidebarItemClass}
-                          onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
-                        >
-                          {t('menu.shareEditing', { listName: activeList?.name || '' })}
-                        </button>
-                      )}
+                      <button
+                        className={sidebarItemClass}
+                        onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
+                      >
+                        {t('menu.users')}
+                      </button>
                       {isOwner && (
                         <button
                           className={sidebarItemClass}
@@ -501,7 +499,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showCategories && (
         <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />
       )}
-      {showMembers && <ListMembersModal onClose={() => setShowMembers(false)} />}
+      {showMembers && <UsersManagementModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
       {showAiAssistant && <AiAssistantModal onClose={() => setShowAiAssistant(false)} />}

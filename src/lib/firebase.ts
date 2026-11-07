@@ -335,8 +335,12 @@ export interface InviteEntry {
 // call unconditionally rather than tracking "have I already done this".
 export const approvePendingInvites = async (email: string) => {
   const snapshot = await get(memberOfRef(email))
-  const memberOf = (snapshot.val() || {}) as Record<string, string>
-  const pendingOwners = Object.entries(memberOf).filter(([, status]) => status === 'pending').map(([owner]) => owner)
+  const memberOf = (snapshot.val() || {}) as Record<string, string | { status?: unknown }>
+  const pendingOwners = Object.entries(memberOf)
+    .filter(([, membership]) =>
+      membership === 'pending' ||
+      (membership && typeof membership === 'object' && membership.status === 'pending'))
+    .map(([owner]) => owner)
   if (pendingOwners.length === 0) return
   const key = sanitizeEmailKey(email)
   logClientAction(`[lists] approvePendingInvites: user=${email} owners=${pendingOwners.length}`)
