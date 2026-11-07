@@ -3,14 +3,18 @@ import { configuredWebhook } from '../../../lib/configuredWebhook.server'
 
 import { deriveTicketFromN8nResponse } from '../../../lib/deriveTicket'
 import { ApplicationError } from '../../shared'
-import type { FeedbackProvider, FeedbackResult, FeedbackSubmission } from '../application/feedbackProvider'
+import type {
+  FeedbackProvider,
+  FeedbackProviderResult,
+  FeedbackSubmission
+} from '../application/feedbackProvider'
 
 type Fetch = typeof fetch
 
 export class N8nFeedbackProvider implements FeedbackProvider {
   constructor(private readonly endpoint?: string, private readonly fetchImpl: Fetch = fetch) {}
 
-  async submit(submission: FeedbackSubmission): Promise<FeedbackResult> {
+  async submit(submission: FeedbackSubmission): Promise<FeedbackProviderResult> {
     const endpoint = configuredWebhook(this.endpoint)
     let response: Response
     try {

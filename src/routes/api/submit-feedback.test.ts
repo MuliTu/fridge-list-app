@@ -11,12 +11,13 @@ import { AuthenticatedUserHandler } from '../../modules/identity/server'
 import { ApplicationError } from '../../modules/shared'
 import { createSubmitFeedbackHandler } from './submit-feedback'
 
-const request = (body: string, authorization?: string) =>
+const request = (body: string, authorization?: string, requestId?: string) =>
   new Request('http://localhost/api/submit-feedback', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(authorization ? { authorization } : {})
+      ...(authorization ? { authorization } : {}),
+      ...(requestId ? { 'x-request-id': requestId } : {})
     },
     body
   })
@@ -52,7 +53,12 @@ describe('POST /api/submit-feedback', () => {
   })
 
   it('delegates exactly once and preserves the UI success response', async () => {
-    submitFeedback.execute.mockResolvedValue({ error: false, cardUrl: 'https://trello.com/c/abc' })
+    submitFeedback.execute.mockResolvedValue({
+      error: false,
+      cardUrl: 'https://trello.com/c/abc',
+      submissionId: 'operation-1',
+      status: 'ticket_created'
+    })
 
     const response = await createSubmitFeedbackHandler({
       authenticatedUserHandler: authenticatedHandler(), submitFeedback
@@ -64,7 +70,62 @@ describe('POST /api/submit-feedback', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       error: false,
-      cardUrl: 'https://trello.com/c/abc'
+      cardUrl: 'https://trello.com/c/abc',
+      submissionId: 'operation-1',
+      status: 'ticket_created'
     })
+  })
+
+  it('returns a redacted upstream failure for an actor-bound identity collision', async () => {
+    submitFeedback.execute.mockRejectedValue(
+      new ApplicationError(
+        'upstream_failed',
+        'Feedback could not be saved',
+        new Error('feedback submission identity conflict: secret-card')
+      )
+    )
+
+    const response = await createSubmitFeedbackHandler({
+      authenticatedUserHandler: authenticatedHandler(),
+      submitFeedback
+    })({
+      request: request(JSON.stringify({ request: 'private feedback' }), 'Bearer token')
+    })
+
+    expect(response.status).toBe(502)
+    const body = await response.json()
+    expect(body).toEqual({ error: true, message: 'Upstream service failed' })
+    expect(JSON.stringify(body)).not.toContain('secret-card')
+  })
+
+  it('preserves one caller request id across repeated HTTP attempts', async () => {
+    submitFeedback.execute.mockResolvedValue({
+      error: false,
+      submissionId: 'logical-submission-1',
+      status: 'pending'
+    })
+    const authenticatedUserHandler = authenticatedHandler()
+    const handler = createSubmitFeedbackHandler({ authenticatedUserHandler, submitFeedback })
+
+    await Promise.all([
+      handler({
+        request: request(
+          JSON.stringify({ request: 'same feedback' }),
+          'Bearer token',
+          'logical-submission-1'
+        )
+      }),
+      handler({
+        request: request(
+          JSON.stringify({ request: 'same feedback' }),
+          'Bearer token',
+          'logical-submission-1'
+        )
+      })
+    ])
+
+    expect(submitFeedback.execute).toHaveBeenCalledTimes(2)
+    expect(submitFeedback.execute.mock.calls[0][0].requestId).toBe('logical-submission-1')
+    expect(submitFeedback.execute.mock.calls[1][0].requestId).toBe('logical-submission-1')
   })
 })

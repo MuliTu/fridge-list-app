@@ -1,5 +1,11 @@
 import { ApplicationError, type RequestContext } from '../../shared'
-import type { FeedbackProvider, FeedbackResult, FeedbackSubmission } from './feedbackProvider'
+import type {
+  FeedbackProvider,
+  FeedbackProviderResult,
+  FeedbackResult,
+  FeedbackSubmission
+} from './feedbackProvider'
+import type { FeedbackRepository } from './feedbackRepository'
 
 export const MAX_FEEDBACK_TEXT_LENGTH = 4_000
 
@@ -17,7 +23,10 @@ const optionalBoundedString = (
 }
 
 export class SubmitFeedbackService {
-  constructor(private readonly provider: FeedbackProvider) {}
+  constructor(
+    private readonly provider: FeedbackProvider,
+    private readonly repository: FeedbackRepository
+  ) {}
 
   async execute(context: RequestContext, input: unknown): Promise<FeedbackResult> {
     if (context.principal.kind !== 'user') {
@@ -42,6 +51,55 @@ export class SubmitFeedbackService {
       route: optionalBoundedString(body, 'route', 200),
       appVersion: optionalBoundedString(body, 'appVersion', 32)
     }
-    return this.provider.submit(submission)
+    let stored
+    try {
+      stored = await this.repository.createAndClaim(submission)
+    } catch (error) {
+      throw new ApplicationError('upstream_failed', 'Feedback could not be saved', error)
+    }
+
+    if (!stored.created) {
+      return {
+        error: false,
+        submissionId: submission.operationId,
+        status: stored.record.status === 'ticket_created' ? 'ticket_created' : 'pending',
+        ticket: stored.record.ticket
+      }
+    }
+
+    let result: FeedbackProviderResult
+    try {
+      result = await this.provider.submit(submission)
+    } catch {
+      try {
+        await this.repository.markError(
+          submission.operationId,
+          'Feedback provider request failed'
+        )
+      } catch (persistenceError) {
+        throw new ApplicationError(
+          'upstream_failed',
+          'Feedback outcome could not be saved',
+          persistenceError
+        )
+      }
+      return {
+        error: false,
+        submissionId: submission.operationId,
+        status: 'pending'
+      }
+    }
+
+    try {
+      await this.repository.markTicketCreated(submission.operationId, result.ticket ?? null)
+    } catch (error) {
+      throw new ApplicationError('upstream_failed', 'Feedback outcome could not be saved', error)
+    }
+
+    return {
+      ...result,
+      submissionId: submission.operationId,
+      status: 'ticket_created'
+    }
   }
 }

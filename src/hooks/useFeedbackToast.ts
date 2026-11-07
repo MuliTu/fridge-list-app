@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRouterState } from '@tanstack/react-router'
-import { submitFeedback } from '../lib/firebase'
+import { createFeedbackOperationId, submitFeedback } from '../lib/firebase'
 import { useAuth } from './AuthContext'
 
-export type FeedbackToastStatus = 'pending' | 'success' | 'error'
+export type FeedbackToastStatus = 'pending' | 'saved' | 'success' | 'error'
 
 export interface FeedbackToast {
   // Monotonic id so a second submission supersedes the first one's late-arriving
@@ -26,6 +26,10 @@ export function useFeedbackToast() {
   const { user } = useAuth()
   const route = useRouterState({ select: (s) => s.location.pathname })
   const [toast, setToast] = useState<FeedbackToast | null>(null)
+  const pendingSubmission = useRef<{
+    fingerprint: string
+    operationId: string
+  } | null>(null)
 
   const dismiss = useCallback(() => setToast(null), [])
 
@@ -35,10 +39,22 @@ export function useFeedbackToast() {
       // The modal already blocks empty submits, but guard here too so the hook is
       // safe to call directly — never show a "sending" toast for nothing.
       if (!trimmed) return
+      const fingerprint = JSON.stringify({
+        request: trimmed,
+        route,
+        actor: user?.email ?? null,
+        language: i18n.language
+      })
+      const operationId =
+        pendingSubmission.current?.fingerprint === fingerprint
+          ? pendingSubmission.current.operationId
+          : createFeedbackOperationId()
+      pendingSubmission.current = { fingerprint, operationId }
       const id = Date.now()
       setToast({ id, status: 'pending' })
       const result = await submitFeedback({
         request: trimmed,
+        operationId,
         route,
         user,
         language: i18n.language
@@ -47,9 +63,19 @@ export function useFeedbackToast() {
       // submission in the meantime, that newer pending toast wins.
       setToast((current) =>
         current && current.id === id
-          ? { id, status: result.error ? 'error' : 'success' }
+          ? {
+              id,
+              status: result.error
+                ? 'error'
+                : result.status === 'pending'
+                  ? 'saved'
+                  : 'success'
+            }
           : current
       )
+      if (!result.error && pendingSubmission.current?.operationId === operationId) {
+        pendingSubmission.current = null
+      }
     },
     [route, user, i18n.language]
   )

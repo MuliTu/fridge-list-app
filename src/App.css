@@ -820,6 +820,10 @@ h1 {
   border-inline-start: 4px solid var(--chalk-dim);
 }
 
+.feedback-toast-saved {
+  border-inline-start: 4px solid #d4a94f;
+}
+
 .feedback-toast-success {
   border-inline-start: 4px solid #8fbf6a;
 }

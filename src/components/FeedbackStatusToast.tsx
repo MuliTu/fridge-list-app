@@ -29,6 +29,8 @@ export default function FeedbackStatusToast({ toast, onDismiss }: FeedbackStatus
   const message =
     toast.status === 'pending'
       ? t('feedback:statusPending')
+      : toast.status === 'saved'
+        ? t('feedback:statusSaved')
       : toast.status === 'success'
         ? t('feedback:success')
         : t('feedback:error')

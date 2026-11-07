@@ -1,6 +1,14 @@
 /** @jest-environment node */
 
 jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
+jest.mock('./feedback/server', () => ({
+  N8nFeedbackProvider: jest.fn(),
+  createFirebaseFeedbackRepository: jest.fn(() => ({
+    createAndClaim: jest.fn(),
+    markTicketCreated: jest.fn(),
+    markError: jest.fn()
+  }))
+}))
 
 import * as identityServer from './identity/server'
 import * as groceryServer from './groceries/server'
@@ -86,14 +94,19 @@ describe('ServerComposition', () => {
   })
 
   it('constructs and caches categorization and feedback services', () => {
-    const composition = new ServerComposition({ environment: completeEnvironment })
+    const appSpy = jest.spyOn(identityServer, 'getFirebaseAdminApp').mockReturnValue({} as any)
+    try {
+      const composition = new ServerComposition({ environment: completeEnvironment })
 
-    expect(composition.getCategorizeItemService()).toBe(
-      composition.getCategorizeItemService()
-    )
-    expect(composition.getSubmitFeedbackService()).toBe(
-      composition.getSubmitFeedbackService()
-    )
+      expect(composition.getCategorizeItemService()).toBe(
+        composition.getCategorizeItemService()
+      )
+      expect(composition.getSubmitFeedbackService()).toBe(
+        composition.getSubmitFeedbackService()
+      )
+    } finally {
+      appSpy.mockRestore()
+    }
   })
 
   it('defers optional releases configuration failure until service execution', async () => {

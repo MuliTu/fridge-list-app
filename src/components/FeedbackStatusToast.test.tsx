@@ -25,6 +25,14 @@ describe('FeedbackStatusToast', () => {
     expect(toast.querySelector('.feedback-toast-spinner')).not.toBeInTheDocument()
   })
 
+  it('shows the saved-for-retry message without claiming ticket creation', () => {
+    render(<FeedbackStatusToast toast={{ id: 1, status: 'saved' }} onDismiss={jest.fn()} />)
+    const toast = screen.getByRole('status')
+    expect(toast).toHaveTextContent('feedback:statusSaved')
+    expect(toast).not.toHaveTextContent('feedback:success')
+    expect(toast.querySelector('.feedback-toast-spinner')).not.toBeInTheDocument()
+  })
+
   it('shows the error message on failure', () => {
     render(<FeedbackStatusToast toast={{ id: 1, status: 'error' }} onDismiss={jest.fn()} />)
     expect(screen.getByRole('status')).toHaveTextContent('feedback:error')

@@ -40,6 +40,12 @@ describe('version-controlled RTDB rules', () => {
     expect(((rules.identityBindings as RuleNode).$uid as RuleNode)['.write']).toBe(false)
   })
 
+  it('keeps authoritative feedback records completely server-owned', () => {
+    const feedbackRules = rules.feedbacks as RuleNode
+    expect(feedbackRules['.read']).toBe(false)
+    expect(feedbackRules['.write']).toBe(false)
+  })
+
   it('allows owner-only writes solely for bounded list metadata', () => {
     const listRules = (rules.users as RuleNode).$listId as RuleNode
     for (const metadata of ['name', 'config']) {
