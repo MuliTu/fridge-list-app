@@ -81,12 +81,13 @@ it('discovers only bounded queue references and never reads the users root', asy
   expect(fake.state.users.exhausted.duplicate_scan_ready.item).toBeUndefined()
   expect(fake.state.duplicate_scan_worker_state.cursor).toBe('pending')
 })
-it('completes one lease, removes its list-local ready marker, and preserves ignored or resolved findings', async () => {
+it('completes one lease, removes its list-local ready marker, and preserves ignored, deleting, or resolved findings', async () => {
   const fake = fakeDatabase({ users: { list: {
     duplicate_scan_ready: { source: { itemId: 'source', algorithmVersion: DUPLICATE_SCAN_ALGORITHM_VERSION, createdAt: 'old' } },
     duplicate_scan_jobs: { source: { ...job('running', 1), itemId: 'source', workerId: 'worker' } },
     duplicate_findings: {
       ignored: { state: 'ignored', createdAt: 'old' },
+      deleting: { state: 'deleting', deletingItemId: 'b', createdAt: 'old' },
       resolved: { state: 'resolved', createdAt: 'old' }
     }
   } } })
@@ -95,11 +96,13 @@ it('completes one lease, removes its list-local ready marker, and preserves igno
 
   await repository.complete({ listId: 'list', itemId: 'source', workerId: 'worker', attempts: 1 }, [
     { ...base, findingId: 'ignored' },
+    { ...base, findingId: 'deleting' },
     { ...base, findingId: 'resolved' },
     { ...base, findingId: 'open' }
   ], '2026-11-07T10:00:00.000Z')
 
   expect(fake.state.users.list.duplicate_findings.ignored.state).toBe('ignored')
+  expect(fake.state.users.list.duplicate_findings.deleting).toMatchObject({ state: 'deleting', deletingItemId: 'b' })
   expect(fake.state.users.list.duplicate_findings.resolved.state).toBe('resolved')
   expect(fake.state.users.list.duplicate_findings.open).toMatchObject({ state: 'open', reason: 'exact', score: 1 })
   expect(fake.state.users.list.duplicate_scan_jobs.source).toMatchObject({ status: 'completed', workerId: null })

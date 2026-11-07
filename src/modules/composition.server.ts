@@ -61,6 +61,8 @@ import { HouseholdSnapshotService } from './household'
 import { FirebaseAdminHouseholdSnapshotRepository } from './household/server'
 import { StockCommandService } from './stock'
 import { createFirebaseAdminStockRepository } from './stock/server'
+import { DuplicateReviewService } from './duplicateReview'
+import { createFirebaseDuplicateReviewRepository } from './duplicateReview/server'
 import {
   createTicketingServer,
   type TicketingServer
@@ -211,6 +213,7 @@ export class ServerComposition {
   private catalogCommandService: CatalogCommandService | undefined
   private memberCommandService: MemberCommandService | undefined
   private householdSnapshotService: HouseholdSnapshotService | undefined
+  private duplicateReviewService: DuplicateReviewService | undefined
 
   constructor(private readonly options: ServerCompositionOptions) {
     if (options.environment.FRIDGE_DEMO_MODE === 'true') {
@@ -360,6 +363,10 @@ export class ServerComposition {
       )
     }
     return this.householdSnapshotService
+  }
+  getDuplicateReviewService(): DuplicateReviewService {
+    if (!this.duplicateReviewService) { const app = getFirebaseAdminApp(this.options.environment); const databaseUrl = firebaseDatabaseUrl(this.options.environment); this.duplicateReviewService = new DuplicateReviewService(createFirebaseDuplicateReviewRepository(app, databaseUrl), createFirebaseAdminListAuthorizationRepository(app, databaseUrl), this.getGroceryCommandService()) }
+    return this.duplicateReviewService
   }
 
   getReleasesService(): GetReleasesService {
@@ -569,6 +576,7 @@ export const getMemberCommandService = (): MemberCommandService =>
 
 export const getHouseholdSnapshotService = (): HouseholdSnapshotService =>
   getServerComposition().getHouseholdSnapshotService()
+export const getDuplicateReviewService = (): DuplicateReviewService => getServerComposition().getDuplicateReviewService()
 
 export const getReleasesService = (): GetReleasesService =>
   getServerComposition().getReleasesService()

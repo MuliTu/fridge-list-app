@@ -1,0 +1,7 @@
+export type DuplicateReviewFinding = { id: string; listId: string; listName: string; items: [{ id: string; name: string }, { id: string; name: string }]; reason: 'alias' | 'exact' | 'substring' | 'token_overlap' | 'edit_distance'; score: number; createdAt: string; unread: boolean; status: 'open' | 'read' }
+export type DuplicateReviewAction = { action: 'read' | 'dismiss' | 'keep_both' } | { action: 'delete_one'; itemId: string }
+export const createDuplicateReviewApiClient = ({ getIdToken, fetch: fetchImplementation = fetch }: { getIdToken(): Promise<string | undefined>; fetch?: typeof fetch }) => {
+  const request = async <T>(path: string, init: RequestInit): Promise<T> => { const token = await getIdToken(); const response = await fetchImplementation(path, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } }); if (!response.ok) throw new Error(`Duplicate review request failed (${response.status})`); return response.status === 204 ? undefined as T : await response.json() as T }
+  const collection = (listId: string) => `/api/lists/${encodeURIComponent(listId)}/duplicate-findings`
+  return { list: (listId: string, signal?: AbortSignal) => request<{ findings: DuplicateReviewFinding[]; unreadCount: number }>(collection(listId), { method: 'GET', signal }), act: (listId: string, findingId: string, action: DuplicateReviewAction) => request<void>(`${collection(listId)}/${encodeURIComponent(findingId)}`, { method: 'PATCH', body: JSON.stringify(action) }) }
+}

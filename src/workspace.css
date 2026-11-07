@@ -1,4 +1,6 @@
 /* Task-focused kitchen workspace. Component details remain in App.css. */
+.duplicate-review-trigger { position: relative; }
+.duplicate-review-badge { position: absolute; inset-block-start: -.25rem; inset-inline-end: -.35rem; min-inline-size: 1.1rem; block-size: 1.1rem; padding-inline: .2rem; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--board); border-radius: 999px; background: var(--danger); color: white; font-size: .625rem; font-weight: 700; line-height: 1; }
 /* Prevent text selection and the touch copy callout during shopping gestures. */
 body {
   -webkit-user-select: none;

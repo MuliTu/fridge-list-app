@@ -32,12 +32,14 @@ import { Route as ApiAiAnalyzeRouteImport } from './routes/api/ai/analyze'
 import { Route as ApiAiEnrichItemsRouteImport } from './routes/api/ai/enrich-items'
 import { Route as ApiPersonalChefSuggestRecipesRouteImport } from './routes/api/personal-chef/suggest-recipes'
 import { Route as ApiListsListIdCategoriesRouteImport } from './routes/api/lists/$listId/categories'
+import { Route as ApiListsListIdDuplicateFindingsRouteImport } from './routes/api/lists/$listId/duplicate-findings'
 import { Route as ApiListsListIdGroceriesRouteImport } from './routes/api/lists/$listId/groceries'
 import { Route as ApiListsListIdMembersRouteImport } from './routes/api/lists/$listId/members'
 import { Route as ApiListsListIdReceiptsRouteImport } from './routes/api/lists/$listId/receipts'
 import { Route as ApiListsListIdSnapshotRouteImport } from './routes/api/lists/$listId/snapshot'
 import { Route as ApiListsListIdStockRouteImport } from './routes/api/lists/$listId/stock'
 import { Route as ApiListsListIdCategoriesCategoryIdRouteImport } from './routes/api/lists/$listId/categories/$categoryId'
+import { Route as ApiListsListIdDuplicateFindingsFindingIdRouteImport } from './routes/api/lists/$listId/duplicate-findings/$findingId'
 import { Route as ApiListsListIdGroceriesItemIdRouteImport } from './routes/api/lists/$listId/groceries/$itemId'
 import { Route as ApiListsListIdGroceriesMatchesRouteImport } from './routes/api/lists/$listId/groceries/matches'
 import { Route as ApiListsListIdMembersEmailRouteImport } from './routes/api/lists/$listId/members/$email'
@@ -164,6 +166,12 @@ const ApiListsListIdCategoriesRoute =
     path: '/api/lists/$listId/categories',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiListsListIdDuplicateFindingsRoute =
+  ApiListsListIdDuplicateFindingsRouteImport.update({
+    id: '/api/lists/$listId/duplicate-findings',
+    path: '/api/lists/$listId/duplicate-findings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiListsListIdGroceriesRoute = ApiListsListIdGroceriesRouteImport.update({
   id: '/api/lists/$listId/groceries',
   path: '/api/lists/$listId/groceries',
@@ -194,6 +202,12 @@ const ApiListsListIdCategoriesCategoryIdRoute =
     id: '/$categoryId',
     path: '/$categoryId',
     getParentRoute: () => ApiListsListIdCategoriesRoute,
+  } as any)
+const ApiListsListIdDuplicateFindingsFindingIdRoute =
+  ApiListsListIdDuplicateFindingsFindingIdRouteImport.update({
+    id: '/$findingId',
+    path: '/$findingId',
+    getParentRoute: () => ApiListsListIdDuplicateFindingsRoute,
   } as any)
 const ApiListsListIdGroceriesItemIdRoute =
   ApiListsListIdGroceriesItemIdRouteImport.update({
@@ -262,12 +276,14 @@ export interface FileRoutesByFullPath {
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
   '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
+  '/api/lists/$listId/duplicate-findings': typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
   '/api/lists/$listId/members': typeof ApiListsListIdMembersRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
   '/api/lists/$listId/snapshot': typeof ApiListsListIdSnapshotRoute
   '/api/lists/$listId/stock': typeof ApiListsListIdStockRouteWithChildren
   '/api/lists/$listId/categories/$categoryId': typeof ApiListsListIdCategoriesCategoryIdRoute
+  '/api/lists/$listId/duplicate-findings/$findingId': typeof ApiListsListIdDuplicateFindingsFindingIdRoute
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
   '/api/lists/$listId/groceries/matches': typeof ApiListsListIdGroceriesMatchesRoute
   '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
@@ -300,12 +316,14 @@ export interface FileRoutesByTo {
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
   '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
+  '/api/lists/$listId/duplicate-findings': typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
   '/api/lists/$listId/members': typeof ApiListsListIdMembersRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
   '/api/lists/$listId/snapshot': typeof ApiListsListIdSnapshotRoute
   '/api/lists/$listId/stock': typeof ApiListsListIdStockRouteWithChildren
   '/api/lists/$listId/categories/$categoryId': typeof ApiListsListIdCategoriesCategoryIdRoute
+  '/api/lists/$listId/duplicate-findings/$findingId': typeof ApiListsListIdDuplicateFindingsFindingIdRoute
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
   '/api/lists/$listId/groceries/matches': typeof ApiListsListIdGroceriesMatchesRoute
   '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
@@ -339,12 +357,14 @@ export interface FileRoutesById {
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
   '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
+  '/api/lists/$listId/duplicate-findings': typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
   '/api/lists/$listId/members': typeof ApiListsListIdMembersRouteWithChildren
   '/api/lists/$listId/receipts': typeof ApiListsListIdReceiptsRouteWithChildren
   '/api/lists/$listId/snapshot': typeof ApiListsListIdSnapshotRoute
   '/api/lists/$listId/stock': typeof ApiListsListIdStockRouteWithChildren
   '/api/lists/$listId/categories/$categoryId': typeof ApiListsListIdCategoriesCategoryIdRoute
+  '/api/lists/$listId/duplicate-findings/$findingId': typeof ApiListsListIdDuplicateFindingsFindingIdRoute
   '/api/lists/$listId/groceries/$itemId': typeof ApiListsListIdGroceriesItemIdRouteWithChildren
   '/api/lists/$listId/groceries/matches': typeof ApiListsListIdGroceriesMatchesRoute
   '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
@@ -379,12 +399,14 @@ export interface FileRouteTypes {
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
     | '/api/lists/$listId/categories'
+    | '/api/lists/$listId/duplicate-findings'
     | '/api/lists/$listId/groceries'
     | '/api/lists/$listId/members'
     | '/api/lists/$listId/receipts'
     | '/api/lists/$listId/snapshot'
     | '/api/lists/$listId/stock'
     | '/api/lists/$listId/categories/$categoryId'
+    | '/api/lists/$listId/duplicate-findings/$findingId'
     | '/api/lists/$listId/groceries/$itemId'
     | '/api/lists/$listId/groceries/matches'
     | '/api/lists/$listId/members/$email'
@@ -417,12 +439,14 @@ export interface FileRouteTypes {
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
     | '/api/lists/$listId/categories'
+    | '/api/lists/$listId/duplicate-findings'
     | '/api/lists/$listId/groceries'
     | '/api/lists/$listId/members'
     | '/api/lists/$listId/receipts'
     | '/api/lists/$listId/snapshot'
     | '/api/lists/$listId/stock'
     | '/api/lists/$listId/categories/$categoryId'
+    | '/api/lists/$listId/duplicate-findings/$findingId'
     | '/api/lists/$listId/groceries/$itemId'
     | '/api/lists/$listId/groceries/matches'
     | '/api/lists/$listId/members/$email'
@@ -455,12 +479,14 @@ export interface FileRouteTypes {
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
     | '/api/lists/$listId/categories'
+    | '/api/lists/$listId/duplicate-findings'
     | '/api/lists/$listId/groceries'
     | '/api/lists/$listId/members'
     | '/api/lists/$listId/receipts'
     | '/api/lists/$listId/snapshot'
     | '/api/lists/$listId/stock'
     | '/api/lists/$listId/categories/$categoryId'
+    | '/api/lists/$listId/duplicate-findings/$findingId'
     | '/api/lists/$listId/groceries/$itemId'
     | '/api/lists/$listId/groceries/matches'
     | '/api/lists/$listId/members/$email'
@@ -494,6 +520,7 @@ export interface RootRouteChildren {
   ApiAiEnrichItemsRoute: typeof ApiAiEnrichItemsRoute
   ApiPersonalChefSuggestRecipesRoute: typeof ApiPersonalChefSuggestRecipesRoute
   ApiListsListIdCategoriesRoute: typeof ApiListsListIdCategoriesRouteWithChildren
+  ApiListsListIdDuplicateFindingsRoute: typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   ApiListsListIdGroceriesRoute: typeof ApiListsListIdGroceriesRouteWithChildren
   ApiListsListIdMembersRoute: typeof ApiListsListIdMembersRouteWithChildren
   ApiListsListIdReceiptsRoute: typeof ApiListsListIdReceiptsRouteWithChildren
@@ -664,6 +691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiListsListIdCategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/lists/$listId/duplicate-findings': {
+      id: '/api/lists/$listId/duplicate-findings'
+      path: '/api/lists/$listId/duplicate-findings'
+      fullPath: '/api/lists/$listId/duplicate-findings'
+      preLoaderRoute: typeof ApiListsListIdDuplicateFindingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/lists/$listId/groceries': {
       id: '/api/lists/$listId/groceries'
       path: '/api/lists/$listId/groceries'
@@ -705,6 +739,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/lists/$listId/categories/$categoryId'
       preLoaderRoute: typeof ApiListsListIdCategoriesCategoryIdRouteImport
       parentRoute: typeof ApiListsListIdCategoriesRoute
+    }
+    '/api/lists/$listId/duplicate-findings/$findingId': {
+      id: '/api/lists/$listId/duplicate-findings/$findingId'
+      path: '/$findingId'
+      fullPath: '/api/lists/$listId/duplicate-findings/$findingId'
+      preLoaderRoute: typeof ApiListsListIdDuplicateFindingsFindingIdRouteImport
+      parentRoute: typeof ApiListsListIdDuplicateFindingsRoute
     }
     '/api/lists/$listId/groceries/$itemId': {
       id: '/api/lists/$listId/groceries/$itemId'
@@ -771,6 +812,21 @@ const ApiListsListIdCategoriesRouteChildren: ApiListsListIdCategoriesRouteChildr
 const ApiListsListIdCategoriesRouteWithChildren =
   ApiListsListIdCategoriesRoute._addFileChildren(
     ApiListsListIdCategoriesRouteChildren,
+  )
+
+interface ApiListsListIdDuplicateFindingsRouteChildren {
+  ApiListsListIdDuplicateFindingsFindingIdRoute: typeof ApiListsListIdDuplicateFindingsFindingIdRoute
+}
+
+const ApiListsListIdDuplicateFindingsRouteChildren: ApiListsListIdDuplicateFindingsRouteChildren =
+  {
+    ApiListsListIdDuplicateFindingsFindingIdRoute:
+      ApiListsListIdDuplicateFindingsFindingIdRoute,
+  }
+
+const ApiListsListIdDuplicateFindingsRouteWithChildren =
+  ApiListsListIdDuplicateFindingsRoute._addFileChildren(
+    ApiListsListIdDuplicateFindingsRouteChildren,
   )
 
 interface ApiListsListIdGroceriesItemIdRouteChildren {
@@ -883,6 +939,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiEnrichItemsRoute: ApiAiEnrichItemsRoute,
   ApiPersonalChefSuggestRecipesRoute: ApiPersonalChefSuggestRecipesRoute,
   ApiListsListIdCategoriesRoute: ApiListsListIdCategoriesRouteWithChildren,
+  ApiListsListIdDuplicateFindingsRoute:
+    ApiListsListIdDuplicateFindingsRouteWithChildren,
   ApiListsListIdGroceriesRoute: ApiListsListIdGroceriesRouteWithChildren,
   ApiListsListIdMembersRoute: ApiListsListIdMembersRouteWithChildren,
   ApiListsListIdReceiptsRoute: ApiListsListIdReceiptsRouteWithChildren,

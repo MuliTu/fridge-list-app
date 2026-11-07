@@ -144,7 +144,7 @@ export class FirebaseDuplicateScanRepository implements DuplicateScanRepository 
       const storedFindings = object(list.duplicate_findings)
       for (const finding of findings) {
         const existing = object(storedFindings[finding.findingId])
-        if (existing.state === 'ignored' || existing.state === 'resolved') continue
+        if (existing.state === 'ignored' || existing.state === 'resolved' || existing.state === 'deleting') continue
         storedFindings[finding.findingId] = {
           itemIds: finding.itemIds,
           algorithmVersion: finding.algorithmVersion,
