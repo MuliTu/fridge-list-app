@@ -44,6 +44,7 @@ import { Route as ApiListsListIdGroceriesItemIdRouteImport } from './routes/api/
 import { Route as ApiListsListIdGroceriesMatchesRouteImport } from './routes/api/lists/$listId/groceries/matches'
 import { Route as ApiListsListIdMembersEmailRouteImport } from './routes/api/lists/$listId/members/$email'
 import { Route as ApiListsListIdReceiptsReceiptIdRouteImport } from './routes/api/lists/$listId/receipts/$receiptId'
+import { Route as ApiListsListIdShoppingListsListNameRouteImport } from './routes/api/lists/$listId/shopping-lists/$listName'
 import { Route as ApiListsListIdStockStockIdRouteImport } from './routes/api/lists/$listId/stock/$stockId'
 import { Route as ApiListsListIdGroceriesItemIdPurchasedRouteImport } from './routes/api/lists/$listId/groceries/$itemId/purchased'
 import { Route as ApiListsListIdReceiptsReceiptIdImageRouteImport } from './routes/api/lists/$listId/receipts/$receiptId/image'
@@ -233,6 +234,12 @@ const ApiListsListIdReceiptsReceiptIdRoute =
     path: '/$receiptId',
     getParentRoute: () => ApiListsListIdReceiptsRoute,
   } as any)
+const ApiListsListIdShoppingListsListNameRoute =
+  ApiListsListIdShoppingListsListNameRouteImport.update({
+    id: '/api/lists/$listId/shopping-lists/$listName',
+    path: '/api/lists/$listId/shopping-lists/$listName',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiListsListIdStockStockIdRoute =
   ApiListsListIdStockStockIdRouteImport.update({
     id: '/$stockId',
@@ -288,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/api/lists/$listId/groceries/matches': typeof ApiListsListIdGroceriesMatchesRoute
   '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
   '/api/lists/$listId/receipts/$receiptId': typeof ApiListsListIdReceiptsReceiptIdRouteWithChildren
+  '/api/lists/$listId/shopping-lists/$listName': typeof ApiListsListIdShoppingListsListNameRoute
   '/api/lists/$listId/stock/$stockId': typeof ApiListsListIdStockStockIdRoute
   '/api/lists/$listId/groceries/$itemId/purchased': typeof ApiListsListIdGroceriesItemIdPurchasedRoute
   '/api/lists/$listId/receipts/$receiptId/image': typeof ApiListsListIdReceiptsReceiptIdImageRoute
@@ -328,6 +336,7 @@ export interface FileRoutesByTo {
   '/api/lists/$listId/groceries/matches': typeof ApiListsListIdGroceriesMatchesRoute
   '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
   '/api/lists/$listId/receipts/$receiptId': typeof ApiListsListIdReceiptsReceiptIdRouteWithChildren
+  '/api/lists/$listId/shopping-lists/$listName': typeof ApiListsListIdShoppingListsListNameRoute
   '/api/lists/$listId/stock/$stockId': typeof ApiListsListIdStockStockIdRoute
   '/api/lists/$listId/groceries/$itemId/purchased': typeof ApiListsListIdGroceriesItemIdPurchasedRoute
   '/api/lists/$listId/receipts/$receiptId/image': typeof ApiListsListIdReceiptsReceiptIdImageRoute
@@ -369,6 +378,7 @@ export interface FileRoutesById {
   '/api/lists/$listId/groceries/matches': typeof ApiListsListIdGroceriesMatchesRoute
   '/api/lists/$listId/members/$email': typeof ApiListsListIdMembersEmailRoute
   '/api/lists/$listId/receipts/$receiptId': typeof ApiListsListIdReceiptsReceiptIdRouteWithChildren
+  '/api/lists/$listId/shopping-lists/$listName': typeof ApiListsListIdShoppingListsListNameRoute
   '/api/lists/$listId/stock/$stockId': typeof ApiListsListIdStockStockIdRoute
   '/api/lists/$listId/groceries/$itemId/purchased': typeof ApiListsListIdGroceriesItemIdPurchasedRoute
   '/api/lists/$listId/receipts/$receiptId/image': typeof ApiListsListIdReceiptsReceiptIdImageRoute
@@ -411,6 +421,7 @@ export interface FileRouteTypes {
     | '/api/lists/$listId/groceries/matches'
     | '/api/lists/$listId/members/$email'
     | '/api/lists/$listId/receipts/$receiptId'
+    | '/api/lists/$listId/shopping-lists/$listName'
     | '/api/lists/$listId/stock/$stockId'
     | '/api/lists/$listId/groceries/$itemId/purchased'
     | '/api/lists/$listId/receipts/$receiptId/image'
@@ -451,6 +462,7 @@ export interface FileRouteTypes {
     | '/api/lists/$listId/groceries/matches'
     | '/api/lists/$listId/members/$email'
     | '/api/lists/$listId/receipts/$receiptId'
+    | '/api/lists/$listId/shopping-lists/$listName'
     | '/api/lists/$listId/stock/$stockId'
     | '/api/lists/$listId/groceries/$itemId/purchased'
     | '/api/lists/$listId/receipts/$receiptId/image'
@@ -491,6 +503,7 @@ export interface FileRouteTypes {
     | '/api/lists/$listId/groceries/matches'
     | '/api/lists/$listId/members/$email'
     | '/api/lists/$listId/receipts/$receiptId'
+    | '/api/lists/$listId/shopping-lists/$listName'
     | '/api/lists/$listId/stock/$stockId'
     | '/api/lists/$listId/groceries/$itemId/purchased'
     | '/api/lists/$listId/receipts/$receiptId/image'
@@ -526,6 +539,7 @@ export interface RootRouteChildren {
   ApiListsListIdReceiptsRoute: typeof ApiListsListIdReceiptsRouteWithChildren
   ApiListsListIdSnapshotRoute: typeof ApiListsListIdSnapshotRoute
   ApiListsListIdStockRoute: typeof ApiListsListIdStockRouteWithChildren
+  ApiListsListIdShoppingListsListNameRoute: typeof ApiListsListIdShoppingListsListNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -775,6 +789,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiListsListIdReceiptsReceiptIdRouteImport
       parentRoute: typeof ApiListsListIdReceiptsRoute
     }
+    '/api/lists/$listId/shopping-lists/$listName': {
+      id: '/api/lists/$listId/shopping-lists/$listName'
+      path: '/api/lists/$listId/shopping-lists/$listName'
+      fullPath: '/api/lists/$listId/shopping-lists/$listName'
+      preLoaderRoute: typeof ApiListsListIdShoppingListsListNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/lists/$listId/stock/$stockId': {
       id: '/api/lists/$listId/stock/$stockId'
       path: '/$stockId'
@@ -946,6 +967,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiListsListIdReceiptsRoute: ApiListsListIdReceiptsRouteWithChildren,
   ApiListsListIdSnapshotRoute: ApiListsListIdSnapshotRoute,
   ApiListsListIdStockRoute: ApiListsListIdStockRouteWithChildren,
+  ApiListsListIdShoppingListsListNameRoute:
+    ApiListsListIdShoppingListsListNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
