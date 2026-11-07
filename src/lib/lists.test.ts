@@ -143,7 +143,11 @@ describe('approvePendingInvites', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('flips every pending memberOf entry to approved on both sides', async () => {
-    mockGet.mockResolvedValue({ val: () => ({ 'dad@example_com': 'pending', 'aunt@example_com': 'approved' }) })
+    mockGet.mockResolvedValue({ val: () => ({
+      'dad@example_com': 'pending',
+      'uncle@example_com': { ownerEmail: 'uncle@example.com', status: 'pending' },
+      'aunt@example_com': 'approved'
+    }) })
 
     await approvePendingInvites('mom@example.com')
 
@@ -153,6 +157,8 @@ describe('approvePendingInvites', () => {
     // aunt entry is left untouched entirely.
     expect(updates['users/dad@example_com/invites/mom@example_com/status']).toBe('approved')
     expect(updates['users/mom@example_com/memberOf/dad@example_com']).toBe('approved')
+    expect(updates['users/uncle@example_com/invites/mom@example_com/status']).toBe('approved')
+    expect(updates['users/mom@example_com/memberOf/uncle@example_com']).toBe('approved')
     expect(Object.keys(updates)).not.toContain('users/aunt@example_com/invites/mom@example_com/status')
   })
 

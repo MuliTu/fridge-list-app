@@ -109,6 +109,96 @@ describe('ServerComposition', () => {
     }
   })
 
+  it.each([
+    ['legacy string', 'approved'],
+    ['object record', { ownerEmail: 'owner_name@example.com', status: 'approved' }]
+  ])('wires member summary and self-leave through released %s grant pairs', async (_label, membership) => {
+    const appSpy = jest.spyOn(identityServer, 'getFirebaseAdminApp').mockReturnValue({} as any)
+    const assertAccessible = jest.fn().mockRejectedValue(new Error('generic released-grant denial'))
+    const assertOwner = jest.fn()
+    const authSpy = jest.spyOn(recipeServer, 'createFirebaseAdminListAuthorizationRepository')
+      .mockReturnValue({ assertAccessible, assertOwner } as any)
+    try {
+      const composition = new ServerComposition({ environment: completeEnvironment })
+      const service = composition.getMemberCommandService() as any
+      const repository = service.repository
+      jest.spyOn(repository, 'getList').mockResolvedValue({
+        name: 'Shared list',
+        ownerUid: 'owner-uid',
+        normalizedOwnerEmail: 'owner_name@example.com',
+        invites: {
+          'member_name@example_com': {
+            email: 'member_name@example.com',
+            status: 'approved'
+          }
+        }
+      })
+      jest.spyOn(repository, 'getMembership').mockResolvedValue(membership)
+      jest.spyOn(repository, 'remove').mockResolvedValue(undefined)
+      const context = {
+        principal: {
+          kind: 'user' as const,
+          uid: 'member-uid',
+          email: 'member_name@example.com',
+          emailVerified: true
+        },
+        requestId: 'member-request',
+        now: new Date('2026-11-07T00:00:00.000Z')
+      }
+
+      await expect(service.getSummary(context, 'owner_name@example_com')).resolves.toMatchObject({
+        ownerEmail: 'owner_name@example.com',
+        isOwner: false,
+        members: []
+      })
+      await expect(service.leave(context, 'owner_name@example_com')).resolves.toBeUndefined()
+      expect(repository.remove).toHaveBeenCalledWith(
+        'owner_name@example_com',
+        'member_name@example_com'
+      )
+      expect(assertAccessible).not.toHaveBeenCalled()
+    } finally {
+      authSpy.mockRestore()
+      appSpy.mockRestore()
+    }
+  })
+
+  it('fails closed for missing lists and sanitized-email owner collisions in production composition', async () => {
+    const appSpy = jest.spyOn(identityServer, 'getFirebaseAdminApp').mockReturnValue({} as any)
+    const authSpy = jest.spyOn(recipeServer, 'createFirebaseAdminListAuthorizationRepository')
+      .mockReturnValue({ assertAccessible: jest.fn(), assertOwner: jest.fn() } as any)
+    try {
+      const composition = new ServerComposition({ environment: completeEnvironment })
+      const service = composition.getMemberCommandService() as any
+      const repository = service.repository
+      const context = {
+        principal: {
+          kind: 'user' as const,
+          uid: 'colliding-user',
+          email: 'first.last@example.com',
+          emailVerified: true
+        },
+        requestId: 'collision-request',
+        now: new Date('2026-11-07T00:00:00.000Z')
+      }
+
+      jest.spyOn(repository, 'getList').mockResolvedValueOnce(null).mockResolvedValueOnce({
+        name: 'Another owner',
+        normalizedOwnerEmail: 'first_last@example.com',
+        invites: {}
+      })
+      jest.spyOn(repository, 'getMembership').mockResolvedValue(null)
+
+      await expect(service.getSummary(context, 'first_last@example_com'))
+        .rejects.toMatchObject({ code: 'forbidden' })
+      await expect(service.getSummary(context, 'first_last@example_com'))
+        .rejects.toMatchObject({ code: 'forbidden' })
+    } finally {
+      authSpy.mockRestore()
+      appSpy.mockRestore()
+    }
+  })
+
   it('defers optional releases configuration failure until service execution', async () => {
     const composition = new ServerComposition({
       environment: { ...completeEnvironment, GITHUB_RELEASES_TOKEN: undefined }

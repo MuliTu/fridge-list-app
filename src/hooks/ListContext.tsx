@@ -68,8 +68,9 @@ export function ListProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const isPrerendering = useIsPrerendering()
   const [ownName, setOwnName] = useState<string | null>(null)
-  // Raw snapshot of /users/{me}/memberOf — { sanitizedOwnerKey: 'pending'|'approved' }.
-  const [memberOf, setMemberOf] = useState<Record<string, string>>({})
+  // Released records are bare statuses; historical server candidates may have
+  // stored an object. Normalize both without reconstructing an email from a key.
+  const [memberOf, setMemberOf] = useState<Record<string, string | { status?: unknown }>>({})
   // Resolved separately (see effect below): each memberOf owner's display name,
   // fetched one-shot per owner since Firebase can't join across keys server-side.
   const [memberNames, setMemberNames] = useState<Record<string, string>>({})
@@ -202,7 +203,8 @@ export function ListProvider({ children }: { children: ReactNode }) {
     if (!user?.email) return []
     const list: UserList[] = []
     if (ownName) list.push({ id: user.email, name: ownName, owner: user.email, status: 'owner' })
-    Object.entries(memberOf).forEach(([ownerKey, status]) => {
+    Object.entries(memberOf).forEach(([ownerKey, membership]) => {
+      const status = typeof membership === 'string' ? membership : membership?.status
       list.push({
         id: ownerKey,
         name: memberNames[ownerKey] || ownerKey,
