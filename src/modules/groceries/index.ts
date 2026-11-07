@@ -13,6 +13,20 @@ export type {
 } from './application/groceryCommands.service'
 export type { ListAuthorizationRepository } from './application/listAuthorizationRepository'
 export {
+  DUPLICATE_SCAN_ALGORITHM_VERSION,
+  DUPLICATE_SCAN_MAX_ATTEMPTS,
+  findDuplicateMatches,
+  matchDuplicatePair,
+  processDuplicateScanJobs
+} from './application/duplicateScan.service'
+export type {
+  ClaimedDuplicateScanJob,
+  DuplicateCandidate,
+  DuplicateMatch,
+  DuplicateScanJobRef,
+  DuplicateScanRepository
+} from './application/duplicateScan.service'
+export {
   SemanticGroceryMatchService,
   type SemanticGroceryCandidateRepository,
   type SemanticGroceryMatchProvider,

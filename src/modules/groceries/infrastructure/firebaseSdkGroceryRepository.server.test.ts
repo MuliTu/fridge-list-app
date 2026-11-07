@@ -7,28 +7,41 @@ const record = {
   raw_text: null, bought: false as const, created_by: 'user@example.com'
 }
 
-const concurrentDatabase = (initial: Record<string, unknown> = {}) => {
-  let user = JSON.parse(JSON.stringify(initial)) as Record<string, unknown>
+const concurrentDatabase = (
+  initial: Record<string, unknown> = {},
+  failTransaction = false,
+  failRegistration = false
+) => {
+  let list = JSON.parse(JSON.stringify(initial)) as Record<string, unknown>
+  let registration: Record<string, unknown> | null = null
   let queue = Promise.resolve()
   let callers = 0
   return {
     database: {
       ref: jest.fn((path: string) => ({
         transaction: async (update: (current: Record<string, unknown>) => Record<string, unknown> | undefined) => {
+          if (path === 'duplicate_scan_lists/household') {
+            if (failRegistration) throw new Error('synthetic registration failure')
+            const next = update(registration as any)
+            if (next !== undefined) registration = next
+            return { committed: next !== undefined, snapshot: { exists: () => registration !== null, val: () => registration } }
+          }
           expect(path).toBe('users/household')
           callers += 1
           const previous = queue
           let release!: () => void
           queue = new Promise<void>((resolve) => { release = resolve })
           await previous
-          const next = update(user)
-          if (next !== undefined) user = next
+          const next = update(list)
+          if (failTransaction) throw new Error('synthetic atomic transaction failure')
+          if (next !== undefined) list = next
           release()
-          return { committed: next !== undefined, snapshot: { exists: () => true, val: () => user } }
+          return { committed: next !== undefined, snapshot: { exists: () => true, val: () => list } }
         }
       }))
     },
-    state: () => user,
+    state: () => list,
+    registration: () => registration,
     callers: () => callers
   }
 }
@@ -63,6 +76,9 @@ it('atomically converges simultaneous differently identified callers on one acti
   expect(keys[0]).toBe(keys[1])
   expect(Object.values((fake.state().groceries ?? {}) as object)).toHaveLength(1)
   expect(Object.values((fake.state().grocery_operations ?? {}) as object)).toHaveLength(2)
+  expect(Object.values((fake.state().duplicate_scan_jobs ?? {}) as object)).toHaveLength(1)
+  expect(Object.values((fake.state().duplicate_scan_ready ?? {}) as object)).toHaveLength(1)
+  expect(fake.registration()).toMatchObject({ listId: 'household' })
 })
 
 it('preserves identical operation replay and rejects a changed fingerprint', async () => {
@@ -78,6 +94,8 @@ it('preserves identical operation replay and rejects a changed fingerprint', asy
     ...record, category: 'Other'
   })).rejects.toMatchObject({ code: 'conflict' })
   expect(Object.values((fake.state().groceries ?? {}) as object)).toHaveLength(1)
+  expect(Object.values((fake.state().duplicate_scan_jobs ?? {}) as object)).toHaveLength(1)
+  expect(Object.values((fake.state().duplicate_scan_ready ?? {}) as object)).toHaveLength(1)
 })
 
 it('rechecks a corrected normalized name and returns the current active key', async () => {
@@ -88,6 +106,8 @@ it('rechecks a corrected normalized name and returns the current active key', as
 
   await expect(repository.insertActiveUnique('household', 'milk', null, record)).resolves.toBe('existing')
   expect(Object.keys((fake.state().groceries ?? {}) as object)).toEqual(['existing'])
+  expect(fake.state().duplicate_scan_jobs).toEqual({})
+  expect(fake.state().duplicate_scan_ready).toEqual({})
 })
 
 it('never restores a purchased deterministic row', async () => {
@@ -97,4 +117,26 @@ it('never restores a purchased deterministic row', async () => {
 
   await expect(repository.insertActiveUnique('household', 'milk', null, record)).resolves.toBe(`${purchasedId}_1`)
   expect(((fake.state().groceries as Record<string, any>)[purchasedId]).bought).toBe(true)
+})
+
+it('leaves grocery and job absent when the list transaction fails after harmless registration', async () => {
+  const fake = concurrentDatabase({}, true)
+  const repository = new FirebaseSdkGroceryRepository(fake.database as any)
+
+  await expect(repository.insertActiveUnique('household', 'milk', null, record)).rejects.toMatchObject({
+    code: 'upstream_failed'
+  })
+  expect(fake.state()).toEqual({})
+  expect(fake.registration()).toMatchObject({ listId: 'household' })
+})
+
+it('does not attempt the list transaction when registry initialization fails', async () => {
+  const fake = concurrentDatabase({}, false, true)
+  const repository = new FirebaseSdkGroceryRepository(fake.database as any)
+
+  await expect(repository.insertActiveUnique('household', 'milk', null, record)).rejects.toMatchObject({
+    code: 'upstream_failed'
+  })
+  expect(fake.callers()).toBe(0)
+  expect(fake.state()).toEqual({})
 })

@@ -20,6 +20,7 @@ import { Route as ApiPurchaseHabitSummaryRouteImport } from './routes/api/purcha
 import { Route as ApiRecipesRouteImport } from './routes/api/recipes'
 import { Route as ApiReleasesRouteImport } from './routes/api/releases'
 import { Route as ApiRetryFeedbackRouteImport } from './routes/api/retry-feedback'
+import { Route as ApiRetryGroceryDuplicateScansRouteImport } from './routes/api/retry-grocery-duplicate-scans'
 import { Route as ApiScanReceiptRouteImport } from './routes/api/scan-receipt'
 import { Route as ApiScanReceiptUrlRouteImport } from './routes/api/scan-receipt-url'
 import { Route as ApiSendInviteEmailRouteImport } from './routes/api/send-invite-email'
@@ -100,6 +101,12 @@ const ApiRetryFeedbackRoute = ApiRetryFeedbackRouteImport.update({
   path: '/api/retry-feedback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRetryGroceryDuplicateScansRoute =
+  ApiRetryGroceryDuplicateScansRouteImport.update({
+    id: '/api/retry-grocery-duplicate-scans',
+    path: '/api/retry-grocery-duplicate-scans',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiScanReceiptRoute = ApiScanReceiptRouteImport.update({
   id: '/api/scan-receipt',
   path: '/api/scan-receipt',
@@ -243,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/api/recipes': typeof ApiRecipesRoute
   '/api/releases': typeof ApiReleasesRoute
   '/api/retry-feedback': typeof ApiRetryFeedbackRoute
+  '/api/retry-grocery-duplicate-scans': typeof ApiRetryGroceryDuplicateScansRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -280,6 +288,7 @@ export interface FileRoutesByTo {
   '/api/recipes': typeof ApiRecipesRoute
   '/api/releases': typeof ApiReleasesRoute
   '/api/retry-feedback': typeof ApiRetryFeedbackRoute
+  '/api/retry-grocery-duplicate-scans': typeof ApiRetryGroceryDuplicateScansRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -318,6 +327,7 @@ export interface FileRoutesById {
   '/api/recipes': typeof ApiRecipesRoute
   '/api/releases': typeof ApiReleasesRoute
   '/api/retry-feedback': typeof ApiRetryFeedbackRoute
+  '/api/retry-grocery-duplicate-scans': typeof ApiRetryGroceryDuplicateScansRoute
   '/api/scan-receipt': typeof ApiScanReceiptRoute
   '/api/scan-receipt-url': typeof ApiScanReceiptUrlRoute
   '/api/send-invite-email': typeof ApiSendInviteEmailRoute
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
     | '/api/recipes'
     | '/api/releases'
     | '/api/retry-feedback'
+    | '/api/retry-grocery-duplicate-scans'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/api/recipes'
     | '/api/releases'
     | '/api/retry-feedback'
+    | '/api/retry-grocery-duplicate-scans'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -431,6 +443,7 @@ export interface FileRouteTypes {
     | '/api/recipes'
     | '/api/releases'
     | '/api/retry-feedback'
+    | '/api/retry-grocery-duplicate-scans'
     | '/api/scan-receipt'
     | '/api/scan-receipt-url'
     | '/api/send-invite-email'
@@ -469,6 +482,7 @@ export interface RootRouteChildren {
   ApiRecipesRoute: typeof ApiRecipesRoute
   ApiReleasesRoute: typeof ApiReleasesRoute
   ApiRetryFeedbackRoute: typeof ApiRetryFeedbackRoute
+  ApiRetryGroceryDuplicateScansRoute: typeof ApiRetryGroceryDuplicateScansRoute
   ApiScanReceiptRoute: typeof ApiScanReceiptRoute
   ApiScanReceiptUrlRoute: typeof ApiScanReceiptUrlRoute
   ApiSendInviteEmailRoute: typeof ApiSendInviteEmailRoute
@@ -564,6 +578,13 @@ declare module '@tanstack/react-router' {
       path: '/api/retry-feedback'
       fullPath: '/api/retry-feedback'
       preLoaderRoute: typeof ApiRetryFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/retry-grocery-duplicate-scans': {
+      id: '/api/retry-grocery-duplicate-scans'
+      path: '/api/retry-grocery-duplicate-scans'
+      fullPath: '/api/retry-grocery-duplicate-scans'
+      preLoaderRoute: typeof ApiRetryGroceryDuplicateScansRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/scan-receipt': {
@@ -850,6 +871,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRecipesRoute: ApiRecipesRoute,
   ApiReleasesRoute: ApiReleasesRoute,
   ApiRetryFeedbackRoute: ApiRetryFeedbackRoute,
+  ApiRetryGroceryDuplicateScansRoute: ApiRetryGroceryDuplicateScansRoute,
   ApiScanReceiptRoute: ApiScanReceiptRoute,
   ApiScanReceiptUrlRoute: ApiScanReceiptUrlRoute,
   ApiSendInviteEmailRoute: ApiSendInviteEmailRoute,
