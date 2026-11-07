@@ -31,6 +31,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui
 import { cn } from '../lib/utils'
 import { WelcomeScreen } from './WelcomeScreen'
 import { WorkspaceNavigation } from './WorkspaceNavigation'
+import { DuplicateReviewBell } from './DuplicateReviewBell'
 import BehaviorSettingsModal from './BehaviorSettingsModal'
 import { BehaviorSettingsProvider, useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 
@@ -201,24 +202,26 @@ function LayoutContent({ children }: { children: ReactNode }) {
               {t(`language.${otherLanguage}`)}
             </button>
             {user ? (
-              // modal={false}: a fully modal Radix Dialog locks the rest of the page
-              // (document.body gets pointer-events: none, and everything outside the
-              // dialog gets aria-hidden) for as long as it's open — correct for a true
-              // dialog, but it means the hamburger trigger itself becomes unclickable
-              // while the sidebar is open, breaking "tap the hamburger again to close"
-              // (confirmed directly: elementFromPoint at the trigger's own coordinates
-              // resolved to a different element once the lock kicked in). Navigation
-              // drawers are the standard exception to full modality for exactly this
-              // reason — non-modal still gets Escape-to-close and outside-tap-to-close
-              // for free from Radix's own dismissable-layer behavior, it just doesn't
-              // lock the rest of the page.
-              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
-                <SheetTrigger asChild>
-                  <button className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
-                    <Menu size={19} aria-hidden="true" />
-                  </button>
-                </SheetTrigger>
-                <SheetContent closeLabel={t('actions.close')} hideClose>
+              <>
+                <DuplicateReviewBell />
+                {/* modal={false}: a fully modal Radix Dialog locks the rest of the page
+                  (document.body gets pointer-events: none, and everything outside the
+                  dialog gets aria-hidden) for as long as it's open — correct for a true
+                  dialog, but it means the hamburger trigger itself becomes unclickable
+                  while the sidebar is open, breaking "tap the hamburger again to close"
+                  (confirmed directly: elementFromPoint at the trigger's own coordinates
+                  resolved to a different element once the lock kicked in). Navigation
+                  drawers are the standard exception to full modality for exactly this
+                  reason — non-modal still gets Escape-to-close and outside-tap-to-close
+                  for free from Radix's own dismissable-layer behavior, it just doesn't
+                  lock the rest of the page. */}
+                <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
+                  <SheetTrigger asChild>
+                    <button className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
+                      <Menu size={19} aria-hidden="true" />
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent closeLabel={t('actions.close')} hideClose>
                   <SheetHeader>
                     <SheetTitle>{t('menu.button')}</SheetTitle>
                   </SheetHeader>
@@ -402,8 +405,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                       {t('menu.version', { version: appVersion })}
                     </div>
                   </div>
-                </SheetContent>
-              </Sheet>
+                  </SheetContent>
+                </Sheet>
+              </>
             ) : (
               <button className="signout-btn" onClick={onSignIn}>
                 {t('auth.signIn')}
