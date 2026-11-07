@@ -2,6 +2,7 @@ import '@tanstack/react-start/server-only'
 
 import { createHash } from 'node:crypto'
 import { ApplicationError } from '../../shared'
+import { DUPLICATE_SCAN_ALGORITHM_VERSION } from '../application/duplicateScan.service'
 import { createFirebaseServiceAccountAccessTokenProvider } from './firebaseServiceAccountAccessTokenProvider.server'
 import type {
   GroceryWriteRepository,
@@ -25,6 +26,8 @@ type StoredOperation = { fingerprint?: unknown; groceryKey?: unknown }
 type StoredUser = {
   groceries?: Record<string, StoredGrocery | null> | null
   grocery_operations?: Record<string, StoredOperation | null> | null
+  duplicate_scan_jobs?: Record<string, Record<string, unknown> | null> | null
+  duplicate_scan_ready?: Record<string, Record<string, unknown> | null> | null
   [key: string]: unknown
 }
 
@@ -153,6 +156,13 @@ export class FirebaseAdminGroceryWriteRepository implements GroceryWriteReposito
     const operationId = operation === null ? null : `manual_${createHash('sha256').update(operation).digest('hex')}`
     const baseId = `active_${createHash('sha256').update(normalizedName).digest('hex')}`
 
+    // Registration is stable list metadata. It must succeed before the
+    // list-local grocery/outbox transaction so every committed job is
+    // discoverable without a database-root transaction.
+    await this.request(`duplicate_scan_lists/${listId}`, 'PUT', {
+      listId
+    })
+
     for (let attempt = 0; attempt < 25; attempt += 1) {
       let accessToken: string
       try {
@@ -179,7 +189,7 @@ export class FirebaseAdminGroceryWriteRepository implements GroceryWriteReposito
         const value: unknown = await response.json()
         user = value && typeof value === 'object' && !Array.isArray(value) ? value as StoredUser : {}
       } catch (error) {
-        throw new ApplicationError('upstream_failed', 'Firebase returned an invalid user record', error)
+        throw new ApplicationError('upstream_failed', 'Firebase returned an invalid database record', error)
       }
       const groceries = user.groceries && typeof user.groceries === 'object' ? user.groceries : {}
       const operations = user.grocery_operations && typeof user.grocery_operations === 'object'
@@ -226,18 +236,31 @@ export class FirebaseAdminGroceryWriteRepository implements GroceryWriteReposito
         grocery_operations: operationId ? {
           ...operations,
           [operationId]: { fingerprint, groceryKey: selectedId }
-        } : operations
+        } : operations,
+        duplicate_scan_jobs: existing ? user.duplicate_scan_jobs : {
+          ...(user.duplicate_scan_jobs && typeof user.duplicate_scan_jobs === 'object' ? user.duplicate_scan_jobs : {}),
+          [selectedId]: {
+            itemId: selectedId,
+            status: 'pending',
+            attempts: 0,
+            algorithmVersion: DUPLICATE_SCAN_ALGORITHM_VERSION,
+            createdAt: record.added_at,
+            updatedAt: record.added_at
+          }
+        },
+        duplicate_scan_ready: existing ? user.duplicate_scan_ready : {
+          ...(user.duplicate_scan_ready && typeof user.duplicate_scan_ready === 'object'
+            ? user.duplicate_scan_ready
+            : {}),
+          [selectedId]: {
+            itemId: selectedId,
+            algorithmVersion: DUPLICATE_SCAN_ALGORITHM_VERSION,
+            createdAt: record.added_at
+          }
+        }
       }
       try {
-        response = await this.fetchImplementation(`${this.databaseUrl}/users/${listId}.json`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'If-Match': etag
-          },
-          body: JSON.stringify(nextUser)
-        })
+        response = await this.putUserIfMatch(accessToken, etag, listId, nextUser)
       } catch (error) {
         throw new ApplicationError('upstream_failed', 'Firebase Realtime Database request failed', error)
       }
@@ -246,6 +269,18 @@ export class FirebaseAdminGroceryWriteRepository implements GroceryWriteReposito
       return selectedId
     }
     throw new ApplicationError('upstream_failed', 'Firebase grocery transaction did not converge')
+  }
+
+  private putUserIfMatch(accessToken: string, etag: string, listId: string, user: StoredUser): Promise<Response> {
+    return this.fetchImplementation(`${this.databaseUrl}/users/${listId}.json`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'If-Match': etag
+      },
+      body: JSON.stringify(user)
+    })
   }
 
   async insertIdempotent(listId: string, idempotencyKey: string, record: NewGroceryRecord): Promise<string> {

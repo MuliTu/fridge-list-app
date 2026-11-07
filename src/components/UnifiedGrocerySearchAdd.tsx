@@ -86,14 +86,13 @@ export function UnifiedGrocerySearchAdd({
   addContext,
   onQueryChange,
   onSemanticMatchesChange,
-  onMatch
+  onMatch: _onMatch
 }: UnifiedGrocerySearchAddProps) {
   const { t, i18n } = useTranslation()
   const [value, setValue] = useState('')
   const [semantic, setSemantic] = useState<SemanticState>({ phase: 'idle', query: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const requestIdentity = useRef(0)
   const submissionIdentity = useRef(0)
   const submissionController = useRef<AbortController | null>(null)
   const emittedFilterIdentity = useRef('')
@@ -105,9 +104,7 @@ export function UnifiedGrocerySearchAdd({
   const localMatches = isBatch || !normalized
     ? []
     : entries.filter((entry) => normalizeName(entry.item).includes(normalized))
-  const exactActive = localMatches.find(
-    (entry) => !entry.bought && normalizeName(entry.item) === normalized
-  )
+  const exactExisting = localMatches.find((entry) => normalizeName(entry.item) === normalized)
 
   useEffect(() => {
     onQueryChange(isBatch ? '' : trimmed)
@@ -148,37 +145,12 @@ export function UnifiedGrocerySearchAdd({
   }, [listId])
 
   useEffect(() => {
-    const identity = ++requestIdentity.current
     if (!trimmed || isBatch) {
       setSemantic({ phase: 'idle', query: trimmed })
       return
     }
-    if (localOnly) {
-      setSemantic({ phase: 'ready', query: trimmed, result: localSemanticResult(entries, trimmed) })
-      return
-    }
-    const controller = new AbortController()
-    setSemantic({ phase: 'pending', query: trimmed })
-    const timeout = window.setTimeout(() => {
-      onMatch(listId, trimmed, controller.signal)
-        .then((result) => {
-          if (identity === requestIdentity.current && !controller.signal.aborted) {
-            setSemantic({ phase: 'ready', query: trimmed, result })
-          }
-        })
-        .catch((cause) => {
-          if (identity === requestIdentity.current && !controller.signal.aborted) {
-            setSemantic({ phase: 'error', query: trimmed })
-            if (cause instanceof Error && cause.name === 'AbortError') return
-          }
-        })
-    }, 300)
-
-    return () => {
-      window.clearTimeout(timeout)
-      controller.abort()
-    }
-  }, [entries, isBatch, listId, localOnly, onMatch, trimmed])
+    setSemantic({ phase: 'ready', query: trimmed, result: localSemanticResult(entries, trimmed) })
+  }, [entries, isBatch, trimmed])
 
   const prepareAndAdd = async (names: string[], assertCurrent: () => void) => {
     const items = names.map((name, index) => ({ id: `unified-add-${index}`, name }))
@@ -265,26 +237,10 @@ export function UnifiedGrocerySearchAdd({
     }
     try {
       if (names.length === 1) {
-        if (semantic.phase !== 'ready' || semantic.query !== trimmed || semantic.result.status !== 'ok') {
-          throw new Error(t('shoppingList:unifiedAdd.matchRequired'))
-        }
-        if (semantic.result.classification !== 'distinct') return
+        if (exactExisting) return
         await prepareAndAdd(names, assertCurrent)
       } else {
-        const distinct: string[] = []
-        for (let index = 0; index < names.length; index += 1) {
-          assertCurrent()
-          const result = localOnly
-            ? localSemanticResult(entries, names[index])
-            : await onMatch(listId, names[index], controller.signal)
-          assertCurrent()
-          if (result.status !== 'ok' || result.classification !== 'distinct') {
-            setValue(names.join(', '))
-            throw new Error(t('shoppingList:unifiedAdd.batchNeedsReview'))
-          }
-          distinct.push(names[index])
-        }
-        await prepareAndAdd(distinct, assertCurrent)
+        await prepareAndAdd(names, assertCurrent)
       }
       assertCurrent()
       setValue('')
@@ -302,8 +258,7 @@ export function UnifiedGrocerySearchAdd({
     }
   }
 
-  const canCreate = canEdit && semanticReady && semantic.result.status === 'ok' &&
-    semantic.result.classification === 'distinct' && !exactActive
+  const canCreate = canEdit && Boolean(trimmed) && !exactExisting
 
   return (
     <div className="unified-grocery-add">
@@ -341,16 +296,12 @@ export function UnifiedGrocerySearchAdd({
         )}
         <button type="submit" disabled={saving || (!isBatch && !canCreate)}>
           <Plus aria-hidden="true" size={17} />
-          <span>{saving ? t('shoppingList:quickAdd.adding') : exactActive ||
-            (semanticReady && semantic.result.status === 'ok' && semantic.result.classification !== 'distinct')
+          <span>{saving ? t('shoppingList:quickAdd.adding') : exactExisting
             ? t('shoppingList:unifiedAdd.showExisting')
             : t('shoppingList:quickAdd.button')}</span>
         </button>
       </form>
       <div id="unified-grocery-status" className="unified-grocery-status" role="status" aria-live="polite">
-        {semantic.phase === 'pending' && t('shoppingList:unifiedAdd.checking')}
-        {semantic.phase === 'error' && t('shoppingList:unifiedAdd.unavailable')}
-        {semanticReady && semantic.result.status !== 'ok' && t('shoppingList:unifiedAdd.unavailable')}
         {semanticReady && semantic.result.status === 'ok' && semantic.result.classification === 'distinct' &&
           t('shoppingList:unifiedAdd.notFound')}
       </div>

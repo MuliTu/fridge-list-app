@@ -23,3 +23,7 @@ export {
 export type { GroceryHttpDependencies } from './infrastructure/groceryHttp.server'
 
 export { createFirebaseSdkGroceryRepository } from './infrastructure/firebaseSdkGroceryRepository.server'
+export {
+  FirebaseDuplicateScanRepository,
+  createFirebaseDuplicateScanRepository
+} from './infrastructure/firebaseDuplicateScanRepository.server'

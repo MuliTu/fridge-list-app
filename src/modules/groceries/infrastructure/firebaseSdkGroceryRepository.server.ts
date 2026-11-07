@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 import type { App } from 'firebase-admin/app'
 import { ApplicationError } from '../../shared'
+import { DUPLICATE_SCAN_ALGORITHM_VERSION } from '../application/duplicateScan.service'
 import type { GroceryRepository, GroceryPatch, NewGroceryRecord, ReactivateGroceryRecord } from '../application/groceryWriteRepository'
 
 type StoredGrocery = Partial<NewGroceryRecord> & { creationFingerprint?: unknown }
@@ -11,6 +12,8 @@ type StoredOperation = { fingerprint?: unknown; groceryKey?: unknown }
 type StoredList = {
   groceries?: Record<string, StoredGrocery | null> | null
   grocery_operations?: Record<string, StoredOperation | null> | null
+  duplicate_scan_jobs?: Record<string, Record<string, unknown> | null> | null
+  duplicate_scan_ready?: Record<string, Record<string, unknown> | null> | null
   [key: string]: unknown
 }
 
@@ -32,6 +35,19 @@ export class FirebaseSdkGroceryRepository implements GroceryRepository {
 
   private listReference(listId: string) {
     return this.database.ref(`users/${segment(listId)}`)
+  }
+
+  private registryReference(listId: string) {
+    return this.database.ref(`duplicate_scan_lists/${segment(listId)}`)
+  }
+
+  private async ensureRegistered(listId: string): Promise<void> {
+    const result = await this.registryReference(listId).transaction((current) => current ?? {
+      listId
+    })
+    if (!result.committed) {
+      throw new ApplicationError('upstream_failed', 'Duplicate scan list registration did not commit')
+    }
   }
 
   private async persist<T>(action: () => Promise<T>): Promise<T> {
@@ -70,10 +86,16 @@ export class FirebaseSdkGroceryRepository implements GroceryRepository {
       const baseId = `active_${createHash('sha256').update(normalizedName).digest('hex')}`
       let selectedId: string | undefined
       let operationConflict = false
+      let created = false
 
+      // Registration is stable list metadata, not per-job state. Establishing it
+      // before the list-local transaction makes every committed outbox job
+      // discoverable without a cross-root transaction.
+      await this.ensureRegistered(listId)
       const result = await this.listReference(listId).transaction((current: StoredList | null) => {
         selectedId = undefined
         operationConflict = false
+        created = false
         const list = current && typeof current === 'object' ? current : {}
         const groceries = list.groceries && typeof list.groceries === 'object' ? list.groceries : {}
         const operations = list.grocery_operations && typeof list.grocery_operations === 'object'
@@ -114,6 +136,7 @@ export class FirebaseSdkGroceryRepository implements GroceryRepository {
             candidate = `${operationId ?? baseId}_${suffix}`
           }
           selectedId = candidate
+          created = true
         }
 
         const nextGroceries = existing ? groceries : {
@@ -124,7 +147,37 @@ export class FirebaseSdkGroceryRepository implements GroceryRepository {
           ...operations,
           [operationId]: { fingerprint, groceryKey: selectedId }
         } : operations
-        return { ...list, groceries: nextGroceries, grocery_operations: nextOperations }
+        const jobs = list.duplicate_scan_jobs && typeof list.duplicate_scan_jobs === 'object'
+          ? list.duplicate_scan_jobs
+          : {}
+        const nextJobs = created && selectedId && !jobs[selectedId] ? {
+          ...jobs,
+          [selectedId]: {
+            itemId: selectedId,
+            status: 'pending',
+            attempts: 0,
+            algorithmVersion: DUPLICATE_SCAN_ALGORITHM_VERSION,
+            createdAt: record.added_at,
+            updatedAt: record.added_at
+          }
+        } : jobs
+        const ready = list.duplicate_scan_ready && typeof list.duplicate_scan_ready === 'object'
+          ? list.duplicate_scan_ready
+          : {}
+        return {
+          ...list,
+          groceries: nextGroceries,
+          grocery_operations: nextOperations,
+          duplicate_scan_jobs: nextJobs,
+          duplicate_scan_ready: created && selectedId ? {
+            ...ready,
+            [selectedId]: {
+              itemId: selectedId,
+              algorithmVersion: DUPLICATE_SCAN_ALGORITHM_VERSION,
+              createdAt: record.added_at
+            }
+          } : ready
+        }
       })
 
       if (!result.committed || !selectedId) {

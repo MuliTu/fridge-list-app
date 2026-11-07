@@ -5,6 +5,10 @@
     {
       "path": "/api/retry-feedback",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/retry-grocery-duplicate-scans",
+      "schedule": "15 4 * * *"
     }
   ]
 }

@@ -125,6 +125,66 @@ describe('FirebaseAdminGroceryWriteRepository', () => {
     )
   })
 
+  it('registers the list before atomically publishing grocery, job, and ready marker under that list', async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { etag: 'list-etag', 'Content-Type': 'application/json' }
+      }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+    const repository = new FirebaseAdminGroceryWriteRepository(databaseUrl, credential, fetchMock)
+
+    const key = await repository.insertActiveUnique('owner_email_com', 'milk', 'operation-1', record)
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      databaseUrl + '/duplicate_scan_lists/owner_email_com.json',
+      databaseUrl + '/users/owner_email_com.json',
+      databaseUrl + '/users/owner_email_com.json'
+    ])
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ listId: 'owner_email_com' })
+    const atomicList = JSON.parse(fetchMock.mock.calls[2][1].body)
+    expect(atomicList.groceries[key]).toMatchObject(record)
+    expect(atomicList.duplicate_scan_jobs[key]).toMatchObject({
+      itemId: key,
+      status: 'pending',
+      algorithmVersion: 'lexical-v1'
+    })
+    expect(Object.values(atomicList.duplicate_scan_ready)).toEqual([{
+      itemId: key, algorithmVersion: 'lexical-v1', createdAt: record.added_at
+    }])
+  })
+
+  it('reports failure without grocery or job persistence when the list-local commit fails', async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { etag: 'list-etag', 'Content-Type': 'application/json' }
+      }))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+    const repository = new FirebaseAdminGroceryWriteRepository(databaseUrl, credential, fetchMock)
+
+    await expect(repository.insertActiveUnique('owner_email_com', 'milk', 'operation-1', record))
+      .rejects.toMatchObject({ code: 'upstream_failed' })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const attemptedList = JSON.parse(fetchMock.mock.calls[2][1].body)
+    expect(attemptedList.groceries).toBeDefined()
+    expect(attemptedList.duplicate_scan_jobs).toBeDefined()
+    expect(attemptedList.duplicate_scan_ready).toBeDefined()
+    expect(fetchMock.mock.calls.some(([url]) => url === databaseUrl + '/.json')).toBe(false)
+  })
+
+  it('does not attempt grocery creation when list registration fails', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response(null, { status: 500 }))
+    const repository = new FirebaseAdminGroceryWriteRepository(databaseUrl, credential, fetchMock)
+
+    await expect(repository.insertActiveUnique('owner_email_com', 'milk', null, record))
+      .rejects.toMatchObject({ code: 'upstream_failed' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe(databaseUrl + '/duplicate_scan_lists/owner_email_com.json')
+  })
+
   it('preserves the current grocery item path for patch and delete', async () => {
     const { repository, fetchMock } = createRepository(new Response(null, { status: 200 }))
     const patch = { bought: true, modified_at: '2026-08-02T10:30:00.000Z', modified_by: 'user@example.com' }

@@ -114,34 +114,32 @@ describe('UnifiedGrocerySearchAdd', () => {
     expect(onAdd).not.toHaveBeenCalled()
   })
 
-  it('keeps Add disabled while semantic matching is pending and enables explicit creation after a distinct result', async () => {
-    const user = userEvent.setup()
-    renderControl()
-
-    await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'bread')
-    expect(screen.getByRole('button', { name: 'shoppingList:quickAdd.button' })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('shoppingList:unifiedAdd.checking')
-
-    await waitFor(() => expect(screen.getByRole('button', { name: 'shoppingList:quickAdd.button' })).toBeEnabled())
-    expect(screen.getByRole('status')).toHaveTextContent('shoppingList:unifiedAdd.notFound')
-  })
-
-  it('aborts an obsolete semantic request when the query changes', async () => {
-    const signals: AbortSignal[] = []
-    const onMatch = jest.fn((_listId: string, _query: string, signal?: AbortSignal) => {
-      if (signal) signals.push(signal)
-      return new Promise<never>(() => {})
-    })
+  it('enables immediate creation without calling the semantic provider', async () => {
+    const onMatch = jest.fn().mockRejectedValue(new Error('provider down'))
     const user = userEvent.setup()
     renderControl({ onMatch })
-    const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
 
-    await user.type(input, 'milk')
-    await waitFor(() => expect(onMatch).toHaveBeenCalledTimes(1))
-    await user.clear(input)
-    await user.type(input, 'bread')
+    await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'bread')
+    expect(screen.getByRole('button', { name: 'shoppingList:quickAdd.button' })).toBeEnabled()
+    expect(screen.getByRole('status')).toHaveTextContent('shoppingList:unifiedAdd.notFound')
+    expect(onMatch).not.toHaveBeenCalled()
+  })
 
-    expect(signals[0].aborted).toBe(true)
+  it('adds immediately when the selected list has more than 100 candidates', async () => {
+    ;(enrichItemsWithAi as jest.Mock).mockResolvedValue({
+      items: [{ id: 'unified-add-0', correctedName: 'New product', category: 'Other' }]
+    })
+    const onMatch = jest.fn()
+    const onAdd = jest.fn().mockResolvedValue(undefined)
+    const entries = Array.from({ length: 101 }, (_, index) => ({
+      ...milk, key: `item-${index}`, item: `item ${index}`
+    }))
+    const user = userEvent.setup()
+    renderControl({ entries, onMatch, addContext: { categories, onAdd } })
+
+    await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'new product{Enter}')
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('New product', 'Other'))
+    expect(onMatch).not.toHaveBeenCalled()
   })
 
   it('keeps only failed and unconfirmed batch entries after an add failure', async () => {
@@ -191,93 +189,50 @@ describe('UnifiedGrocerySearchAdd', () => {
     expect(onAdd).not.toHaveBeenCalled()
   })
 
-  it.each(['similar', 'related'] as const)(
-    'filters to a %s semantic match and keeps Add disabled',
-    async (classification) => {
-      const onAdd = jest.fn().mockResolvedValue(undefined)
-      const onSemanticMatchesChange = jest.fn()
-      const user = userEvent.setup()
-      renderControl({
-        onMatch: jest.fn().mockResolvedValue(semanticResult(classification)),
-        onSemanticMatchesChange,
-        addContext: { categories, onAdd }
-      })
-
-      await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'bread')
-      await waitFor(() => expect(onSemanticMatchesChange).toHaveBeenLastCalledWith({
-        listId: 'list-1',
-        query: 'bread',
-        matchIds: ['milk']
-      }))
-      expect(screen.getByRole('button', { name: 'shoppingList:unifiedAdd.showExisting' })).toBeDisabled()
-      expect(onAdd).not.toHaveBeenCalled()
-    }
-  )
-
   it.each(['provider_unavailable', 'candidate_limit_exceeded'] as const)(
-    'fails closed when semantic matching returns %s',
+    'adds without consulting a semantic provider returning %s',
     async (status) => {
+      const onAdd = jest.fn().mockResolvedValue(undefined)
+      const onMatch = jest.fn().mockResolvedValue(semanticResult('distinct', status))
       const user = userEvent.setup()
-      renderControl({ onMatch: jest.fn().mockResolvedValue(semanticResult('distinct', status)) })
+      renderControl({ onMatch, addContext: { categories, onAdd } })
 
-      await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'bread')
-
-      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(
-        'shoppingList:unifiedAdd.unavailable'
-      ))
-      expect(screen.getByRole('button', { name: 'shoppingList:quickAdd.button' })).toBeDisabled()
+      await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'bread{Enter}')
+      await waitFor(() => expect(onAdd).toHaveBeenCalledWith('Bread', 'Other'))
+      expect(onMatch).not.toHaveBeenCalled()
     }
   )
-
-  it('ignores a late response from an older query', async () => {
-    const first = deferred<ReturnType<typeof semanticResult>>()
-    const second = deferred<ReturnType<typeof semanticResult>>()
-    const onMatch = jest.fn()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise)
-    const user = userEvent.setup()
-    renderControl({ onMatch })
-    const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
-
-    await user.type(input, 'milk')
-    await waitFor(() => expect(onMatch).toHaveBeenCalledTimes(1))
-    await user.clear(input)
-    await user.type(input, 'bread')
-    await waitFor(() => expect(onMatch).toHaveBeenCalledTimes(2))
-    await act(async () => first.resolve(semanticResult('distinct')))
-    expect(screen.getByRole('status')).toHaveTextContent('shoppingList:unifiedAdd.checking')
-    await act(async () => second.resolve(semanticResult('distinct')))
-    expect(screen.getByRole('status')).toHaveTextContent('shoppingList:unifiedAdd.notFound')
-  })
 
   it('does not write after a submitted batch becomes stale because the list changed', async () => {
-    const match = deferred<ReturnType<typeof semanticResult>>()
+    const enrichment = deferred<{ items: Array<{ id: string; correctedName: string; category: string }> }>()
+    ;(enrichItemsWithAi as jest.Mock).mockReturnValue(enrichment.promise)
     const onAdd = jest.fn()
     const user = userEvent.setup()
-    const rendered = renderControl({
-      onMatch: jest.fn().mockReturnValue(match.promise),
-      addContext: { categories, onAdd }
-    })
+    const rendered = renderControl({ addContext: { categories, onAdd } })
 
     await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'milk, bread{Enter}')
     rendered.rerender(<UnifiedGrocerySearchAdd {...rendered.props} listId="list-2" />)
-    await act(async () => match.resolve(semanticResult('distinct')))
+    await act(async () => enrichment.resolve({ items: [
+      { id: 'unified-add-0', correctedName: 'Milk', category: 'Other' },
+      { id: 'unified-add-1', correctedName: 'Bread', category: 'Other' }
+    ] }))
 
     expect(onAdd).not.toHaveBeenCalled()
   })
 
   it('does not write after unmounting a submitted batch', async () => {
-    const match = deferred<ReturnType<typeof semanticResult>>()
+    const enrichment = deferred<{ items: Array<{ id: string; correctedName: string; category: string }> }>()
+    ;(enrichItemsWithAi as jest.Mock).mockReturnValue(enrichment.promise)
     const onAdd = jest.fn()
     const user = userEvent.setup()
-    const rendered = renderControl({
-      onMatch: jest.fn().mockReturnValue(match.promise),
-      addContext: { categories, onAdd }
-    })
+    const rendered = renderControl({ addContext: { categories, onAdd } })
 
     await user.type(screen.getByLabelText('shoppingList:unifiedAdd.label'), 'milk, bread{Enter}')
     rendered.unmount()
-    await act(async () => match.resolve(semanticResult('distinct')))
+    await act(async () => enrichment.resolve({ items: [
+      { id: 'unified-add-0', correctedName: 'Milk', category: 'Other' },
+      { id: 'unified-add-1', correctedName: 'Bread', category: 'Other' }
+    ] }))
 
     expect(onAdd).not.toHaveBeenCalled()
   })
