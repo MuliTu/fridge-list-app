@@ -1,5 +1,6 @@
 import type { RequestContext } from '../../shared'
 import type { FeedbackProvider } from './feedbackProvider'
+import type { FeedbackRepository } from './feedbackRepository'
 import { MAX_FEEDBACK_TEXT_LENGTH, SubmitFeedbackService } from './submitFeedback.service'
 
 const context: RequestContext = {
@@ -11,12 +12,27 @@ const context: RequestContext = {
 }
 
 describe('SubmitFeedbackService', () => {
+  const repository = (): jest.Mocked<FeedbackRepository> => ({
+    createAndClaim: jest.fn().mockResolvedValue({
+      created: true,
+      record: {
+        submissionId: 'operation-1',
+        actorUserId: 'verified-user',
+        status: 'processing',
+        ticket: null
+      }
+    }),
+    markTicketCreated: jest.fn().mockResolvedValue(undefined),
+    markError: jest.fn().mockResolvedValue(undefined)
+  })
+
   it('uses authenticated context and request ID as the deduplication boundary', async () => {
     const provider: jest.Mocked<FeedbackProvider> = {
       submit: jest.fn().mockResolvedValue({ error: false, cardUrl: 'https://trello.com/c/abc' })
     }
+    const feedbackRepository = repository()
 
-    await expect(new SubmitFeedbackService(provider).execute(context, {
+    await expect(new SubmitFeedbackService(provider, feedbackRepository).execute(context, {
       request: '  Add dark mode  ',
       name: 'Attacker',
       email: 'attacker@example.com',
@@ -25,7 +41,12 @@ describe('SubmitFeedbackService', () => {
       source: 'fridge-list-app',
       route: '/stock',
       appVersion: '2.40.0'
-    })).resolves.toEqual({ error: false, cardUrl: 'https://trello.com/c/abc' })
+    })).resolves.toEqual({
+      error: false,
+      cardUrl: 'https://trello.com/c/abc',
+      submissionId: 'operation-1',
+      status: 'ticket_created'
+    })
 
     expect(provider.submit).toHaveBeenCalledWith({
       request: 'Add dark mode',
@@ -38,6 +59,95 @@ describe('SubmitFeedbackService', () => {
       appVersion: '2.40.0'
     })
     expect(JSON.stringify(provider.submit.mock.calls)).not.toContain('attacker@example.com')
+    expect(feedbackRepository.createAndClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ actorUserId: 'verified-user', operationId: 'operation-1' })
+    )
+    expect(feedbackRepository.createAndClaim.mock.invocationCallOrder[0]).toBeLessThan(
+      provider.submit.mock.invocationCallOrder[0]
+    )
+    expect(feedbackRepository.markTicketCreated).toHaveBeenCalledWith('operation-1', null)
+  })
+
+  it('stops before dispatch when durable persistence fails', async () => {
+    const provider: jest.Mocked<FeedbackProvider> = { submit: jest.fn() }
+    const feedbackRepository = repository()
+    feedbackRepository.createAndClaim.mockRejectedValue(new Error('permission denied'))
+
+    await expect(
+      new SubmitFeedbackService(provider, feedbackRepository).execute(context, {
+        request: 'private feedback'
+      })
+    ).rejects.toEqual(
+      expect.objectContaining({ code: 'upstream_failed', message: 'Feedback could not be saved' })
+    )
+    expect(provider.submit).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when the same operation ID belongs to another actor', async () => {
+    const provider: jest.Mocked<FeedbackProvider> = { submit: jest.fn() }
+    const feedbackRepository = repository()
+    feedbackRepository.createAndClaim.mockRejectedValue(
+      new Error('feedback submission identity conflict: secret-card')
+    )
+
+    await expect(
+      new SubmitFeedbackService(provider, feedbackRepository).execute(context, {
+        request: 'private feedback'
+      })
+    ).rejects.toEqual(
+      expect.objectContaining({
+        code: 'upstream_failed',
+        message: 'Feedback could not be saved'
+      })
+    )
+    expect(provider.submit).not.toHaveBeenCalled()
+  })
+
+  it('keeps provider failures durable and returns a saved pending receipt', async () => {
+    const provider: jest.Mocked<FeedbackProvider> = {
+      submit: jest.fn().mockRejectedValue(new Error('n8n unavailable'))
+    }
+    const feedbackRepository = repository()
+
+    await expect(
+      new SubmitFeedbackService(provider, feedbackRepository).execute(context, {
+        request: 'private feedback'
+      })
+    ).resolves.toEqual({
+      error: false,
+      submissionId: 'operation-1',
+      status: 'pending'
+    })
+    expect(feedbackRepository.markError).toHaveBeenCalledWith(
+      'operation-1',
+      'Feedback provider request failed'
+    )
+  })
+
+  it('reuses an existing same-actor receipt without dispatching twice', async () => {
+    const provider: jest.Mocked<FeedbackProvider> = { submit: jest.fn() }
+    const feedbackRepository = repository()
+    feedbackRepository.createAndClaim.mockResolvedValue({
+      created: false,
+      record: {
+        submissionId: 'operation-1',
+        actorUserId: 'verified-user',
+        status: 'ticket_created',
+        ticket: { id: 'card-1', url: 'https://trello.com/c/card-1', title: 'Feedback' }
+      }
+    })
+
+    await expect(
+      new SubmitFeedbackService(provider, feedbackRepository).execute(context, {
+        request: 'private feedback'
+      })
+    ).resolves.toEqual({
+      error: false,
+      submissionId: 'operation-1',
+      status: 'ticket_created',
+      ticket: { id: 'card-1', url: 'https://trello.com/c/card-1', title: 'Feedback' }
+    })
+    expect(provider.submit).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -49,7 +159,9 @@ describe('SubmitFeedbackService', () => {
   ])('rejects %s without provider work', async (_case, input) => {
     const provider: jest.Mocked<FeedbackProvider> = { submit: jest.fn() }
 
-    await expect(new SubmitFeedbackService(provider).execute(context, input)).rejects.toEqual(
+    await expect(
+      new SubmitFeedbackService(provider, repository()).execute(context, input)
+    ).rejects.toEqual(
       expect.objectContaining({ code: 'invalid_input' })
     )
     expect(provider.submit).not.toHaveBeenCalled()

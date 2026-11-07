@@ -14,7 +14,6 @@ import { StockUnit } from './units'
 import type {
   AuthUser,
   Category,
-  FeedbackRecord,
   GroceryItem,
   ListChangeEvent,
   PurchaseEvent,
@@ -295,53 +294,6 @@ export const setKeepBoughtItemsInCategories = (email: string, enabled: boolean) 
 // not owned by any particular list. Needs its own RTDB rule (not applied yet, same
 // category as the other manual Console steps this project has — see CLAUDE.md).
 export const whatsNewRef = ref(db, 'whats_new')
-
-// Global, sibling to `users`/`whats_new` — feedback isn't owned by any particular
-// list. A durability/observability layer over submitFeedback's existing
-// submit → n8n → Gemini → Trello flow (see FeedbackRecord in types.ts and the In-app
-// feedback module in CLAUDE.md): every submission attempt gets a record here so it's
-// trackable even if the Trello card creation itself fails or the browser tab closes
-// before the network call resolves. Needs its own RTDB rule, same open philosophy as
-// `/whats_new`/`/categories` (not applied yet, same category as this project's other
-// manual Console steps).
-export const feedbacksRef = ref(db, 'feedbacks')
-
-// Small, purpose-built helpers (matching getOnboardingDismissed/setOnboardingDismissed's
-// style) rather than exposing raw push/update to callers — submitFeedback is the only
-// intended caller of both.
-const createFeedbackRecord = async (message: string, user?: AuthUser | null): Promise<string> => {
-  const newRef = push(feedbacksRef)
-  const key = newRef.key as string
-  const now = new Date().toISOString()
-  const record: Omit<FeedbackRecord, never> = {
-    createdAt: now,
-    updatedAt: now,
-    // Raw email, not sanitizeEmailKey's path-safe form — this is a data field, not a
-    // path segment. Falls back to 'anonymous' rather than null since FeedbackRecord's
-    // userId is typed as a plain string (this flow is already canEdit/sign-in-gated in
-    // the UI, so an anonymous submitter shouldn't normally happen).
-    userId: user?.email || 'anonymous',
-    username: user?.displayName || user?.email || 'Anonymous',
-    message,
-    status: 'new',
-    error: null,
-    retryCount: 0,
-    lastAttemptAt: null,
-    ticket: null,
-    // Ticket F3's idempotency guard only ever gets stamped by the retry job's own
-    // adapter (see src/lib/retryFeedback.ts) — the live submit flow below never
-    // touches it, so it starts (and stays) null until the record's first retry claim,
-    // if it ever needs one.
-    attemptId: null
-  }
-  await set(newRef, record)
-  return key
-}
-
-const updateFeedbackRecord = (
-  key: string,
-  updates: Partial<Pick<FeedbackRecord, 'status' | 'error' | 'retryCount' | 'lastAttemptAt' | 'ticket'>>
-) => update(ref(db, `feedbacks/${key}`), { ...updates, updatedAt: new Date().toISOString() })
 
 // Idempotent — only writes `name` if this user has never been provisioned as an
 // owner before (a fresh /users/{email} node may already exist with nothing but a
@@ -1269,157 +1221,69 @@ export const sendInviteEmail = async (
   }
 }
 
-// Sends a user's free-text feedback through the authoritative server-selected flow.
-// Granted non-production users use the create-ticket agent; everyone else keeps the
-// existing n8n payload and route. An agent 403 is safe to fall back because that
-// route authorizes before parsing or execution. No other agent failure is retried:
-// network/5xx uncertainty could mean a ticket was already created.
+// Sends a user's free-text feedback through the authenticated server route. The
+// browser never writes authoritative feedback records or chooses a provider.
 export interface FeedbackSubmission {
   request: string
+  operationId: string
   route?: string
   user?: AuthUser | null
   language?: string
 }
 
+export type FeedbackSubmissionResult =
+  | {
+      error: false
+      submissionId: string
+      status: 'pending' | 'ticket_created'
+    }
+  | { error: true; message?: string }
+
+export const createFeedbackOperationId = (): string => crypto.randomUUID()
+
 export const submitFeedback = async ({
   request,
+  operationId,
   route,
-  user,
   language
-}: FeedbackSubmission): Promise<{ error: boolean; message?: string }> => {
+}: FeedbackSubmission): Promise<FeedbackSubmissionResult> => {
   const payload = {
     request,
-    name: user?.displayName || user?.email || 'Anonymous',
-    email: user?.email || null,
-    submittedAt: new Date().toISOString(),
     language: language || 'he',
     source: 'fridge-list-app',
     route: route || null,
     appVersion: APP_VERSION
   }
-  logClientAction(`[feedback] submitFeedback: from=${payload.name} lang=${payload.language} route=${payload.route}`)
-
-  // Durability/observability layer (see FeedbackRecord in types.ts): persists this
-  // submission and its outcome to /feedbacks alongside the existing n8n/Trello flow.
-  // Every one of these Firebase calls is wrapped so a write failure here can never
-  // block or change the actual submission below — same graceful-degradation
-  // philosophy as logClientAction (log and continue, don't throw).
-  let feedbackKey: string | null = null
-  try {
-    feedbackKey = await createFeedbackRecord(request, user)
-  } catch (err: any) {
-    logClientAction(`[feedback] createFeedbackRecord failed (continuing anyway): ${err.message}`)
-  }
-
-  if (feedbackKey) {
-    try {
-      await updateFeedbackRecord(feedbackKey, { status: 'processing', lastAttemptAt: new Date().toISOString() })
-    } catch (err: any) {
-      logClientAction(`[feedback] updateFeedbackRecord(processing) failed (continuing anyway): ${err.message}`)
-    }
-  }
-
-  const markFeedbackError = async (message: string) => {
-    if (!feedbackKey) return
-    try {
-      await updateFeedbackRecord(feedbackKey, {
-        status: 'error',
-        error: { message },
-        retryCount: 1
-      })
-    } catch (err: any) {
-      logClientAction(`[feedback] updateFeedbackRecord(error) failed (continuing anyway): ${err.message}`)
-    }
-  }
-
-  const markFeedbackSuccess = async (ticket: FeedbackRecord['ticket']) => {
-    if (!feedbackKey) return
-    try {
-      await updateFeedbackRecord(feedbackKey, {
-        status: 'ticket_created',
-        error: null,
-        ticket: ticket || null
-      })
-    } catch (err: any) {
-      logClientAction(`[feedback] updateFeedbackRecord(ticket_created) failed (continuing anyway): ${err.message}`)
-    }
-  }
-
-  const submitToN8n = async (
-    authHeaders: Record<string, string>
-  ): Promise<{ error: boolean; message?: string }> => {
-    try {
-      const response = await fetch('/api/submit-feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify(payload)
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok || data.error) {
-        const message = data.message || 'feedback upstream failed'
-        logClientAction(`[feedback] submitFeedback failed: status=${response.status} message=${message}`)
-        await markFeedbackError(message)
-        return { error: true, message: data.message }
-      }
-      await markFeedbackSuccess(data.ticket || null)
-      return { error: false }
-    } catch (err: any) {
-      logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
-      await markFeedbackError(err.message)
-      return { error: true, message: err.message }
-    }
-  }
+  logClientAction(`[feedback] submitFeedback: lang=${payload.language}`)
 
   try {
     const authHeaders = await getAuthHeaders()
-    let entitled = false
-
-    try {
-      const entitlementResponse = await fetch('/api/agent/entitlement', {
-        headers: authHeaders
-      })
-      const entitlement = await entitlementResponse.json().catch(() => ({}))
-      entitled =
-        entitlementResponse.ok && entitlement.entitled === true
-    } catch {
-      // The entitlement read has no mutation ambiguity. Preserve the established
-      // n8n flow when the experimental endpoint cannot be reached.
-      return submitToN8n(authHeaders)
-    }
-
-    if (!entitled) return submitToN8n(authHeaders)
-
-    const response = await fetch('/api/agent/create-ticket', {
+    const response = await fetch('/api/submit-feedback', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
-      body: JSON.stringify({
-        request: payload.request,
-        context: {
-          route: route || undefined,
-          language: payload.language,
-          appVersion: APP_VERSION
-        }
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-request-id': operationId,
+        ...authHeaders
+      },
+      body: JSON.stringify(payload)
     })
     const data = await response.json().catch(() => ({}))
-    if (response.status === 403) {
-      // Authorization is checked before request parsing, prompt/model work, and
-      // provider mutation, so this is the only safe agent-to-n8n fallback.
-      return submitToN8n(authHeaders)
+    if (
+      !response.ok ||
+      data.error ||
+      typeof data.submissionId !== 'string' ||
+      (data.status !== 'pending' && data.status !== 'ticket_created')
+    ) {
+      logClientAction(`[feedback] submitFeedback failed: status=${response.status}`)
+      return { error: true, message: data.message }
     }
-    if (!response.ok || data.success !== true) {
-      logClientAction(`[feedback] agent submission failed: status=${response.status} code=${data.error?.code || 'unknown'}`)
-      await markFeedbackError(data.error?.message || 'feedback upstream failed')
-      return { error: true, message: data.error?.message }
+    return {
+      error: false,
+      submissionId: data.submissionId,
+      status: data.status
     }
-
-    await markFeedbackSuccess(data.ticket || null)
-    return { error: false }
   } catch (err: any) {
-    // Once the agent request starts, a network error is an uncertain result and
-    // must never trigger n8n, which could create a duplicate ticket.
-    logClientAction(`[feedback] agent submission network error: ${err.message}`)
-    await markFeedbackError(err.message)
+    logClientAction(`[feedback] submitFeedback network error: ${err.message}`)
     return { error: true, message: err.message }
   }
 }

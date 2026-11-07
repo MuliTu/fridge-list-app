@@ -6,6 +6,7 @@
   "submit": "Send",
   "submitting": "Sending...",
   "statusPending": "Sending your feedback in the background…",
+  "statusSaved": "Your feedback was saved and is waiting to be processed.",
   "success": "Thanks! Your feedback was sent and will be reviewed by the product team.",
   "error": "Sending feedback failed. You can try again.",
   "sendAnother": "Send more feedback"

@@ -187,14 +187,14 @@ describe('auth header attachment on server-route calls', () => {
   describe('submitFeedback', () => {
     it('attaches Authorization: Bearer <token> when a user is signed in', async () => {
       mockCurrentUser = { getIdToken: jest.fn().mockResolvedValue('real-id-token') }
-      await submitFeedback({ request: 'add dark mode' })
+      await submitFeedback({ request: 'add dark mode', operationId: 'operation-1' })
       const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/submit-feedback')
       expect((options.headers as Record<string, string>).Authorization).toBe('Bearer real-id-token')
     })
 
     it('sends no Authorization header when no user is signed in', async () => {
       mockCurrentUser = null
-      await submitFeedback({ request: 'add dark mode' })
+      await submitFeedback({ request: 'add dark mode', operationId: 'operation-1' })
       const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/submit-feedback')
       expect((options.headers as Record<string, string>).Authorization).toBeUndefined()
     })
@@ -208,175 +208,85 @@ describe('auth header attachment on server-route calls', () => {
       json: async () => body
     })
 
-    const feedbackCalls = (url: string) =>
-      (globalThis.fetch as jest.Mock).mock.calls.filter(
-        ([calledUrl]) => calledUrl === url
-      )
-
-    it('routes an entitled user to the agent with preserved request context', async () => {
-      mockCurrentUser = {
-        getIdToken: jest.fn().mockResolvedValue('real-id-token')
-      }
-      ;(globalThis.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
-          if (url === '/api/agent/entitlement') {
-            return response(200, { entitled: true })
-          }
-          if (url === '/api/agent/create-ticket') {
-            return response(201, { success: true, ticket: { id: 'ticket-1' } })
-          }
-          return response(200, {})
-        }
+    it('uses only the authoritative server route and returns its durable receipt', async () => {
+      mockCurrentUser = { getIdToken: jest.fn().mockResolvedValue('real-id-token') }
+      ;(globalThis.fetch as jest.Mock).mockResolvedValue(
+        response(200, {
+          error: false,
+          submissionId: 'operation-1',
+          status: 'ticket_created'
+        })
       )
 
       await expect(
         submitFeedback({
           request: 'add dark mode',
+          operationId: 'operation-1',
           route: '/stock',
           language: 'en'
         })
-      ).resolves.toEqual({ error: false })
+      ).resolves.toEqual({
+        error: false,
+        submissionId: 'operation-1',
+        status: 'ticket_created'
+      })
 
-      const [, agentOptions] = callTo(
-        globalThis.fetch as jest.Mock,
-        '/api/agent/create-ticket'
-      )
-      expect(agentOptions).toMatchObject({
+      const [, options] = callTo(globalThis.fetch as jest.Mock, '/api/submit-feedback')
+      expect(options).toMatchObject({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-request-id': 'operation-1',
           Authorization: 'Bearer real-id-token'
         }
       })
-      expect(JSON.parse(agentOptions.body)).toEqual({
+      expect(JSON.parse(options.body)).toEqual({
         request: 'add dark mode',
-        context: {
-          route: '/stock',
-          language: 'en',
-          appVersion: APP_VERSION
-        }
-      })
-      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
-    })
-
-    it('keeps a non-entitled user on the existing n8n payload and route', async () => {
-      ;(globalThis.fetch as jest.Mock).mockImplementation(
-        async (url: string) =>
-          url === '/api/agent/entitlement'
-            ? response(200, { entitled: false })
-            : response(200, { error: false })
-      )
-
-      await expect(
-        submitFeedback({
-          request: 'add dark mode',
-          route: '/stock',
-          user: {
-            email: 'user@example.com',
-            displayName: 'User'
-          },
-          language: 'en'
-        })
-      ).resolves.toEqual({ error: false })
-
-      const [, n8nOptions] = callTo(
-        globalThis.fetch as jest.Mock,
-        '/api/submit-feedback'
-      )
-      expect(JSON.parse(n8nOptions.body)).toMatchObject({
-        request: 'add dark mode',
-        name: 'User',
-        email: 'user@example.com',
         language: 'en',
         source: 'fridge-list-app',
         route: '/stock',
         appVersion: APP_VERSION
       })
-      expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
-    })
-
-    it('falls back to n8n only for an agent 403 before execution', async () => {
-      ;(globalThis.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
-          if (url === '/api/agent/entitlement') {
-            return response(200, { entitled: true })
-          }
-          if (url === '/api/agent/create-ticket') {
-            return response(403, {
-              success: false,
-              error: { code: 'ACCESS_DENIED' }
-            })
-          }
-          return response(200, { error: false })
-        }
-      )
-
-      await expect(
-        submitFeedback({ request: 'add dark mode' })
-      ).resolves.toEqual({ error: false })
-      expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(1)
-      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(1)
-    })
-
-    it.each([400, 500, 502])(
-      'does not fall back after an agent %i response',
-      async (status) => {
-        ;(globalThis.fetch as jest.Mock).mockImplementation(
-          async (url: string) => {
-            if (url === '/api/agent/entitlement') {
-              return response(200, { entitled: true })
-            }
-            if (url === '/api/agent/create-ticket') {
-              return response(status, {
-                success: false,
-                error: { code: 'SAFE_ERROR', message: 'request failed' }
-              })
-            }
-            return response(200, { error: false })
-          }
+      expect(
+        (globalThis.fetch as jest.Mock).mock.calls.some(([url]) =>
+          String(url).startsWith('/api/agent/')
         )
-
-        await expect(
-          submitFeedback({ request: 'add dark mode' })
-        ).resolves.toEqual({ error: true, message: 'request failed' })
-        expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
-      }
-    )
-
-    it('does not fall back when the agent result is network-uncertain', async () => {
-      ;(globalThis.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
-          if (url === '/api/agent/entitlement') {
-            return response(200, { entitled: true })
-          }
-          if (url === '/api/agent/create-ticket') {
-            throw new Error('connection dropped')
-          }
-          return response(200, { error: false })
-        }
-      )
-
-      await expect(
-        submitFeedback({ request: 'add dark mode' })
-      ).resolves.toEqual({ error: true, message: 'connection dropped' })
-      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(0)
+      ).toBe(false)
     })
 
-    it('preserves n8n when the non-mutating entitlement read is unavailable', async () => {
-      ;(globalThis.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
-          if (url === '/api/agent/entitlement') {
-            throw new Error('entitlement unavailable')
-          }
-          return response(200, { error: false })
-        }
-      )
+    it('does not report success for a malformed response without a durable receipt', async () => {
+      ;(globalThis.fetch as jest.Mock).mockResolvedValue(response(200, { error: false }))
 
       await expect(
-        submitFeedback({ request: 'add dark mode' })
-      ).resolves.toEqual({ error: false })
-      expect(feedbackCalls('/api/agent/create-ticket')).toHaveLength(0)
-      expect(feedbackCalls('/api/submit-feedback')).toHaveLength(1)
+        submitFeedback({ request: 'add dark mode', operationId: 'operation-1' })
+      ).resolves.toEqual({
+        error: true,
+        message: undefined
+      })
+    })
+
+    it('reuses the caller operation id across repeated transport attempts', async () => {
+      mockCurrentUser = { getIdToken: jest.fn().mockResolvedValue('real-id-token') }
+      ;(globalThis.fetch as jest.Mock).mockResolvedValue(
+        response(200, {
+          error: false,
+          submissionId: 'operation-stable',
+          status: 'pending'
+        })
+      )
+
+      await Promise.all([
+        submitFeedback({ request: 'same feedback', operationId: 'operation-stable' }),
+        submitFeedback({ request: 'same feedback', operationId: 'operation-stable' })
+      ])
+
+      const submitCalls = (globalThis.fetch as jest.Mock).mock.calls.filter(([url]) =>
+        String(url).includes('/api/submit-feedback')
+      )
+      expect(submitCalls).toHaveLength(2)
+      for (const [, options] of submitCalls) {
+        expect(options.headers['x-request-id']).toBe('operation-stable')
+      }
     })
   })
 })
@@ -414,104 +324,6 @@ describe('bounded authenticated client events', () => {
     expect(options.body).not.toContain('private-grocery-key')
     expect(options.body).not.toContain('private-actor')
     expect(options.body).not.toContain('real-id-token')
-  })
-})
-
-// F1 — persists every submitFeedback() attempt to /feedbacks (see FeedbackRecord in
-// src/types.ts) as a durability/observability layer on top of the existing
-// submit → n8n → Gemini → Trello flow, without changing that flow's own behavior or
-// submitFeedback()'s existing { error, message } return shape. push/set/update are
-// mocked at the module boundary per .claude/skills/senior-qa-jest — this never
-// touches the real n8n-vocal-2-db project.
-describe('submitFeedback: Firebase feedback tracking (F1)', () => {
-  beforeEach(() => {
-    mockCurrentUser = null
-    ;(push as jest.Mock).mockClear()
-    ;(set as jest.Mock).mockReset().mockResolvedValue(undefined)
-    ;(update as jest.Mock).mockReset().mockResolvedValue(undefined)
-  })
-
-  // Restore set()/update() to their harmless resolved-default state — otherwise a
-  // mockRejectedValue set inside one of these tests would leak into later, unrelated
-  // describe blocks in this same file (both mocks are shared at the module level).
-  afterEach(() => {
-    ;(set as jest.Mock).mockReset().mockResolvedValue(undefined)
-    ;(update as jest.Mock).mockReset().mockResolvedValue(undefined)
-  })
-
-  it('creates a "new" record, marks it processing, then ends at ticket_created with ticket/error:null populated', async () => {
-    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
-      })
-    })
-
-    const result = await submitFeedback({
-      request: 'add dark mode',
-      user: { email: 'user@example.com', displayName: 'User' }
-    })
-    expect(result).toEqual({ error: false })
-
-    // First write: the initial "new" record, via set() on the pushed ref.
-    const [, initialRecord] = (set as jest.Mock).mock.calls[0]
-    expect(initialRecord).toMatchObject({
-      userId: 'user@example.com',
-      username: 'User',
-      message: 'add dark mode',
-      status: 'new',
-      error: null,
-      retryCount: 0,
-      lastAttemptAt: null,
-      ticket: null
-    })
-
-    const updateCalls = (update as jest.Mock).mock.calls
-    // Second write: flips to processing and stamps lastAttemptAt before the fetch.
-    expect(updateCalls[0][1]).toMatchObject({ status: 'processing' })
-    expect(updateCalls[0][1].lastAttemptAt).toEqual(expect.any(String))
-
-    // Final write: ticket_created, error cleared, ticket populated from the response.
-    const finalUpdate = updateCalls[updateCalls.length - 1][1]
-    expect(finalUpdate).toMatchObject({
-      status: 'ticket_created',
-      error: null,
-      ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
-    })
-  })
-
-  it('ends at "error" with a populated error and incremented retryCount on a failed submission', async () => {
-    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 502,
-      json: async () => ({ error: true, message: 'feedback upstream failed' })
-    })
-
-    const result = await submitFeedback({ request: 'add dark mode' })
-    expect(result).toEqual({ error: true, message: 'feedback upstream failed' })
-
-    const updateCalls = (update as jest.Mock).mock.calls
-    const finalUpdate = updateCalls[updateCalls.length - 1][1]
-    expect(finalUpdate).toMatchObject({
-      status: 'error',
-      error: { message: 'feedback upstream failed' },
-      retryCount: 1
-    })
-  })
-
-  it('does not throw or change submitFeedback()\'s return value when the Firebase write itself fails', async () => {
-    ;(set as jest.Mock).mockRejectedValue(new Error('permission denied'))
-    ;(update as jest.Mock).mockRejectedValue(new Error('permission denied'))
-    ;(globalThis as any).fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        ticket: { id: 'card1', url: 'https://trello.com/c/card1', title: 'Add dark mode' }
-      })
-    })
-
-    await expect(submitFeedback({ request: 'add dark mode' })).resolves.toEqual({ error: false })
   })
 })
 

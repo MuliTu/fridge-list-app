@@ -9,7 +9,7 @@ import { verifyAuthToken } from '../lib/verifyAuthToken'
 import { CatalogCommandService, CategorizeItemService } from './catalog'
 import { createFirebaseAdminCatalogCommandRepository, N8nCategorizationProvider } from './catalog/server'
 import { SubmitFeedbackService } from './feedback'
-import { N8nFeedbackProvider } from './feedback/server'
+import { createFirebaseFeedbackRepository, N8nFeedbackProvider } from './feedback/server'
 import {
   GroceryCommandService,
   PersistN8nGroceryService,
@@ -404,9 +404,13 @@ export class ServerComposition {
   }
 
   getSubmitFeedbackService(): SubmitFeedbackService {
-    this.submitFeedbackService ??= new SubmitFeedbackService(
-      new N8nFeedbackProvider(this.options.environment.FEEDBACK_WEBHOOK_URL)
-    )
+    if (!this.submitFeedbackService) {
+      const app = getFirebaseAdminApp(this.options.environment)
+      this.submitFeedbackService = new SubmitFeedbackService(
+        new N8nFeedbackProvider(this.options.environment.FEEDBACK_WEBHOOK_URL),
+        createFirebaseFeedbackRepository(app, firebaseDatabaseUrl(this.options.environment))
+      )
+    }
     return this.submitFeedbackService
   }
 
