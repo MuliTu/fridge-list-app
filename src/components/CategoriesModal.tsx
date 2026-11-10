@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
-interface CategoriesModalProps {
+type CategoriesModalProps = {
   categories: Category[]
   onClose: () => void
 }
 
-export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
+export function CategoriesSettingsContent({ categories }: { categories: Category[] }) {
   const { t } = useTranslation()
   const { confirm } = useDialogService()
   const { addCategory, deleteCategory, updateCategory } = useListApi()
@@ -67,12 +67,7 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('categories:title')}</DialogTitle>
-        </DialogHeader>
-
+    <>
         <div className="category-rows">
           {categories.map((cat, index) => (
             <div className="category-row" key={cat.key}>
@@ -159,6 +154,21 @@ export default function CategoriesModal({ categories, onClose }: CategoriesModal
         </div>
 
         {error && <div className="text-sm text-destructive">{error}</div>}
+    </>
+  )
+}
+
+export default function CategoriesModal({ categories, onClose }: CategoriesModalProps) {
+  const { t } = useTranslation()
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('categories:title')}</DialogTitle>
+        </DialogHeader>
+
+        <CategoriesSettingsContent categories={categories} />
 
         <DialogFooter>
           <Button onClick={onClose}>{t('common:actions.close')}</Button>
