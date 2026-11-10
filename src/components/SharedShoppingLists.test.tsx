@@ -73,3 +73,26 @@ it('scopes the selected theme to the active authorized snapshot and clears it on
   await act(async () => { jest.advanceTimersByTime(5000) })
   await waitFor(() => expect(workspace).not.toHaveAttribute('data-shared-theme'))
 })
+
+it('keeps multiple participant avatars and theme controls in the responsive meta group', async () => {
+  const members = Array.from({ length: 8 }, (_, index) => ({
+    email: `member-${index}@example.com`,
+    displayName: `Member ${index}`,
+    photoURL: null
+  }))
+  jest.mocked(getShoppingShare).mockResolvedValue({ ...snapshot, members })
+
+  const { container } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+
+  const banner = container.querySelector('.shared-list-banner')
+  const identity = banner?.firstElementChild
+  const controls = banner?.querySelector('.shared-list-meta')
+  const avatars = controls?.querySelector('.list-member-avatars')
+
+  expect(identity).toContainElement(screen.getByRole('heading', { name: 'A' }))
+  expect(controls).toBe(banner?.lastElementChild)
+  expect(avatars?.children).toHaveLength(6)
+  expect(avatars).toHaveTextContent('+4')
+  expect(controls).toContainElement(screen.getByLabelText('sharing.theme'))
+})
