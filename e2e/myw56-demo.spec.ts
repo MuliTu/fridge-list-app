@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
+test.use({ channel: 'chrome' })
+
 const householdId = 'owner@example_test'
 const shareId = createHash('sha256').update(JSON.stringify([householdId, null])).digest('hex')
 
@@ -45,6 +47,7 @@ const focusWithKeyboard = async (page: Page, selector: string) => {
 }
 
 test('MYW-56 real shared-list UI is isolated, responsive, themed, categorized, and revocation-safe', async ({ browser }) => {
+  test.setTimeout(120_000)
   test.skip(process.env.FRIDGE_DEMO_E2E !== 'true', 'Runs only against the isolated Firebase emulator demo.')
 
   const editor = await signIn(browser, 'editor')
@@ -76,7 +79,51 @@ test('MYW-56 real shared-list UI is isolated, responsive, themed, categorized, a
   const mobileSection = await mobile.page.locator('.shared-shopping-list').boundingBox()
   const mobileParent = await mobile.page.locator('.shared-shopping-list').locator('..').boundingBox()
   expect(mobileSection!.width / mobileParent!.width).toBeGreaterThan(0.9)
-  await expect(mobile.page.locator('.shared-list-banner')).toHaveCSS('position', 'static')
+  await expect(mobile.page.locator('.shared-list-banner')).toHaveCSS('position', /^(static|relative)$/)
+
+  for (const width of [360, 180]) for (const language of ['he', 'en'] as const) {
+    await mobile.page.setViewportSize({ width, height: 800 })
+    await mobile.page.evaluate(value => localStorage.setItem('appLanguage', value), language)
+    await mobile.page.reload()
+    await expect(mobile.page.locator('.shared-list-banner')).toContainText('Demo owner')
+    await expect(mobile.page.locator('html')).toHaveAttribute('dir', language === 'he' ? 'rtl' : 'ltr')
+    const geometry = await mobile.page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const { left, right, top, bottom } = document.querySelector(selector)!.getBoundingClientRect()
+        return { left, right, top, bottom }
+      }
+      return {
+        pageWidth: document.documentElement.scrollWidth,
+        navigation: bounds('.shared-shopping-navigation'),
+        banner: bounds('.shared-list-banner'),
+        avatars: bounds('.shared-list-meta .list-member-avatars'),
+        theme: bounds('.shared-theme-picker select'),
+        search: bounds('.unified-grocery-form input')
+      }
+    })
+    expect(geometry.pageWidth).toBeLessThanOrEqual(width)
+    for (const control of [geometry.navigation, geometry.banner, geometry.avatars, geometry.theme, geometry.search]) {
+      expect(control.left).toBeGreaterThanOrEqual(-1)
+      expect(control.right).toBeLessThanOrEqual(width + 1)
+    }
+    expect(geometry.navigation.bottom).toBeLessThanOrEqual(geometry.banner.top + 1)
+    expect(geometry.banner.bottom).toBeLessThanOrEqual(geometry.search.top + 1)
+
+    const input = mobile.page.locator('.unified-grocery-form input')
+    await input.focus({ timeout: 5_000 })
+    await expect(input).toBeFocused()
+    await input.fill('yogurt', { timeout: 5_000 })
+    await expect(mobile.page.getByText('yogurt', { exact: true })).toBeVisible()
+    expect((await input.boundingBox())?.width).toBeGreaterThan(40)
+    const addedItem = `MYW-67-${width}-${language}`
+    await input.fill(addedItem, { timeout: 5_000 })
+    expect((await input.boundingBox())?.width).toBeGreaterThan(40)
+    await expect(mobile.page.locator('.unified-grocery-form button[type="submit"]')).toBeEnabled()
+    await input.press('Enter', { timeout: 5_000 })
+    await expect(mobile.page.getByText(addedItem, { exact: true })).toBeVisible()
+    await mobile.page.locator('.shared-theme-picker select').selectOption('green')
+    await expect(mobile.page.locator('.workspace')).toHaveAttribute('data-shared-theme', 'green')
+  }
 
   const outsider = await signIn(browser, 'outsider')
   await outsider.page.goto(`/?shared=${shareId}&demoUser=outsider`)

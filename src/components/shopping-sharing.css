@@ -53,4 +53,9 @@
   .shared-list-banner { grid-template-columns: minmax(0, 1fr); }
   .shared-list-meta { grid-template-columns: minmax(0, 1fr); justify-items: start; width: 100%; }
   .shared-list-meta .list-member-avatars { justify-content: flex-start; }
+  .shared-shopping-list .unified-grocery-form { grid-template-columns: minmax(0, 1fr) auto; padding: 6px; }
+  .shared-shopping-list .unified-grocery-form > svg { display: none; }
+  .shared-shopping-list .unified-grocery-form input { grid-column: 1 / -1; min-height: 34px; font-size: 16px; }
+  .shared-shopping-list .unified-grocery-form .unified-grocery-clear { grid-column: 1; grid-row: 2; justify-self: start; width: 44px; min-height: 44px; }
+  .shared-shopping-list .unified-grocery-form button[type='submit'] { grid-column: 2; grid-row: 2; min-height: 44px; }
 }

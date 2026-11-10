@@ -60,6 +60,10 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLElement>(null)
+  const contextKey = JSON.stringify([shareId, user?.email])
+  const activeContextRef = useRef(contextKey)
+  activeContextRef.current = contextKey
+  const mutationEpochRef = useRef(0)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const themeKey = `shared-list-theme:${user?.email || ''}:${shareId}`
   const [theme, setTheme] = useState('blue')
@@ -95,34 +99,61 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
+    mutationEpochRef.current += 1
     setSnapshot(null)
     setEditing(null)
+    setName('')
+    setNote('')
     setSearch('')
     setFailed(false)
     const refresh = async () => {
+      const refreshEpoch = mutationEpochRef.current
+      const stillCurrent = () => !controller.signal.aborted && activeContextRef.current === contextKey && mutationEpochRef.current === refreshEpoch
       try {
         const next = await getShoppingShare(shareId, controller.signal)
-        if (!controller.signal.aborted) { setSnapshot(next); setFailed(false) }
+        if (stillCurrent()) { setSnapshot(next); setFailed(false) }
       } catch {
-        if (!controller.signal.aborted) {
+        if (stillCurrent()) {
+          mutationEpochRef.current += 1
           setSnapshot(null)
           setEditing(null)
+          setName('')
+          setNote('')
           setSearch('')
           setFailed(true)
         }
       }
-      if (!controller.signal.aborted) timer = setTimeout(refresh, 5000)
+      if (!controller.signal.aborted && activeContextRef.current === contextKey) timer = setTimeout(refresh, 5000)
     }
-    void refresh()
+    if (user?.email) void refresh()
     return () => { controller.abort(); clearTimeout(timer) }
   }, [shareId, user?.email])
 
   const mutate = async (mutation: unknown) => {
+    const mutationContext = contextKey
+    const mutationEpoch = mutationEpochRef.current
+    const stillAuthorized = () => activeContextRef.current === mutationContext && mutationEpochRef.current === mutationEpoch
     try {
       await shoppingSharingRequest({ action: 'mutate', shareId, mutation })
-      setSnapshot(await getShoppingShare(shareId))
+      if (!stillAuthorized()) return
+      const next = await getShoppingShare(shareId)
+      if (!stillAuthorized()) return
+      setSnapshot(next)
       setFailed(false)
-    } catch (error) { setFailed(true); throw error }
+    } catch (error) {
+      if (stillAuthorized()) {
+        if (error instanceof Error && /^(401|403|404)$/.test(error.message)) {
+          mutationEpochRef.current += 1
+          setSnapshot(null)
+          setEditing(null)
+          setName('')
+          setNote('')
+          setSearch('')
+        }
+        setFailed(true)
+      }
+      throw error
+    }
   }
   const save = async (operation: 'update' | 'delete') => {
     if (!editing || busy) return
@@ -134,7 +165,7 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
     finally { setBusy(false) }
   }
   return <>
-    <SharedShoppingListsNavigation selected={shareId} />
+    {snapshot && <SharedShoppingListsNavigation selected={shareId} />}
     <section ref={rootRef} className="shared-shopping-list shopping-primary" aria-label={snapshot?.name || t('sharing.sharedList')}>
       {failed && <p role="alert">{t('sharing.unavailable')}</p>}
       {!snapshot && !failed && <p role="status">{t('sharing.loading')}</p>}

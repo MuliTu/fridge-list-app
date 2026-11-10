@@ -5,7 +5,8 @@ import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 
 jest.mock('../client/api/shoppingSharing', () => ({ discoverShoppingShares: jest.fn(), getShoppingShare: jest.fn(), shoppingSharingRequest: jest.fn() }))
 jest.mock('../client/api/aiItemEnrichment', () => ({ enrichItemsWithAi: jest.fn() }))
-jest.mock('../hooks/AuthContext', () => ({ useAuth: () => ({ user: { email: 'guest@example.com' } }) }))
+const mockAuth = { email: 'guest@example.com' as string | null }
+jest.mock('../hooks/AuthContext', () => ({ useAuth: () => ({ user: mockAuth.email ? { email: mockAuth.email } : null }) }))
 jest.mock('../hooks/BehaviorSettingsContext', () => ({ useBehaviorSettings: () => ({ settings: { showCountdown: true, purchaseGesture: 'tap' } }) }))
 jest.mock('@tanstack/react-router', () => ({ Link: ({ children }: any) => <a>{children}</a> }))
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }) }))
@@ -25,11 +26,29 @@ const snapshot = {
 
 beforeEach(() => {
   jest.useFakeTimers()
+  localStorage.clear()
+  mockAuth.email = 'guest@example.com'
   jest.mocked(discoverShoppingShares).mockResolvedValue([{ id: snapshot.id, name: snapshot.name, owner: snapshot.owner }])
   jest.mocked(getShoppingShare).mockReset().mockResolvedValue(snapshot)
   jest.mocked(shoppingSharingRequest).mockReset().mockResolvedValue({ status: 'ok' })
 })
 afterEach(() => { jest.useRealTimers() })
+
+function pendingMutation() {
+  let settle!: () => void
+  const result = new Promise<unknown>(resolve => { settle = () => resolve({ status: 'ok' }) })
+  return { result, settle }
+}
+
+function expectPrivateSnapshotCleared(container: HTMLElement) {
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  expect(screen.queryByText(/A · Owner/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'A' })).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('shoppingList:unifiedAdd.label')).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(container.querySelector('.shared-list-categories')).toBeNull()
+  expect(screen.queryByText('shoppingList:search.noResults')).not.toBeInTheDocument()
+}
 
 it('renders only the authorized snapshot and never mounts household actions', async () => {
   render(<SharedShoppingList shareId="share-a" />)
@@ -121,6 +140,72 @@ it('keeps the shared-list query available for retry when adding fails', async ()
   expect(input).toHaveValue('Retry item')
 })
 
+it('clears private identity, items, editing, and search after an active mutation is denied', async () => {
+  jest.mocked(shoppingSharingRequest).mockRejectedValueOnce(new Error('403'))
+  const { container } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  await screen.findByText(/A · Owner/)
+  fireEvent.change(screen.getByLabelText('shoppingList:unifiedAdd.label'), { target: { value: 'milk' } })
+  fireEvent.click(screen.getByRole('button', { name: 'shoppingList:item.info' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'shoppingList:item.edit' }))
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  fireEvent.submit(screen.getByLabelText('sharing.itemName').closest('form')!)
+
+  await waitFor(() => expect(screen.getByText('sharing.unavailable')).toBeInTheDocument())
+  expectPrivateSnapshotCleared(container)
+})
+
+it('clears private identity, items, and search when the post-mutation snapshot is denied', async () => {
+  const { container } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  await screen.findByText(/A · Owner/)
+  jest.mocked(getShoppingShare).mockRejectedValueOnce(new Error('403'))
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  fireEvent.change(input, { target: { value: 'New item' } })
+  fireEvent.submit(input.closest('form')!)
+
+  await waitFor(() => expect(screen.getByText('sharing.unavailable')).toBeInTheDocument())
+  expectPrivateSnapshotCleared(container)
+  expect(getShoppingShare).toHaveBeenCalledTimes(2)
+})
+
+it('keeps an empty authorized list distinct from a search with no matches', async () => {
+  jest.mocked(getShoppingShare).mockResolvedValue({ ...snapshot, items: [] })
+  render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('sharing.empty')
+  expect(screen.queryByText('shoppingList:search.noResults')).not.toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('shoppingList:unifiedAdd.label'), {
+    target: { value: 'milk' }
+  })
+  expect(screen.getByText('sharing.empty')).toBeInTheDocument()
+  expect(screen.queryByText('shoppingList:search.noResults')).not.toBeInTheDocument()
+})
+
+it('keeps search, item edit, and theme actions scoped to the selected share', async () => {
+  const { container } = render(<div className="workspace"><SharedShoppingList shareId="share-a" /></div>)
+  await screen.findByText('Shared milk')
+  fireEvent.change(screen.getByLabelText('shoppingList:unifiedAdd.label'), {
+    target: { value: 'milk' }
+  })
+  expect(screen.queryByText('Special item')).not.toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('sharing.theme'), { target: { value: 'purple' } })
+  expect(container.querySelector('.workspace')).toHaveAttribute('data-shared-theme', 'purple')
+
+  fireEvent.click(screen.getByRole('button', { name: 'shoppingList:item.info' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'shoppingList:item.edit' }))
+  fireEvent.change(screen.getByLabelText('sharing.itemName'), { target: { value: 'Shared oat milk' } })
+  await act(async () => { fireEvent.submit(screen.getByLabelText('sharing.itemName').closest('form')!) })
+
+  await waitFor(() => expect(shoppingSharingRequest).toHaveBeenCalledWith({
+    action: 'mutate', shareId: 'share-a',
+    mutation: { operation: 'update', itemId: 'a', item: { name: 'Shared oat milk', note: '' } }
+  }))
+  expect(getShoppingShare).toHaveBeenCalledWith('share-a', expect.any(AbortSignal))
+  expect(enrichItemsWithAi).not.toHaveBeenCalled()
+})
+
 it('clears stale search state when the selected share changes', async () => {
   const { rerender } = render(<SharedShoppingList shareId="share-a" />)
   await screen.findByText('Shared milk')
@@ -132,6 +217,100 @@ it('clears stale search state when the selected share changes', async () => {
 
   await waitFor(() => expect(getShoppingShare).toHaveBeenCalledWith('share-b', expect.any(AbortSignal)))
   expect(await screen.findByLabelText('shoppingList:unifiedAdd.label')).toHaveValue('')
+})
+
+it('does not restore the previous list after an in-flight add completes on another share', async () => {
+  const pending = pendingMutation()
+  const other = { ...snapshot, id: 'share-b', name: 'B', items: [{ ...snapshot.items[0], key: 'b', item: 'B only' }] }
+  jest.mocked(getShoppingShare).mockImplementation(async id => id === 'share-b' ? other : snapshot)
+  jest.mocked(shoppingSharingRequest).mockImplementationOnce(() => pending.result)
+
+  const { rerender } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  fireEvent.change(input, { target: { value: 'New A item' } })
+  fireEvent.submit(input.closest('form')!)
+  await waitFor(() => expect(shoppingSharingRequest).toHaveBeenCalledWith({
+    action: 'mutate', shareId: 'share-a', mutation: { operation: 'add', item: { name: 'New A item' } }
+  }))
+
+  rerender(<SharedShoppingList shareId="share-b" />)
+  expect(await screen.findByText('B only')).toBeInTheDocument()
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  await act(async () => { pending.settle() })
+
+  expect(screen.getByText('B only')).toBeInTheDocument()
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  expect(getShoppingShare).toHaveBeenCalledTimes(2)
+})
+
+it('does not restore a revoked snapshot from an older in-flight add', async () => {
+  const pending = pendingMutation()
+  jest.mocked(shoppingSharingRequest).mockImplementationOnce(() => pending.result)
+  render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  fireEvent.change(input, { target: { value: 'New A item' } })
+  fireEvent.submit(input.closest('form')!)
+  await waitFor(() => expect(shoppingSharingRequest).toHaveBeenCalledTimes(1))
+
+  jest.mocked(getShoppingShare).mockRejectedValueOnce(new Error('403'))
+  await act(async () => { jest.advanceTimersByTime(5000) })
+  expect(screen.getByRole('alert')).toHaveTextContent('sharing.unavailable')
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+
+  await act(async () => { pending.settle() })
+  expect(screen.getByRole('alert')).toHaveTextContent('sharing.unavailable')
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  expect(getShoppingShare).toHaveBeenCalledTimes(2)
+})
+
+it('ignores a refresh started before an active add is denied', async () => {
+  let releaseRefresh!: () => void
+  const delayedRefresh = new Promise<typeof snapshot>(resolve => {
+    releaseRefresh = () => resolve(snapshot)
+  })
+  const { container } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  await screen.findByText(/A · Owner/)
+  jest.mocked(getShoppingShare).mockImplementationOnce(() => delayedRefresh)
+  await act(async () => { jest.advanceTimersByTime(5000) })
+  expect(getShoppingShare).toHaveBeenCalledTimes(2)
+
+  jest.mocked(shoppingSharingRequest).mockRejectedValueOnce(new Error('403'))
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  fireEvent.change(input, { target: { value: 'New item' } })
+  fireEvent.submit(input.closest('form')!)
+  await waitFor(() => expect(screen.getByText('sharing.unavailable')).toBeInTheDocument())
+  expectPrivateSnapshotCleared(container)
+
+  await act(async () => { releaseRefresh() })
+  expect(screen.getByText('sharing.unavailable')).toBeInTheDocument()
+  expectPrivateSnapshotCleared(container)
+  expect(getShoppingShare).toHaveBeenCalledTimes(2)
+
+  await act(async () => { jest.advanceTimersByTime(5000) })
+  expect(await screen.findByText('Shared milk')).toBeInTheDocument()
+  expect(screen.getByLabelText('shoppingList:unifiedAdd.label')).toHaveValue('')
+  expect(getShoppingShare).toHaveBeenCalledTimes(3)
+})
+
+it('clears private content and ignores an in-flight add when the recipient signs out', async () => {
+  const pending = pendingMutation()
+  jest.mocked(shoppingSharingRequest).mockImplementationOnce(() => pending.result)
+  const { rerender } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  fireEvent.change(input, { target: { value: 'New A item' } })
+  fireEvent.submit(input.closest('form')!)
+  await waitFor(() => expect(shoppingSharingRequest).toHaveBeenCalledTimes(1))
+
+  mockAuth.email = null
+  rerender(<SharedShoppingList shareId="share-a" />)
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  await act(async () => { pending.settle() })
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  expect(getShoppingShare).toHaveBeenCalledTimes(1)
 })
 
 it('scopes the selected theme to the active authorized snapshot and clears it on failure', async () => {
