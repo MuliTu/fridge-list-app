@@ -30,7 +30,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'design-dialog fixed z-40 flex flex-col gap-3',
+        'design-dialog fixed z-50 flex flex-col gap-3',
         'bottom-0 left-0 right-0 sm:inset-0 sm:m-auto sm:h-fit',
         'w-full sm:max-w-[420px] max-h-[85vh] overflow-y-auto',
         'bg-popover text-foreground border border-border shadow-[var(--shadow-float)]',
