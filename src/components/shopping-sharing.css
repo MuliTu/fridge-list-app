@@ -17,7 +17,7 @@
 .shared-shopping-navigation a[aria-current="page"] { background: var(--brand-accent); color: var(--on-accent); border-color: var(--brand-accent); }
 .shared-shopping-navigation a:hover, .shared-shopping-navigation a:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
 .shared-shopping-list { width: 100%; max-width: none; margin-inline: 0; flex: none; overflow: visible; }
-.shared-shopping-list > .quick-add { margin-block: 1rem; }
+.shared-shopping-list > .unified-grocery-add { margin-block: 1rem; min-width: 0; }
 .shared-shopping-list > .item-list { list-style: none; padding: 0; }
 .workspace[data-shared-theme="blue"] { --board: #141e30; --board-edge: #101829; --surface: #1d2c43; --surface-strong: #293e5c; --surface-hover: #293e5c; --chalk: #f1f5ff; --chalk-dim: #bacbe2; --brand-accent: #a8ccff; --on-accent: #102341; --accent-soft: #293e5c; --border-alpha: #415675; --input-alpha: #243550; }
 .workspace[data-shared-theme="purple"] { --board: #211a30; --board-edge: #191323; --surface: #30233f; --surface-strong: #423056; --surface-hover: #423056; --chalk: #faf2ff; --chalk-dim: #d2bfdf; --brand-accent: #ddbbff; --on-accent: #2d163e; --accent-soft: #423056; --border-alpha: #624b77; --input-alpha: #382b48; }

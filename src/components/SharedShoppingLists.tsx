@@ -10,8 +10,7 @@ import CategorySection from './CategorySection'
 import { DEFAULT_CATEGORIES } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import ShoppingListItemRow from './ShoppingListItemRow'
-import ShoppingListSearch from './ShoppingListSearch'
-import QuickAddBar from './QuickAddBar'
+import { UnifiedGrocerySearchAdd } from './UnifiedGrocerySearchAdd'
 import { ListMemberAvatars } from './ListSharingBar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
@@ -159,8 +158,19 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
             </label>
           </div>
         </header>
-        <ShoppingListSearch value={search} onChange={setSearch} />
-        <QuickAddBar aiAvailable={false} onAdd={async name => mutate({ operation: 'add', item: { name } })} />
+        <UnifiedGrocerySearchAdd
+          listId={shareId}
+          entries={snapshot.items}
+          canEdit
+          localOnly
+          addContext={{
+            categories: [],
+            onAdd: async name => mutate({ operation: 'add', item: { name } })
+          }}
+          onQueryChange={setSearch}
+          onSemanticMatchesChange={() => {}}
+          onMatch={async () => { throw new Error('Semantic matching is unavailable for shared lists.') }}
+        />
         <div className="shared-list-categories">
           {orderedGroups.map(([category, items]) => {
             const presentation = categoryPresentation.get(category) || Object.values(DEFAULT_CATEGORIES).find(entry => entry.name === category)

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import SharedShoppingList from './SharedShoppingLists'
-import { discoverShoppingShares, getShoppingShare } from '../client/api/shoppingSharing'
+import { discoverShoppingShares, getShoppingShare, shoppingSharingRequest } from '../client/api/shoppingSharing'
+import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 
 jest.mock('../client/api/shoppingSharing', () => ({ discoverShoppingShares: jest.fn(), getShoppingShare: jest.fn(), shoppingSharingRequest: jest.fn() }))
 jest.mock('../client/api/aiItemEnrichment', () => ({ enrichItemsWithAi: jest.fn() }))
@@ -26,6 +27,7 @@ beforeEach(() => {
   jest.useFakeTimers()
   jest.mocked(discoverShoppingShares).mockResolvedValue([{ id: snapshot.id, name: snapshot.name, owner: snapshot.owner }])
   jest.mocked(getShoppingShare).mockReset().mockResolvedValue(snapshot)
+  jest.mocked(shoppingSharingRequest).mockReset().mockResolvedValue({ status: 'ok' })
 })
 afterEach(() => { jest.useRealTimers() })
 
@@ -64,7 +66,7 @@ it('filters only the authorized shared snapshot and restores it when cleared', a
   render(<SharedShoppingList shareId="share-a" />)
   await screen.findByText('Shared milk')
 
-  const search = screen.getByLabelText('shoppingList:search.label')
+  const search = screen.getByLabelText('shoppingList:unifiedAdd.label')
   fireEvent.change(search, { target: { value: 'special' } })
   expect(screen.getByText('Special item')).toBeInTheDocument()
   expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
@@ -80,29 +82,56 @@ it('filters only the authorized shared snapshot and restores it when cleared', a
   expect(getShoppingShare).toHaveBeenCalledTimes(1)
 })
 
-it('distinguishes a search with no matches from an empty shared list', async () => {
+it('uses one field to filter while typing and adds only on explicit submit', async () => {
   render(<SharedShoppingList shareId="share-a" />)
   await screen.findByText('Shared milk')
 
-  fireEvent.change(screen.getByLabelText('shoppingList:search.label'), {
-    target: { value: 'not in this list' }
-  })
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  expect(screen.getAllByRole('textbox')).toEqual([input])
 
-  expect(screen.getByRole('status')).toHaveTextContent('shoppingList:search.noResults')
+  fireEvent.change(input, { target: { value: 'not in this list' } })
+
+  expect(screen.getByText('shoppingList:search.noResults')).toHaveAttribute('role', 'status')
   expect(screen.queryByText('sharing.empty')).not.toBeInTheDocument()
+  expect(shoppingSharingRequest).not.toHaveBeenCalled()
+  expect(enrichItemsWithAi).not.toHaveBeenCalled()
+  expect(getShoppingShare).toHaveBeenCalledTimes(1)
+
+  fireEvent.submit(input.closest('form')!)
+
+  await waitFor(() => expect(shoppingSharingRequest).toHaveBeenCalledWith({
+    action: 'mutate',
+    shareId: 'share-a',
+    mutation: { operation: 'add', item: { name: 'not in this list' } }
+  }))
+  await waitFor(() => expect(input).toHaveValue(''))
+  expect(enrichItemsWithAi).not.toHaveBeenCalled()
+})
+
+it('keeps the shared-list query available for retry when adding fails', async () => {
+  jest.mocked(shoppingSharingRequest).mockRejectedValueOnce(new Error('offline'))
+  render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+
+  const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+  fireEvent.change(input, { target: { value: 'Retry item' } })
+  fireEvent.submit(input.closest('form')!)
+
+  expect(await screen.findByText('shoppingList:quickAdd.failed')).toHaveAttribute('role', 'alert')
+  expect(input).toHaveValue('Retry item')
 })
 
 it('clears stale search state when the selected share changes', async () => {
   const { rerender } = render(<SharedShoppingList shareId="share-a" />)
   await screen.findByText('Shared milk')
-  fireEvent.change(screen.getByLabelText('shoppingList:search.label'), {
+  fireEvent.change(screen.getByLabelText('shoppingList:unifiedAdd.label'), {
     target: { value: 'special' }
   })
 
   rerender(<SharedShoppingList shareId="share-b" />)
 
   await waitFor(() => expect(getShoppingShare).toHaveBeenCalledWith('share-b', expect.any(AbortSignal)))
-  expect(await screen.findByLabelText('shoppingList:search.label')).toHaveValue('')
+  expect(await screen.findByLabelText('shoppingList:unifiedAdd.label')).toHaveValue('')
 })
 
 it('scopes the selected theme to the active authorized snapshot and clears it on failure', async () => {
@@ -117,7 +146,7 @@ it('scopes the selected theme to the active authorized snapshot and clears it on
   jest.mocked(getShoppingShare).mockRejectedValue(new Error('403'))
   await act(async () => { jest.advanceTimersByTime(5000) })
   await waitFor(() => expect(workspace).not.toHaveAttribute('data-shared-theme'))
-  expect(screen.queryByLabelText('shoppingList:search.label')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('shoppingList:unifiedAdd.label')).not.toBeInTheDocument()
 })
 
 it('keeps multiple participant avatars and theme controls in the responsive meta group', async () => {
