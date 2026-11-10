@@ -9,6 +9,7 @@
     "activeListLabel": "Currently viewing: {{listName}}",
     "newList": "+ New list",
     "deleteList": "🗑 Delete list",
+    "deletingList": "Deleting list…",
     "shareMissing": "📤 Share what's missing",
     "bulkUpload": "📥 Import list"
   },
@@ -78,6 +79,7 @@
   },
   "newListPrompt": "Name of the new list (e.g. party)",
   "deleteListConfirm": "Delete the list \"{{listName}}\" and all {{count}} items in it? This cannot be undone.",
+  "deleteListFailed": "We couldn't delete this list. It is still available; try again.",
   "share": {
     "permanentTitle": "Shopping list",
     "customTitle": "Shopping list – {{listName}}",

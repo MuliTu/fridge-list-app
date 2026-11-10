@@ -11,7 +11,8 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 // uses to hide this section entirely when it doesn't apply.
 export interface ListPickerActions {
   canEdit: boolean
-  isCustomList: boolean
+  canDeleteList: boolean
+  deletePending: boolean
   hasUnbought: boolean
   onCreateList: () => void
   onDeleteList: () => void
