@@ -5,6 +5,18 @@ const mockToggleCategory = jest.fn()
 const mockTogglePurchased = jest.fn()
 const mockSetBought = jest.fn().mockResolvedValue(undefined)
 const mockSetActions = jest.fn()
+const mockNavigate = jest.fn()
+const mockConfirm = jest.fn()
+const mockAlert = jest.fn()
+const mockDeleteCustomList = jest.fn()
+const mockLegacyDeleteGroceryList = jest.fn()
+let mockSearch: { list?: string } = {}
+let mockIsOwner = false
+let mockCanEdit = true
+let mockHousehold: { id: string } | null = { id: 'owner@example.com' }
+let mockUser: { email: string } | null = { email: 'owner@example.com' }
+let mockLanguage = 'en'
+let mockCollapsed = true
 const mockEntries: GroceryItem[] = [
   {
     key: 'milk',
@@ -32,17 +44,23 @@ const mockEntries: GroceryItem[] = [
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) =>
-      options ? `${key}:${JSON.stringify(options)}` : key,
-    i18n: { language: 'en' }
+    t: (key: string, options?: Record<string, unknown>) => {
+      if (key === 'shoppingList:deleteListConfirm') {
+        return mockLanguage === 'he'
+          ? `למחוק את הרשימה "${options?.listName}" וכל ${options?.count} הפריטים בה? לא ניתן לשחזר.`
+          : `Delete the list "${options?.listName}" and all ${options?.count} items in it? This cannot be undone.`
+      }
+      return options ? `${key}:${JSON.stringify(options)}` : key
+    },
+    i18n: { language: mockLanguage }
   })
 }))
 
 jest.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: Record<string, unknown>) => ({
     ...options,
-    useSearch: () => ({}),
-    useNavigate: () => jest.fn()
+    useSearch: () => mockSearch,
+    useNavigate: () => mockNavigate
   }),
   Link: ({ children }: { children: React.ReactNode }) => <a href="#test">{children}</a>
 }))
@@ -60,15 +78,15 @@ jest.mock('../hooks/BehaviorSettingsContext', () => ({
 }))
 jest.mock('../hooks/AuthContext', () => ({
   useAuth: () => ({
-    user: { email: 'owner@example.com' },
+    user: mockUser,
     onSignIn: jest.fn()
   })
 }))
 jest.mock('../hooks/ListContext', () => ({
   useActiveList: () => ({
-    canEdit: true,
-    isOwner: false,
-    activeList: { id: 'owner@example.com' }
+    canEdit: mockCanEdit,
+    isOwner: mockIsOwner,
+    activeList: mockHousehold
   }),
   useListApi: () => ({
     setBought: mockSetBought,
@@ -77,7 +95,7 @@ jest.mock('../hooks/ListContext', () => ({
     updateGroceryItemUrgency: jest.fn(),
     updateGroceryItemCategory: jest.fn(),
     findStockItemByName: jest.fn().mockResolvedValue(null),
-    deleteGroceryList: jest.fn()
+    deleteGroceryList: mockLegacyDeleteGroceryList
   })
 }))
 jest.mock('../hooks/GroceriesFeedContext', () => ({
@@ -85,9 +103,9 @@ jest.mock('../hooks/GroceriesFeedContext', () => ({
 }))
 jest.mock('../hooks/DialogServiceContext', () => ({
   useDialogService: () => ({
-    confirm: jest.fn(),
+    confirm: mockConfirm,
     prompt: jest.fn(),
-    alert: jest.fn()
+    alert: mockAlert
   })
 }))
 jest.mock('../hooks/ListPickerActionsContext', () => ({
@@ -110,7 +128,7 @@ jest.mock('../hooks/useCategories', () => ({
 }))
 jest.mock('../hooks/useCollapsedSections', () => ({
   useCollapsedSections: () => ({
-    isCollapsed: () => true,
+    isCollapsed: () => mockCollapsed,
     toggle: mockToggleCategory
   })
 }))
@@ -133,6 +151,9 @@ jest.mock('../lib/firebase', () => ({
 }))
 jest.mock('../client/api/groceries', () => ({
   createGroceryApiClient: () => ({ match: jest.fn() })
+}))
+jest.mock('../client/api/listManagement', () => ({
+  createListManagementApiClient: () => ({ deleteCustomList: mockDeleteCustomList })
 }))
 
 jest.mock('../components/UnifiedGrocerySearchAdd', () => ({
@@ -200,27 +221,51 @@ jest.mock('../components/ShoppingListItemRow', () => ({
   )
 }))
 
-jest.mock('../components/ListPicker', () => ({ __esModule: true, default: () => null }))
+jest.mock('../components/ListPicker', () => ({
+  __esModule: true,
+  default: ({ activeList, customLists }: { activeList: string | null; customLists: string[] }) => (
+    <div data-testid="list-picker" data-active-list={activeList ?? 'permanent'}>
+      {customLists.map((name) => <span key={name}>{name}</span>)}
+    </div>
+  )
+}))
 jest.mock('../components/ShoppingListSort', () => ({ __esModule: true, default: () => null }))
-jest.mock('../components/ListSharingBar', () => ({ __esModule: true, default: () => null }))
+jest.mock('../components/ListSharingBar', () => ({
+  __esModule: true,
+  default: ({ listName }: { listName: string | null }) => (
+    <div data-testid="list-owner-context" data-list-name={listName ?? 'permanent'} />
+  )
+}))
 jest.mock('../components/SharedShoppingLists', () => ({
   __esModule: true,
   default: () => null,
   SharedShoppingListsNavigation: () => null
 }))
-jest.mock('../components/ItemDetailModal', () => ({ __esModule: true, default: () => null }))
+jest.mock('../components/ItemDetailModal', () => ({
+  __esModule: true,
+  default: ({ entry }: { entry: GroceryItem }) => <div data-testid="selected-entry">{entry.item}</div>
+}))
 jest.mock('../components/GroceryItemModal', () => ({ __esModule: true, default: () => null }))
 jest.mock('../components/BulkUploadModal', () => ({ __esModule: true, default: () => null }))
 jest.mock('../components/RestockPrompt', () => ({ __esModule: true, default: () => null }))
 jest.mock('../components/ListSkeleton', () => ({ __esModule: true, default: () => null }))
 
 import { ShoppingListPage } from './index'
+import { ListPickerManagementActions } from '../components/ListPickerManagementActions'
+import type { ListPickerActions } from '../hooks/ListPickerActionsContext'
 
 const renderPage = () => render(<ShoppingListPage />)
 
 describe('ShoppingListPage unified in-place filtering', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearch = {}
+    mockIsOwner = false
+    mockCanEdit = true
+    mockHousehold = { id: 'owner@example.com' }
+    mockUser = { email: 'owner@example.com' }
+    mockLanguage = 'en'
+    mockCollapsed = true
   })
 
   it.each([
@@ -278,5 +323,189 @@ describe('ShoppingListPage unified in-place filtering', () => {
       expect.objectContaining({ email: 'owner@example.com' })
     ))
     expect(screen.getByRole('button', { name: 'edit-milk' })).toBeEnabled()
+  })
+})
+
+describe('ShoppingListPage verified custom-list deletion', () => {
+  const tripEntries: GroceryItem[] = [
+    { ...mockEntries[0], key: 'trip-milk', list_name: 'Weekend trip' },
+    { ...mockEntries[1], key: 'trip-bread', list_name: 'Weekend trip' }
+  ]
+
+  const renderEligiblePage = async () => {
+    mockSearch = { list: 'Weekend trip' }
+    mockIsOwner = true
+    mockEntries.splice(0, mockEntries.length, ...tripEntries)
+    const view = renderPage()
+    await waitFor(() => expect(mockSetActions).toHaveBeenCalled())
+    return {
+      view,
+      actions: mockSetActions.mock.calls.at(-1)?.[0] as {
+        canDeleteList: boolean
+        deletePending: boolean
+        onDeleteList: () => Promise<void>
+      }
+    }
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockSearch = {}
+    mockIsOwner = false
+    mockCanEdit = true
+    mockHousehold = { id: 'owner@example.com' }
+    mockUser = { email: 'owner@example.com' }
+    mockLanguage = 'en'
+    mockCollapsed = true
+  })
+
+  afterEach(() => {
+    mockEntries.splice(0, mockEntries.length,
+      { key: 'milk', item: 'Milk', category: 'Dairy', bought: false, urgency: 'urgent', added_at: '2026-01-01T00:00:00.000Z' },
+      { key: 'bread', item: 'Bread', category: 'Bakery', bought: false, added_at: '2026-01-01T00:00:00.000Z' },
+      { key: 'eggs', item: 'Eggs', category: 'Dairy', bought: true, added_at: '2026-01-01T00:00:00.000Z' }
+    )
+  })
+
+  it.each([
+    ['owner, last custom list with permanent fallback', true, true, true, true],
+    ['shared editor', false, true, true, false],
+    ['signed-out actor', true, false, true, false],
+    ['unrelated actor without a household', true, true, false, false],
+    ['permanent list', true, true, true, false]
+  ])('presents deletion correctly for %s', async (_case, owner, signedIn, household, expected) => {
+    mockIsOwner = owner
+    mockUser = signedIn ? { email: 'owner@example.com' } : null
+    mockHousehold = household ? { id: 'owner@example.com' } : null
+    mockSearch = { list: _case === 'permanent list' ? undefined : 'Weekend trip' }
+    mockEntries.splice(0, mockEntries.length, ...tripEntries)
+    renderPage()
+    await waitFor(() => expect(mockSetActions).toHaveBeenCalled())
+    const actions = mockSetActions.mock.calls.at(-1)?.[0] as ListPickerActions
+    render(
+      <ListPickerManagementActions
+        actions={actions}
+        itemClassName="item"
+        sectionLabelClassName="label"
+        dividerClassName="divider"
+        runAfterSidebarCloses={(action) => action()}
+      />
+    )
+    expect(actions.canDeleteList).toBe(expected)
+    expect(Boolean(screen.queryByRole('button', { name: 'shoppingList:listPicker.deleteList' }))).toBe(expected)
+    if (_case === 'shared editor') expect(actions.canEdit).toBe(true)
+  })
+
+  it('hides deletion in the sidebar when no selectable fallback remains', () => {
+    const actions: ListPickerActions = {
+      canEdit: true,
+      canDeleteList: false,
+      deletePending: false,
+      hasUnbought: false,
+      onCreateList: jest.fn(),
+      onDeleteList: jest.fn(),
+      onShareMissing: jest.fn(),
+      onBulkUpload: jest.fn()
+    }
+    render(
+      <ListPickerManagementActions
+        actions={actions}
+        itemClassName="item"
+        sectionLabelClassName="label"
+        dividerClassName="divider"
+        runAfterSidebarCloses={(action) => action()}
+      />
+    )
+    expect(screen.queryByRole('button', { name: 'shoppingList:listPicker.deleteList' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', 'Delete the list "Weekend trip" and all 2 items'],
+    ['he', 'למחוק את הרשימה "Weekend trip" וכל 2 הפריטים']
+  ])('identifies the list and item count in the %s confirmation', async (language, expected) => {
+    mockLanguage = language
+    mockConfirm.mockResolvedValue(false)
+    const { actions } = await renderEligiblePage()
+
+    await act(() => actions.onDeleteList())
+
+    expect(actions.canDeleteList).toBe(true)
+    expect(mockConfirm).toHaveBeenCalledWith(expect.stringContaining(expected))
+    expect(mockDeleteCustomList).not.toHaveBeenCalled()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('allows only one request while a confirmed deletion is pending', async () => {
+    let resolveDeletion!: (value: { deletedItems: number }) => void
+    mockConfirm.mockResolvedValue(true)
+    mockDeleteCustomList.mockReturnValue(new Promise((resolve) => { resolveDeletion = resolve }))
+    const { actions } = await renderEligiblePage()
+
+    const first = actions.onDeleteList()
+    const second = actions.onDeleteList()
+    await waitFor(() => expect(mockDeleteCustomList).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mockSetActions.mock.calls.at(-1)?.[0].deletePending).toBe(true))
+    render(
+      <ListPickerManagementActions
+        actions={mockSetActions.mock.calls.at(-1)?.[0] as ListPickerActions}
+        itemClassName="item"
+        sectionLabelClassName="label"
+        dividerClassName="divider"
+        runAfterSidebarCloses={(action) => action()}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'shoppingList:listPicker.deletingList' })).toBeDisabled()
+
+    resolveDeletion({ deletedItems: 2 })
+    await act(async () => { await Promise.all([first, second]) })
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves the active view and exposes a recoverable error when deletion fails', async () => {
+    mockConfirm.mockResolvedValue(true)
+    mockDeleteCustomList.mockRejectedValue(new Error('network unavailable'))
+    mockAlert.mockResolvedValue(undefined)
+    const { actions } = await renderEligiblePage()
+
+    await act(() => actions.onDeleteList())
+
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(mockLegacyDeleteGroceryList).not.toHaveBeenCalled()
+    expect(mockAlert).toHaveBeenCalledWith('shoppingList:deleteListFailed')
+    expect(screen.getByRole('region', { name: 'Dairy' })).toBeInTheDocument()
+    expect(mockSetActions.mock.calls.at(-1)?.[0].canDeleteList).toBe(true)
+    await waitFor(() => expect(mockSetActions.mock.calls.at(-1)?.[0].deletePending).toBe(false))
+  })
+
+  it('removes deleted list, selection, owner context, and items before the realtime feed refreshes', async () => {
+    mockConfirm.mockResolvedValue(true)
+    mockDeleteCustomList.mockResolvedValue({ deletedItems: 2 })
+    mockCollapsed = false
+    const { actions, view } = await renderEligiblePage()
+    fireEvent.click(screen.getByRole('button', { name: 'edit-trip-milk' }))
+    expect(screen.getByTestId('selected-entry')).toHaveTextContent('Milk')
+    expect(screen.getByTestId('list-picker')).toHaveAttribute('data-active-list', 'Weekend trip')
+    expect(screen.getByTestId('list-owner-context')).toHaveAttribute('data-list-name', 'Weekend trip')
+
+    await act(() => actions.onDeleteList())
+
+    expect(mockDeleteCustomList).toHaveBeenCalledWith('owner_example_com', 'Weekend trip')
+    expect(mockLegacyDeleteGroceryList).not.toHaveBeenCalled()
+    expect(mockNavigate).toHaveBeenCalledWith({ search: { list: undefined } })
+    // The feed deliberately still contains the deleted rows. The UI must not
+    // display them or offer the deleted list while awaiting its next snapshot.
+    expect(mockEntries).toHaveLength(2)
+    expect(screen.getByTestId('list-picker')).toHaveAttribute('data-active-list', 'permanent')
+    expect(screen.getByTestId('list-picker')).not.toHaveTextContent('Weekend trip')
+    expect(screen.getByTestId('list-owner-context')).toHaveAttribute('data-list-name', 'permanent')
+    expect(screen.queryByTestId('selected-entry')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('canonical-row-trip-milk')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('canonical-row-trip-bread')).not.toBeInTheDocument()
+
+    mockSearch = {}
+    mockEntries.splice(0, mockEntries.length)
+    view.rerender(<ShoppingListPage />)
+    expect(screen.getByTestId('list-picker')).toHaveAttribute('data-active-list', 'permanent')
+    expect(screen.getByTestId('list-picker')).not.toHaveTextContent('Weekend trip')
   })
 })

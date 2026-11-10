@@ -9,6 +9,7 @@
     "activeListLabel": "מציגים כעת: {{listName}}",
     "newList": "+ רשימה חדשה",
     "deleteList": "🗑 מחיקת הרשימה",
+    "deletingList": "הרשימה נמחקת…",
     "shareMissing": "📤 שיתוף מה חסר",
     "bulkUpload": "📥 ייבוא רשימה"
   },
@@ -78,6 +79,7 @@
   },
   "newListPrompt": "שם הרשימה החדשה (למשל: מסיבה)",
   "deleteListConfirm": "למחוק את הרשימה \"{{listName}}\" וכל {{count}} הפריטים בה? לא ניתן לשחזר.",
+  "deleteListFailed": "לא הצלחנו למחוק את הרשימה. היא עדיין זמינה ואפשר לנסות שוב.",
   "share": {
     "permanentTitle": "רשימת קניות",
     "customTitle": "רשימת קניות – {{listName}}",

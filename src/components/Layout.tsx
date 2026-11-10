@@ -32,6 +32,7 @@ import { WorkspaceNavigation } from './WorkspaceNavigation'
 import { DuplicateReviewBell } from './DuplicateReviewBell'
 import { BehaviorSettingsProvider, useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 import { SettingsModal } from './SettingsModal'
+import { ListPickerManagementActions } from './ListPickerManagementActions'
 
 // Shared Tailwind utility strings for sidebar rows — kept as constants rather than
 // repeating the same long className string at every call site below.
@@ -244,44 +245,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   )}
 
                   {listPickerActions && (
-                    <>
-                      <div className={sidebarDividerClass} />
-                      <div className={sidebarSectionLabelClass}>
-                        {t('shoppingList:listPicker.sectionLabel')}
-                      </div>
-                      {listPickerActions.canEdit && (
-                        <button
-                          className={sidebarItemClass}
-                          onClick={() => runAfterSidebarCloses(listPickerActions.onCreateList)}
-                        >
-                          {t('shoppingList:listPicker.newList')}
-                        </button>
-                      )}
-                      {listPickerActions.canEdit && (
-                        <button
-                          className={sidebarItemClass}
-                          onClick={() => runAfterSidebarCloses(listPickerActions.onBulkUpload)}
-                        >
-                          {t('shoppingList:listPicker.bulkUpload')}
-                        </button>
-                      )}
-                      {listPickerActions.hasUnbought && (
-                        <button
-                          className={sidebarItemClass}
-                          onClick={() => runAfterSidebarCloses(listPickerActions.onShareMissing)}
-                        >
-                          {t('shoppingList:listPicker.shareMissing')}
-                        </button>
-                      )}
-                      {listPickerActions.canEdit && listPickerActions.isCustomList && (
-                        <button
-                          className={sidebarItemClass}
-                          onClick={() => runAfterSidebarCloses(listPickerActions.onDeleteList)}
-                        >
-                          {t('shoppingList:listPicker.deleteList')}
-                        </button>
-                      )}
-                    </>
+                    <ListPickerManagementActions
+                      actions={listPickerActions}
+                      itemClassName={sidebarItemClass}
+                      sectionLabelClassName={sidebarSectionLabelClass}
+                      dividerClassName={sidebarDividerClass}
+                      runAfterSidebarCloses={runAfterSidebarCloses}
+                    />
                   )}
 
                   <div className={sidebarDividerClass} />

@@ -45,9 +45,12 @@ import type { GroceryItem, StockItem } from '../types'
 import ListSharingBar from '../components/ListSharingBar'
 import SharedShoppingList, { SharedShoppingListsNavigation } from '../components/SharedShoppingLists'
 import { createGroceryApiClient } from '../client/api/groceries'
+import { createListManagementApiClient } from '../client/api/listManagement'
+import { canDeleteActiveCustomList } from '../lib/listDeletionEligibility'
 
 const PERMANENT_LIST = null
 const groceryApiClient = createGroceryApiClient({ getIdToken: getCurrentUserIdToken })
+const listManagementApiClient = createListManagementApiClient({ getIdToken: getCurrentUserIdToken })
 const requestSemanticMatches = (listId: string, query: string, signal?: AbortSignal) =>
   groceryApiClient.match(listId, query, signal)
 
@@ -71,10 +74,16 @@ export function ShoppingListPage() {
   const { t, i18n } = useTranslation()
   const { list } = Route.useSearch()
   const navigate = Route.useNavigate()
-  const activeList = list || PERMANENT_LIST
+  const [deletedList, setDeletedList] = useState<{ householdId: string; name: string } | null>(null)
 
   const { user, onSignIn } = useAuth()
   const { canEdit, isOwner, activeList: household } = useActiveList()
+  // The realtime feed can lag behind the successful command. Keep the deleted
+  // name and its rows out of this household's UI until a fresh snapshot drops it.
+  const suppressedList = deletedList && household && deletedList.householdId === household.id
+    ? deletedList.name
+    : null
+  const activeList = list === suppressedList ? PERMANENT_LIST : list || PERMANENT_LIST
   const listApi = useListApi()
   const { entries: allEntries, isLoading } = useGroceriesFeed()
   const { confirm, prompt, alert } = useDialogService()
@@ -91,6 +100,8 @@ export function ShoppingListPage() {
   const [addModalInitialName, setAddModalInitialName] = useState<string | undefined>(undefined)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
+  const deleteInFlightRef = useRef(false)
   const pendingItemNamesRef = useRef(new Set<string>())
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
@@ -110,11 +121,29 @@ export function ShoppingListPage() {
   const { categories, categoryMap } = useCategories()
   const { keepBoughtItemsInCategories } = useBoughtItemsPreference()
 
-  const customListNames = new Set(allEntries.map((e) => e.list_name).filter(Boolean) as string[])
+  const currentEntries = suppressedList
+    ? allEntries.filter((entry) => entry.list_name !== suppressedList)
+    : allEntries
+  const customListNames = new Set(currentEntries.map((e) => e.list_name).filter(Boolean) as string[])
   if (activeList) customListNames.add(activeList)
   const sortedCustomLists = [...customListNames].sort((a, b) => a.localeCompare(b, 'he'))
+  const remainingSelectableListCount = 1 + sortedCustomLists.filter((name) => name !== activeList).length
+  const deleteEligible = Boolean(household) && canDeleteActiveCustomList({
+    authenticated: Boolean(user),
+    isOwner,
+    activeListName: activeList,
+    remainingSelectableListCount,
+    pending: false
+  })
 
-  const visibleEntries = allEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
+  const visibleEntries = currentEntries.filter((e) => (e.list_name || PERMANENT_LIST) === activeList)
+
+  useEffect(() => {
+    if (suppressedList && list !== suppressedList &&
+      !allEntries.some((entry) => entry.list_name === suppressedList)) {
+      setDeletedList(null)
+    }
+  }, [allEntries, list, suppressedList])
   const uncheckedCountByCategory = visibleEntries.reduce<Record<string, number>>(
     (counts, entry) => {
       if (entry.bought) return counts
@@ -301,11 +330,33 @@ export function ShoppingListPage() {
   }
 
   const handleDeleteList = async () => {
+    if (!deleteEligible || deletePending || !household || !activeList || deleteInFlightRef.current) return
+    deleteInFlightRef.current = true
     const count = visibleEntries.length
-    if (!(await confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count }))))
+    if (!(await confirm(t('shoppingList:deleteListConfirm', { listName: activeList, count })))) {
+      deleteInFlightRef.current = false
       return
-    listApi.deleteGroceryList(activeList)
-    navigate({ search: { list: undefined } })
+    }
+    setDeletePending(true)
+    try {
+      await listManagementApiClient.deleteCustomList(sanitizeEmailKey(household.id), activeList)
+      setDeletedList({ householdId: household.id, name: activeList })
+      setSelectedEntry(null)
+      setRestockTarget(null)
+      setShowAddGrocery(false)
+      setShowBulkUpload(false)
+      for (const key of pendingItemNamesRef.current) {
+        if (key.startsWith(`${activeList}::`)) pendingItemNamesRef.current.delete(key)
+      }
+      setSearch('')
+      setSemanticFilter({ listId: '', query: '', matchIds: [] })
+      navigate({ search: { list: undefined } })
+    } catch {
+      await alert(t('shoppingList:deleteListFailed'))
+    } finally {
+      deleteInFlightRef.current = false
+      setDeletePending(false)
+    }
   }
 
   const handleShareMissing = () => {
@@ -333,7 +384,8 @@ export function ShoppingListPage() {
   useEffect(() => {
     setListPickerActions({
       canEdit,
-      isCustomList: activeList !== PERMANENT_LIST,
+      canDeleteList: deleteEligible,
+      deletePending,
       hasUnbought: visibleEntries.some((e) => !e.bought),
       onCreateList: handleCreateList,
       onDeleteList: handleDeleteList,
@@ -344,7 +396,7 @@ export function ShoppingListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers close over
     // activeList/visibleEntries/canEdit already listed below; re-registering on
     // every render would be harmless but pointless churn through the context.
-  }, [activeList, canEdit, visibleEntries.length])
+  }, [activeList, canEdit, deleteEligible, deletePending, household, isOwner, remainingSelectableListCount, user, visibleEntries.length])
 
   const renderItem = (entry: GroceryItem) => (
     <ShoppingListItemRow
