@@ -4,6 +4,7 @@ import { categorizeItem } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import { NO_UNIT, OTHER_UNIT, UNIT_PRESETS, resolveQuantityUnit } from '../lib/units'
+import { useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 import type { Category } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
@@ -44,6 +45,7 @@ export default function GroceryItemModal({
   onAddCategory
 }: GroceryItemModalProps) {
   const { t, i18n } = useTranslation()
+  const { settings: { showQuantityOnAdd } } = useBehaviorSettings()
   const [name, setName] = useState(initialName ?? '')
   const [quantityText, setQuantityText] = useState('')
   const [unit, setUnit] = useState<string>(NO_UNIT)
@@ -61,7 +63,9 @@ export default function GroceryItemModal({
       return
     }
 
-    const resolved = resolveQuantityUnit({ quantityText, unit, customUnit })
+    const resolved = showQuantityOnAdd
+      ? resolveQuantityUnit({ quantityText, unit, customUnit })
+      : { quantity: null, unit: null, error: null }
     if (resolved.error) {
       setError(t(`common:quantityUnit.${resolved.error}`))
       return
@@ -127,42 +131,46 @@ export default function GroceryItemModal({
           onChange={(e) => setName(e.target.value)}
         />
 
-        <div className="modal-input-row">
-          <Label>
-            {t('stock:editModal.quantity')}
-            <Input
-              type="number"
-              min="0"
-              step="any"
-              value={quantityText}
-              onChange={(e) => setQuantityText(e.target.value)}
-            />
-          </Label>
-          <Label>
-            {t('stock:editModal.unit')}
-            <Select value={unit} onValueChange={setUnit}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_UNIT}>{t('common:quantityUnit.noUnit')}</SelectItem>
-                {UNIT_PRESETS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-                <SelectItem value={OTHER_UNIT}>{t('stock:editModal.otherUnit')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Label>
-        </div>
+        {showQuantityOnAdd && (
+          <>
+            <div className="modal-input-row">
+              <Label>
+                {t('stock:editModal.quantity')}
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={quantityText}
+                  onChange={(e) => setQuantityText(e.target.value)}
+                />
+              </Label>
+              <Label>
+                {t('stock:editModal.unit')}
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_UNIT}>{t('common:quantityUnit.noUnit')}</SelectItem>
+                    {UNIT_PRESETS.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={OTHER_UNIT}>{t('stock:editModal.otherUnit')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Label>
+            </div>
 
-        {unit === OTHER_UNIT && (
-          <Input
-            placeholder={t('stock:editModal.customUnitPlaceholder')}
-            value={customUnit}
-            onChange={(e) => setCustomUnit(e.target.value)}
-          />
+            {unit === OTHER_UNIT && (
+              <Input
+                placeholder={t('stock:editModal.customUnitPlaceholder')}
+                value={customUnit}
+                onChange={(e) => setCustomUnit(e.target.value)}
+              />
+            )}
+          </>
         )}
 
         {error && <div className="text-sm text-destructive">{error}</div>}

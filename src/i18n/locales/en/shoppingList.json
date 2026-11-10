@@ -183,6 +183,7 @@
     "flat": "Simple list",
     "urgent": "Show urgent items at the top",
     "chef": "Show Chef",
+    "quantityOnAdd": "Show quantity and unit when adding an item",
     "saveFailed": "Could not save preferences. Your changes apply until this page is closed.",
     "holdImmediate": "The item is marked immediately after one second, without an additional countdown.",
     "countdownDisabled": "The countdown is inactive in long-press mode."
