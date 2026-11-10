@@ -1,12 +1,13 @@
-import { useId, type CSSProperties, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
 
-interface CategorySectionProps {
+type CategorySectionProps = {
   name: string
   color: string
   icon: string
   uncheckedCount?: number
   uncheckedCountLabel?: string
   collapsed: boolean
+  searchQuery?: string
   onToggle: () => void
   children: ReactNode
   dragOver?: boolean
@@ -22,6 +23,7 @@ export default function CategorySection({
   uncheckedCount,
   uncheckedCountLabel,
   collapsed,
+  searchQuery = '',
   onToggle,
   children,
   dragOver = false,
@@ -30,6 +32,20 @@ export default function CategorySection({
   onDrop
 }: CategorySectionProps) {
   const contentId = useId()
+  const collapseTrigger = useRef<HTMLButtonElement | null>(null)
+  const [searchCollapsed, setSearchCollapsed] = useState(false)
+  const contentCollapsed = searchQuery ? searchCollapsed : collapsed
+
+  useEffect(() => {
+    setSearchCollapsed(false)
+  }, [searchQuery])
+
+  useLayoutEffect(() => {
+    const trigger = collapseTrigger.current
+    collapseTrigger.current = null
+    // A pinned heading can leave the scrollport when its section shrinks.
+    if (contentCollapsed) trigger?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [contentCollapsed])
 
   return (
     <div
@@ -43,8 +59,16 @@ export default function CategorySection({
         <button
           type="button"
           className="flat-section-header"
-          onClick={onToggle}
-          aria-expanded={!collapsed}
+          onClick={event => {
+            const trigger = event.currentTarget
+            const heading = trigger.parentElement
+            if (!contentCollapsed && heading && getComputedStyle(heading).position === 'sticky') {
+              collapseTrigger.current = trigger
+            }
+            if (searchQuery) setSearchCollapsed(previous => !previous)
+            else onToggle()
+          }}
+          aria-expanded={!contentCollapsed}
           aria-controls={contentId}
         >
           <span className="category-accent" aria-hidden="true" />
@@ -55,10 +79,10 @@ export default function CategorySection({
               {uncheckedCount}
             </span>
           )}
-          <span className={`chevron${collapsed ? ' collapsed' : ''}`} aria-hidden="true">⌄</span>
+          <span className={`chevron${contentCollapsed ? ' collapsed' : ''}`} aria-hidden="true">⌄</span>
         </button>
       </h2>
-      {!collapsed && <ul id={contentId} className="items">{children}</ul>}
+      {!contentCollapsed && <ul id={contentId} className="items">{children}</ul>}
     </div>
   )
 }

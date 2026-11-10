@@ -521,7 +521,8 @@ export function ShoppingListPage() {
                   uncheckedCountLabel={t('shoppingList:category.uncheckedCount', {
                     count: uncheckedCountByCategory[name] || 0
                   })}
-                  collapsed={query ? false : isCollapsed(name)}
+                  collapsed={isCollapsed(name)}
+                  searchQuery={query}
                   onToggle={() => toggle(name)}
                   dragOver={dragOverCategory === name}
                   onDragOver={canEdit ? handleDragOverCategory(name) : undefined}
@@ -538,7 +539,8 @@ export function ShoppingListPage() {
                   name={t('shoppingList:purchased.sectionLabel', { count: purchasedCount })}
                   color="#8ee6a8"
                   icon="✓"
-                  collapsed={query && searchedPurchasedEntries.length > 0 ? false : !showPurchased}
+                  collapsed={!showPurchased}
+                  searchQuery={query}
                   onToggle={toggleShowPurchased}
                 >
                   {searchedPurchasedEntries.map(renderItem)}

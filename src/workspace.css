@@ -404,6 +404,13 @@ textarea {
   border-radius: 0;
   background: transparent;
 }
+.shopping-list-scroll > .flat-section > .flat-section-heading,
+.shared-list-categories > .flat-section > .flat-section-heading {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  background: var(--surface);
+}
 .shopping-primary .flat-section-header {
   padding: 12px 0 6px;
   min-height: 44px;

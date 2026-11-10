@@ -182,26 +182,6 @@ jest.mock('../components/UnifiedGrocerySearchAdd', () => ({
   }
 }))
 
-jest.mock('../components/CategorySection', () => ({
-  __esModule: true,
-  default: ({
-    name,
-    collapsed,
-    onToggle,
-    children
-  }: {
-    name: string
-    collapsed: boolean
-    onToggle: () => void
-    children: React.ReactNode
-  }) => (
-    <section aria-label={name} data-collapsed={String(collapsed)}>
-      <button aria-label={`toggle-${name}`} onClick={onToggle}>toggle</button>
-      {!collapsed && <ul>{children}</ul>}
-    </section>
-  )
-}))
-
 jest.mock('../components/ShoppingListItemRow', () => ({
   __esModule: true,
   default: ({
@@ -293,8 +273,8 @@ describe('ShoppingListPage unified in-place filtering', () => {
       fireEvent.click(screen.getByRole('button', { name: 'similar' }))
     })
 
-    const section = screen.getByRole('region', { name: 'Bakery' })
-    expect(section).toHaveAttribute('data-collapsed', 'false')
+    const section = screen.getByRole('button', { name: /^Bakery/ })
+    expect(section).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('canonical-row-bread')).toBeInTheDocument()
     expect(mockToggleCategory).not.toHaveBeenCalled()
   })
@@ -306,8 +286,8 @@ describe('ShoppingListPage unified in-place filtering', () => {
       fireEvent.click(screen.getByRole('button', { name: 'purchased' }))
     })
 
-    const purchased = screen.getByRole('region', { name: /shoppingList:purchased.sectionLabel/ })
-    expect(purchased).toHaveAttribute('data-collapsed', 'false')
+    const purchased = screen.getByRole('button', { name: /shoppingList:purchased.sectionLabel/ })
+    expect(purchased).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('canonical-row-eggs')).toBeInTheDocument()
     expect(mockTogglePurchased).not.toHaveBeenCalled()
   })
@@ -472,7 +452,7 @@ describe('ShoppingListPage verified custom-list deletion', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
     expect(mockLegacyDeleteGroceryList).not.toHaveBeenCalled()
     expect(mockAlert).toHaveBeenCalledWith('shoppingList:deleteListFailed')
-    expect(screen.getByRole('region', { name: 'Dairy' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Dairy/ })).toBeInTheDocument()
     expect(mockSetActions.mock.calls.at(-1)?.[0].canDeleteList).toBe(true)
     await waitFor(() => expect(mockSetActions.mock.calls.at(-1)?.[0].deletePending).toBe(false))
   })

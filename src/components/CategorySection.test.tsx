@@ -30,6 +30,35 @@ describe('CategorySection', () => {
     expect(screen.queryByText('תפוח')).not.toBeInTheDocument()
   })
 
+  it('opens search matches without saving changes to the normal collapse preference', async () => {
+    const onToggle = jest.fn()
+    const user = userEvent.setup()
+    const section = (searchQuery = '') => (
+      <CategorySection name="Dairy" color="#84cc16" icon="🥛" collapsed searchQuery={searchQuery} onToggle={onToggle}>
+        <li>Milk</li>
+      </CategorySection>
+    )
+    const { rerender } = render(section())
+    const trigger = screen.getByRole('button', { name: 'Dairy' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    rerender(section('milk'))
+    expect(screen.getByText('Milk')).toBeVisible()
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(onToggle).not.toHaveBeenCalled()
+
+    rerender(section('mi'))
+    expect(screen.getByText('Milk')).toBeVisible()
+    rerender(section())
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    rerender(section('milk'))
+    expect(screen.getByText('Milk')).toBeVisible()
+    rerender(section())
+    await user.click(trigger)
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
   it('shows the unchecked item counter in the category header', () => {
     render(
       <CategorySection
