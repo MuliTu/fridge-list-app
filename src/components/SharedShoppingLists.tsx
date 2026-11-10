@@ -146,16 +146,18 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
             <h2>{snapshot.name || t('sharing.permanentList')}</h2>
             <p>{t('sharing.sharedBy', { name: snapshot.owner.displayName })}</p>
           </div>
-          <ListMemberAvatars members={[snapshot.owner, ...snapshot.members]} />
-          <label className="shared-theme-picker">{t('sharing.theme')}
-            <select value={theme} onChange={event => {
-              const next = event.target.value
-              setTheme(next)
-              try { localStorage.setItem(themeKey, next) } catch { /* Session choice still applies. */ }
-            }}>
-              {['blue', 'purple', 'green'].map(color => <option key={color} value={color}>{t(`sharing.themeColors.${color}`)}</option>)}
-            </select>
-          </label>
+          <div className="shared-list-meta">
+            <ListMemberAvatars members={[snapshot.owner, ...snapshot.members]} />
+            <label className="shared-theme-picker">{t('sharing.theme')}
+              <select value={theme} onChange={event => {
+                const next = event.target.value
+                setTheme(next)
+                try { localStorage.setItem(themeKey, next) } catch { /* Session choice still applies. */ }
+              }}>
+                {['blue', 'purple', 'green'].map(color => <option key={color} value={color}>{t(`sharing.themeColors.${color}`)}</option>)}
+              </select>
+            </label>
+          </div>
         </header>
         <ShoppingListSearch value={search} onChange={setSearch} />
         <QuickAddBar aiAvailable={false} onAdd={async name => mutate({ operation: 'add', item: { name } })} />
