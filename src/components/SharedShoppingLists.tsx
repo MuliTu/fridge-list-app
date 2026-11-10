@@ -140,14 +140,14 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
       {!snapshot && !failed && <p role="status">{t('sharing.loading')}</p>}
       {snapshot && <>
         <header className="shared-list-banner" aria-label={t('sharing.sharedList')}>
-          <div>
+          <div className="shared-list-identity">
             <p className="shared-list-eyebrow">{t('sharing.sharedWithMe')}</p>
             <h2>{snapshot.name || t('sharing.permanentList')}</h2>
             <p>{t('sharing.sharedBy', { name: snapshot.owner.displayName })}</p>
           </div>
           <div className="shared-list-meta">
             <ListMemberAvatars members={[snapshot.owner, ...snapshot.members]} />
-            <label className="shared-theme-picker">{t('sharing.theme')}
+            <label className="shared-theme-picker"><span className="shared-theme-label">{t('sharing.theme')}</span>
               <select value={theme} onChange={event => {
                 const next = event.target.value
                 setTheme(next)

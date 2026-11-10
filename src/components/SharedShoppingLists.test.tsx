@@ -161,7 +161,7 @@ it('keeps multiple participant avatars and theme controls in the responsive meta
   await screen.findByText('Shared milk')
 
   const banner = container.querySelector('.shared-list-banner')
-  const identity = banner?.firstElementChild
+  const identity = banner?.querySelector('.shared-list-identity')
   const controls = banner?.querySelector('.shared-list-meta')
   const avatars = controls?.querySelector('.list-member-avatars')
 
@@ -170,4 +170,5 @@ it('keeps multiple participant avatars and theme controls in the responsive meta
   expect(avatars?.children).toHaveLength(6)
   expect(avatars).toHaveTextContent('+4')
   expect(controls).toContainElement(screen.getByLabelText('sharing.theme'))
+  expect(controls?.querySelector('.shared-theme-label')).toHaveTextContent('sharing.theme')
 })
