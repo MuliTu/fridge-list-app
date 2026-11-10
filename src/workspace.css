@@ -1918,6 +1918,29 @@ textarea {
 .behavior-options label:has(:focus-visible) { outline: 2px solid var(--brand-accent); outline-offset: 3px; }
 .behavior-hint { margin: 10px 0 0; color: var(--chalk-dim); font-size: 12px; line-height: 1.6; }
 .behavior-control.is-disabled { opacity: .6; }
+.settings-dialog { min-height: min(560px, 85vh); }
+.settings-header { position: relative; min-height: 54px; padding-inline-start: 48px; padding-inline-end: 36px; justify-content: center; }
+.settings-header > div { min-width: 0; }
+.settings-back { position: absolute; inset-inline-start: 0; top: 2px; }
+.settings-sections { display: grid; gap: 8px; margin-top: 8px; }
+.settings-section-button { display: flex; min-height: 68px; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-alpha); border-radius: 12px; background: var(--surface); color: var(--chalk); font: inherit; text-align: start; cursor: pointer; }
+.settings-section-button:hover { background: var(--surface-hover); }
+.settings-section-button:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
+.settings-section-button > span { display: grid; min-width: 0; gap: 4px; }
+.settings-section-button strong { font-size: 15px; font-weight: 500; }
+.settings-section-button small { color: var(--chalk-dim); font-size: 12px; line-height: 1.5; }
+.settings-section-button > svg { width: 18px; flex-shrink: 0; color: var(--chalk-dim); }
+.settings-choice-group { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; border: 0; }
+.settings-choice-group legend { margin-bottom: 4px; color: var(--chalk-dim); font-size: 13px; }
+.settings-choice-group label { position: relative; display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-alpha); border-radius: 12px; background: var(--surface); cursor: pointer; }
+.settings-choice-group label:has(:checked) { border-color: var(--brand-accent); background: var(--accent-soft); }
+.settings-choice-group input { width: 22px; height: 22px; accent-color: var(--brand-accent); }
+.settings-preferences { display: grid; }
+@media (max-width: 480px) {
+  .settings-dialog { min-height: min(620px, 85vh); }
+  .settings-header { padding-inline-end: 30px; }
+  .settings-section-button { min-height: 64px; }
+}
 .mobile-picker-trigger { min-height: 46px; height: auto; padding: 10px 12px; gap: 12px; border-radius: 10px; text-align: start; background: var(--surface); color: var(--chalk); font-size: 16px; }
 .mobile-picker-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-picker-trigger > svg { flex-shrink: 0; }
