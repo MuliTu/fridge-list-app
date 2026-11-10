@@ -2,6 +2,7 @@ import '@tanstack/react-start/server-only'
 
 import { END, START, StateGraph } from '@langchain/langgraph'
 import { z } from 'zod'
+import type { RunnableConfig } from '@langchain/core/runnables'
 import {
   aiAssistantRequestSchema,
   aiAssistantResultSchema,
@@ -11,7 +12,7 @@ import { groundAiResult, retrieveAiContext, type RetrievedAiContext } from '../a
 import type { AiRequestResponseLoggingMiddleware } from './aiRequestResponseMiddleware.server'
 
 export interface AiAnalyzer {
-  analyze(context: RetrievedAiContext): Promise<AiAssistantResult>
+  analyze(context: RetrievedAiContext, signal?: AbortSignal): Promise<AiAssistantResult>
 }
 
 const RetrievedAiContextSchema = aiAssistantRequestSchema.extend({
@@ -42,10 +43,10 @@ export const createAiAssistantGraph = (
     .addNode('middleware_request', (state) => ({
       middlewareStartedAt: middleware.logRequest(state.context)
     }))
-    .addNode('analyze', async (state) => {
+    .addNode('analyze', async (state, config: RunnableConfig) => {
       try {
         return {
-          result: groundAiResult(await analyzer.analyze(state.context), state.context)
+          result: groundAiResult(await analyzer.analyze(state.context, config.signal), state.context)
         }
       } catch (error) {
         middleware.logFailure(state.context.mode, error, state.middlewareStartedAt)

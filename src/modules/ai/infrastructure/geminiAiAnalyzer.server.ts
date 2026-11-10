@@ -13,6 +13,7 @@ import {
 } from '../domain/aiSchemas'
 import type { RetrievedAiContext } from '../application/aiRetrieval'
 import type { AiAnalyzer } from './aiAssistantGraph.server'
+import { reviewAllItems } from '../application/reviewAllItems'
 
 const sharedRules = `You are the grounded household-list assistant for a small family.
 
@@ -39,6 +40,13 @@ DEDUPLICATION & CANONICALIZATION RULES:
 - Suggest canonical, generic product names by stripping brand names or unnecessary qualifiers (e.g., "גבינה צהובה עמק" -> "גבינה צהובה").
 - DO NOT merge or compare items across different sub-lists.
 - DO NOT invent new keys or suggest renames if the current name is already concise and clear.
+- Exhaustively review EVERY key in reviewKeys, including items requiring no changes.
+- Return reviewedKeys listing ALL reviewed keys, even if no suggestions are needed.
+- Return ALL justified changes for reviewKeys, not a sample of highlights.
+- Suggest renames and duplicate removals only for keys in reviewKeys.
+- Compare against ALL items, including those outside reviewKeys. For each duplicate
+  set, keep the FIRST matching item in input order; never remove that keeper.
+- Preserve meaningful differences such as color, dietary restrictions, size and product type.
 
 BOUNDARIES & LIMITS:
 - Return AT MOST ${AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT} duplicate groups.
@@ -49,6 +57,7 @@ BOUNDARIES & LIMITS:
 EXPECTED JSON SCHEMA:
 {
   "mode": "list_review",
+  "reviewedKeys": ["every key from reviewKeys"],
   "duplicates": [
     {
       "keepKey": "string",
@@ -111,6 +120,7 @@ export const geminiStructuredOutputSchemas: Record<
   list_review: {
     type: 'object',
     properties: {
+      reviewedKeys: { type: 'array', items: textSchema },
       mode: { type: 'string', format: 'enum', enum: ['list_review'] },
       duplicates: {
         type: 'array',
@@ -138,7 +148,7 @@ export const geminiStructuredOutputSchemas: Record<
         }
       }
     },
-    required: ['mode', 'duplicates', 'renames']
+    required: ['mode', 'duplicates', 'renames', 'reviewedKeys']
   }
 }
 
@@ -250,7 +260,15 @@ export class GeminiAiAnalyzer implements AiAnalyzer {
     })
   }
 
-  async analyze(context: RetrievedAiContext): Promise<AiAssistantResult> {
+  async analyze(context: RetrievedAiContext, signal?: AbortSignal): Promise<AiAssistantResult> {
+    if (context.mode === 'list_review') {
+      return reviewAllItems(context, (keys, batchSignal) => this.invokeModel(context, keys, batchSignal), signal)
+    }
+    const response = await this.invokeModel(context, undefined, signal)
+    return aiInsightsResultSchema.parse(response)
+  }
+
+  private async invokeModel(context: RetrievedAiContext, reviewKeys?: string[], signal?: AbortSignal): Promise<unknown> {
     const isInsights = context.mode === 'insights'
     const structured = this.model.withStructuredOutput<Record<string, unknown>>(
       geminiStructuredOutputSchemas[context.mode],
@@ -262,13 +280,17 @@ export class GeminiAiAnalyzer implements AiAnalyzer {
     )
     const modelContext = isInsights
       ? context
-      : { ...context, changes: [], purchases: [] }
+      : { ...context, changes: [], purchases: [], reviewKeys }
     const response = await structured.invoke([
       new SystemMessage(isInsights ? insightRules : reviewRules),
       new HumanMessage(`<retrieved_context>
 ${JSON.stringify(modelContext)}
 </retrieved_context>`)
-    ])
-    return parseGeminiAiResult(context.mode, response.parsed, response.raw.content)
+    ], { signal })
+    // A partial review must not be presented as a complete review. The batch
+    // coordinator validates coverage and retries instead of salvaging truncated JSON.
+    return isInsights
+      ? parseGeminiAiResult(context.mode, response.parsed, response.raw.content)
+      : response.parsed
   }
 }

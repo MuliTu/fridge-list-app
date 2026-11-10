@@ -3,13 +3,19 @@ import { AIMessage } from '@langchain/core/messages'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { RunnableLambda } from '@langchain/core/runnables'
 
-import createTicketStudioSystemPrompt from '../../../../prompts/agents/createTicketStudioPrompts/system.md?raw'
+import { readFileSync } from 'node:fs'
 import { readCreateTicketConfig } from '../createTicketConfig.server'
 import { createCompiledTicketGraph, type ToolCallingModel } from './createTicketGraph'
 import { loadManagedCreateTicketPrompt } from './managedPrompt.server'
 import { FakeTicketProvider } from '../providers/fakeTicketProvider'
 import type { TicketProvider } from '../../application/ticketProvider'
 import { TrelloTicketProvider } from '../providers/trelloTicketProvider'
+
+// Studio runs directly in Node, without Vite's ?raw import handling.
+const createTicketStudioSystemPrompt = readFileSync(
+  new URL('../../../../prompts/agents/createTicketStudioPrompts/system.md', import.meta.url),
+  'utf8'
+)
 
 let config
 try {

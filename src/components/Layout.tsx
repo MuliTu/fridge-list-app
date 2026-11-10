@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useRef, useState, type ReactNode } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 import { Menu, Leaf } from 'lucide-react'
 import { DirectionProvider } from '@radix-ui/react-direction'
@@ -10,8 +10,6 @@ import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedC
 import { ListPickerActionsProvider, useListPickerActions } from '../hooks/ListPickerActionsContext'
 import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
-import { changeLanguage, SUPPORTED_LANGUAGES } from '../i18n/config'
-import CategoriesModal from './CategoriesModal'
 import { UsersManagementModal } from './ListMembersModal'
 import ChangelogModal from './ChangelogModal'
 import WhatsNewModal from './WhatsNewModal'
@@ -32,8 +30,8 @@ import { cn } from '../lib/utils'
 import { WelcomeScreen } from './WelcomeScreen'
 import { WorkspaceNavigation } from './WorkspaceNavigation'
 import { DuplicateReviewBell } from './DuplicateReviewBell'
-import BehaviorSettingsModal from './BehaviorSettingsModal'
 import { BehaviorSettingsProvider, useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
+import { SettingsModal } from './SettingsModal'
 
 // Shared Tailwind utility strings for sidebar rows — kept as constants rather than
 // repeating the same long className string at every call site below.
@@ -96,7 +94,6 @@ function BoughtItemsPreferenceBoundary({ children }: { children: ReactNode }) {
 
 function LayoutContent({ children }: { children: ReactNode }) {
   const { settings: behavior } = useBehaviorSettings()
-  const [showBehaviorSettings, setShowBehaviorSettings] = useState(false)
   const { t, i18n } = useTranslation()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const currentPage =
@@ -122,13 +119,14 @@ function LayoutContent({ children }: { children: ReactNode }) {
   } = useActiveList()
   const { status, toast, entries, isLoading } = useGroceriesFeed()
   const { prompt } = useDialogService()
-  const [showCategories, setShowCategories] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [showAiAssistant, setShowAiAssistant] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
   const { categories } = useCategories()
   // Feedback submission is non-blocking: the modal closes on submit and this drives
   // a transient status toast (pending → success/error) that outlives the modal.
@@ -150,8 +148,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
     close: closeOnboarding,
     replay: replayOnboarding
   } = useOnboarding(user?.email)
-
-  const otherLanguage = SUPPORTED_LANGUAGES.find((lng) => lng !== i18n.language) || 'en'
 
   // Opening a Dialog directly from a sidebar item's onClick races the sidebar's own
   // closing cleanup (which resets document.body's scroll/pointer-events lock)
@@ -194,13 +190,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
       <div className="workspace-main">
         <header className="app-header">
           <div className="user-chip">
-            <button
-              className="icon-btn lang-switch-btn"
-              onClick={() => changeLanguage(otherLanguage)}
-              aria-label={t('language.label')}
-            >
-              {t(`language.${otherLanguage}`)}
-            </button>
             {user ? (
               <>
                 <DuplicateReviewBell />
@@ -217,7 +206,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   lock the rest of the page. */}
                 <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
                   <SheetTrigger asChild>
-                    <button className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
+                    <button ref={menuTriggerRef} className="icon-btn menu-trigger-btn" aria-label={t('menu.button')}>
                       <Menu size={19} aria-hidden="true" />
                     </button>
                   </SheetTrigger>
@@ -296,8 +285,11 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   )}
 
                   <div className={sidebarDividerClass} />
-                  <button className={sidebarItemClass} onClick={() => runAfterSidebarCloses(() => setShowBehaviorSettings(true))}>
-                    {t('shoppingList:behavior.title')}
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => runAfterSidebarCloses(() => setShowSettings(true))}
+                  >
+                    {t('settings.open')}
                   </button>
                   <button
                     className={sidebarItemClass}
@@ -317,17 +309,23 @@ function LayoutContent({ children }: { children: ReactNode }) {
                   >
                     {t('menu.viewOnboarding')}
                   </button>
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => runAfterSidebarCloses(() => setShowChangelog(true))}
+                  >
+                    {t('menu.viewChangelog')}
+                  </button>
+                  <button
+                    className={sidebarItemClass}
+                    onClick={() => runAfterSidebarCloses(() => setShowFeedback(true))}
+                  >
+                    {t('menu.sendFeedback')}
+                  </button>
 
                   {canEdit && (
                     <>
                       <div className={sidebarDividerClass} />
                       <div className={sidebarSectionLabelClass}>{t('menu.sectionSettings')}</div>
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(() => setShowCategories(true))}
-                      >
-                        {t('menu.manageCategories')}
-                      </button>
                       <button
                         className={sidebarItemClass}
                         onClick={() => runAfterSidebarCloses(() => setShowMembers(true))}
@@ -341,46 +339,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
                         >
                           {t('lists:renameMenuItem')}
                         </button>
-                      )}
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(() => setShowChangelog(true))}
-                      >
-                        {t('menu.viewChangelog')}
-                      </button>
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => runAfterSidebarCloses(() => setShowFeedback(true))}
-                      >
-                        {t('menu.sendFeedback')}
-                      </button>
-                      <button
-                        className={sidebarItemClass}
-                        onClick={() => {
-                          setSidebarOpen(false)
-                          toggleStockSuggestion()
-                        }}
-                      >
-                        {stockSuggestionEnabled
-                          ? t('menu.stockSuggestionOn')
-                          : t('menu.stockSuggestionOff')}
-                      </button>
-                      <button
-                        className={cn(sidebarItemClass, 'disabled:cursor-wait disabled:opacity-60')}
-                        disabled={!boughtItemsPreferenceResolved}
-                        aria-pressed={keepBoughtItemsInCategories}
-                        onClick={() => {
-                          toggleBoughtItemsPlacement().catch(() => {})
-                        }}
-                      >
-                        {keepBoughtItemsInCategories
-                          ? t('menu.boughtItemsInCategories')
-                          : t('menu.boughtItemsInCompletedSection')}
-                      </button>
-                      {boughtItemsPreferenceSaveError && (
-                        <div className="px-2 py-1 text-xs text-destructive" role="status">
-                          {t('menu.preferenceSaveFailed')}
-                        </div>
                       )}
                     </>
                   )}
@@ -495,9 +453,19 @@ function LayoutContent({ children }: { children: ReactNode }) {
           </footer>
         )}
       </div>
-      {showBehaviorSettings && <BehaviorSettingsModal onClose={() => setShowBehaviorSettings(false)} />}
-      {showCategories && (
-        <CategoriesModal categories={categories} onClose={() => setShowCategories(false)} />
+      {showSettings && (
+        <SettingsModal
+          categories={categories}
+          canEdit={canEdit}
+          stockSuggestionEnabled={stockSuggestionEnabled}
+          keepBoughtItemsInCategories={keepBoughtItemsInCategories}
+          boughtItemsPreferenceResolved={boughtItemsPreferenceResolved}
+          boughtItemsPreferenceSaveError={boughtItemsPreferenceSaveError}
+          onToggleStockSuggestion={toggleStockSuggestion}
+          onToggleBoughtItemsPlacement={toggleBoughtItemsPlacement}
+          onClose={() => setShowSettings(false)}
+          returnFocusRef={menuTriggerRef}
+        />
       )}
       {showMembers && <UsersManagementModal onClose={() => setShowMembers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}

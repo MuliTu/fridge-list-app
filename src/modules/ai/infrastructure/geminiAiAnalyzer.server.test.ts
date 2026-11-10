@@ -60,17 +60,17 @@ describe('Gemini AI analyzer', () => {
 
     const result = parseGeminiAiResult('list_review', {
       mode: 'list_review',
-      duplicates: Array.from({ length: 31 }, (_, index) => ({
+      duplicates: Array.from({ length: 301 }, (_, index) => ({
         ...duplicate,
         keepKey: `keep-${index}`
       })),
-      renames: Array.from({ length: 51 }, (_, index) => ({ ...rename, key: `key-${index}` }))
+      renames: Array.from({ length: 301 }, (_, index) => ({ ...rename, key: `key-${index}` }))
     }, '')
 
     expect(result.mode).toBe('list_review')
     if (result.mode === 'list_review') {
-      expect(result.duplicates).toHaveLength(12)
-      expect(result.renames).toHaveLength(15)
+      expect(result.duplicates).toHaveLength(300)
+      expect(result.renames).toHaveLength(300)
     }
   })
 })

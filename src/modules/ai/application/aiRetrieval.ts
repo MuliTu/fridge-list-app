@@ -93,7 +93,7 @@ export const retrieveAiContext = (
 
   return {
     ...request,
-    items: request.items.slice(0, 250),
+    items: request.mode === 'list_review' ? request.items : request.items.slice(0, 250),
     changes: recentChanges,
     purchases: recentPurchases,
     categories: [...new Set(request.categories)].slice(0, 60),
