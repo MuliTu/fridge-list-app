@@ -1,0 +1,434 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		37FED2BC7729DE9C2EF79B02 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A5650CC464335C50D2E03046 /* GoogleService-Info.plist */; };
+		5DA6EBBA912A18C7915E95AF /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = C89B1700102AF97F33E521A3 /* FirebaseDatabase */; };
+		7476C841CC2C6A7CA7146665 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 555371A177B98F28BD5963BC /* GoogleSignInSwift */; };
+		7795852AE8C707DEF01AA37F /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2090DA0109D854D33F5DA6A9 /* FirebaseCore */; };
+		77D9854D681B21F43E6D92C1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 35E77B431E851AD1AE9248EB /* GoogleSignIn */; };
+		A10000000000000000000001 /* FridgeNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* FridgeNativeApp.swift */; };
+		A10000000000000000000002 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* AppShellView.swift */; };
+		A10000000000000000000003 /* FridgeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* FridgeTheme.swift */; };
+		A10000000000000000000004 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* Models.swift */; };
+		A10000000000000000000005 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* AppStore.swift */; };
+		A10000000000000000000006 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* Components.swift */; };
+		A10000000000000000000007 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* ShoppingListView.swift */; };
+		A10000000000000000000008 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* KitchenView.swift */; };
+		A10000000000000000000009 /* CookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* CookView.swift */; };
+		A1000000000000000000000A /* ReceiptsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* ReceiptsView.swift */; };
+		A1000000000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* Assets.xcassets */; };
+		AC49FB9A333153A1C81B965A /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = "TEMP_888986F4-D8C9-4637-A23C-5B3798D9809A" /* FirebaseCore */; };
+		DB717DDD38A260DF6BA8AD16 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A618F914086960641A5DED5A /* FirebaseAuth */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A5650CC464335C50D2E03046 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B10000000000000000000001 /* FridgeNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeNativeApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* FridgeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeTheme.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* ShoppingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* KitchenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KitchenView.swift; sourceTree = "<group>"; };
+		B10000000000000000000009 /* CookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookView.swift; sourceTree = "<group>"; };
+		B1000000000000000000000A /* ReceiptsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptsView.swift; sourceTree = "<group>"; };
+		B1000000000000000000000B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1000000000000000000000C /* FridgeNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FridgeNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC49FB9A333153A1C81B965A /* FirebaseCore in Frameworks */,
+				7795852AE8C707DEF01AA37F /* FirebaseCore in Frameworks */,
+				DB717DDD38A260DF6BA8AD16 /* FirebaseAuth in Frameworks */,
+				5DA6EBBA912A18C7915E95AF /* FirebaseDatabase in Frameworks */,
+				77D9854D681B21F43E6D92C1 /* GoogleSignIn in Frameworks */,
+				7476C841CC2C6A7CA7146665 /* GoogleSignInSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D10000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000002 /* FridgeNative */,
+				D10000000000000000000009 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D10000000000000000000002 /* FridgeNative */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000003 /* App */,
+				D10000000000000000000004 /* DesignSystem */,
+				D10000000000000000000005 /* Models */,
+				D10000000000000000000006 /* Store */,
+				D10000000000000000000007 /* Shared */,
+				D10000000000000000000008 /* Features */,
+				B1000000000000000000000B /* Assets.xcassets */,
+				A5650CC464335C50D2E03046 /* GoogleService-Info.plist */,
+			);
+			path = FridgeNative;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* FridgeNativeApp.swift */,
+				B10000000000000000000002 /* AppShellView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000004 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000003 /* FridgeTheme.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000004 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000006 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000005 /* AppStore.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000007 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000006 /* Components.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000008 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				D20000000000000000000001 /* Shop */,
+				D20000000000000000000002 /* Kitchen */,
+				D20000000000000000000003 /* Cook */,
+				D20000000000000000000004 /* Receipts */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000009 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000000C /* FridgeNative.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D20000000000000000000001 /* Shop */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000007 /* ShoppingListView.swift */,
+			);
+			path = Shop;
+			sourceTree = "<group>";
+		};
+		D20000000000000000000002 /* Kitchen */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000008 /* KitchenView.swift */,
+			);
+			path = Kitchen;
+			sourceTree = "<group>";
+		};
+		D20000000000000000000003 /* Cook */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000009 /* CookView.swift */,
+			);
+			path = Cook;
+			sourceTree = "<group>";
+		};
+		D20000000000000000000004 /* Receipts */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000000A /* ReceiptsView.swift */,
+			);
+			path = Receipts;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E10000000000000000000001 /* FridgeNative */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E10000000000000000000002 /* Build configuration list for PBXNativeTarget "FridgeNative" */;
+			buildPhases = (
+				F10000000000000000000001 /* Sources */,
+				C10000000000000000000001 /* Frameworks */,
+				F10000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FridgeNative;
+			packageProductDependencies = (
+				2090DA0109D854D33F5DA6A9 /* FirebaseCore */,
+				A618F914086960641A5DED5A /* FirebaseAuth */,
+				C89B1700102AF97F33E521A3 /* FirebaseDatabase */,
+				35E77B431E851AD1AE9248EB /* GoogleSignIn */,
+				555371A177B98F28BD5963BC /* GoogleSignInSwift */,
+			);
+			productName = FridgeNative;
+			productReference = B1000000000000000000000C /* FridgeNative.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E20000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2710;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+					E10000000000000000000001 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+				};
+			};
+			buildConfigurationList = E20000000000000000000002 /* Build configuration list for PBXProject "FridgeNative" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = he;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				he,
+				en,
+				Base,
+			);
+			mainGroup = D10000000000000000000001;
+			packageReferences = (
+				3DB3BD6315546E983015FBA0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				E6F26755177A0A8848618265 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
+			productRefGroup = D10000000000000000000009 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E10000000000000000000001 /* FridgeNative */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F10000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000B /* Assets.xcassets in Resources */,
+				37FED2BC7729DE9C2EF79B02 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F10000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* FridgeNativeApp.swift in Sources */,
+				A10000000000000000000002 /* AppShellView.swift in Sources */,
+				A10000000000000000000003 /* FridgeTheme.swift in Sources */,
+				A10000000000000000000004 /* Models.swift in Sources */,
+				A10000000000000000000005 /* AppStore.swift in Sources */,
+				A10000000000000000000006 /* Components.swift in Sources */,
+				A10000000000000000000007 /* ShoppingListView.swift in Sources */,
+				A10000000000000000000008 /* KitchenView.swift in Sources */,
+				A10000000000000000000009 /* CookView.swift in Sources */,
+				A1000000000000000000000A /* ReceiptsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F20000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F20000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		F30000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5R35F2KU75;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FridgeNative/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "רשימת הבית";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "בחירת צילום קבלה לצורך סריקה והוספת מוצרים.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				MARKETING_VERSION = 2.58.3;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mulituriel.fridge.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F30000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5R35F2KU75;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FridgeNative/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "רשימת הבית";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "בחירת צילום קבלה לצורך סריקה והוספת מוצרים.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				MARKETING_VERSION = 2.58.3;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mulituriel.fridge.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E10000000000000000000002 /* Build configuration list for PBXNativeTarget "FridgeNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F30000000000000000000001 /* Debug */,
+				F30000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E20000000000000000000002 /* Build configuration list for PBXProject "FridgeNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F20000000000000000000001 /* Debug */,
+				F20000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		3DB3BD6315546E983015FBA0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.1.1;
+			};
+		};
+		E6F26755177A0A8848618265 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2090DA0109D854D33F5DA6A9 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3DB3BD6315546E983015FBA0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		35E77B431E851AD1AE9248EB /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E6F26755177A0A8848618265 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		555371A177B98F28BD5963BC /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E6F26755177A0A8848618265 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		A618F914086960641A5DED5A /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3DB3BD6315546E983015FBA0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		C89B1700102AF97F33E521A3 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3DB3BD6315546E983015FBA0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		"TEMP_888986F4-D8C9-4637-A23C-5B3798D9809A" /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3DB3BD6315546E983015FBA0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E20000000000000000000001 /* Project object */;
+}

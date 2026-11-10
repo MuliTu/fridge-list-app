@@ -28,6 +28,8 @@ playwright-report
 
 # Per-app Firebase configuration; restore from Firebase Console on each machine.
 /ios/FridgeNative/FridgeNative/GoogleService-Info.plist
+/ios/**/.DS_Store
+/ios/**/xcuserdata/
 
 # Local-only recoverable originals; never force-add this directory
 /.local-private/
