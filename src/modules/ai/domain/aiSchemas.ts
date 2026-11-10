@@ -3,9 +3,9 @@ import { z } from 'zod'
 const shortText = z.string().trim().min(1).max(200)
 const itemKey = z.string().trim().min(1).max(200)
 
-export const AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT = 12
-export const AI_LIST_REVIEW_REMOVE_KEYS_LIMIT = 10
-export const AI_LIST_REVIEW_RENAME_LIMIT = 15
+export const AI_LIST_REVIEW_DUPLICATE_GROUP_LIMIT = 300
+export const AI_LIST_REVIEW_REMOVE_KEYS_LIMIT = 299
+export const AI_LIST_REVIEW_RENAME_LIMIT = 300
 
 export const aiListItemSchema = z.object({
   key: itemKey,
