@@ -60,6 +60,51 @@ it('renders authorized custom categories in owner order and collapses them indep
   expect(screen.getByText('Shared milk')).toBeInTheDocument()
 })
 
+it('filters only the authorized shared snapshot and restores it when cleared', async () => {
+  render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+
+  const search = screen.getByLabelText('shoppingList:search.label')
+  fireEvent.change(search, { target: { value: 'special' } })
+  expect(screen.getByText('Special item')).toBeInTheDocument()
+  expect(screen.queryByText('Shared milk')).not.toBeInTheDocument()
+  expect(screen.queryByText('Private medicine')).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByLabelText('shoppingList:search.clear'))
+  expect(screen.getByText('Special item')).toBeInTheDocument()
+  expect(screen.getByText('Shared milk')).toBeInTheDocument()
+
+  fireEvent.change(search, { target: { value: '  SHARED MILK  ' } })
+  expect(screen.getByText('Shared milk')).toBeInTheDocument()
+  expect(screen.queryByText('Special item')).not.toBeInTheDocument()
+  expect(getShoppingShare).toHaveBeenCalledTimes(1)
+})
+
+it('distinguishes a search with no matches from an empty shared list', async () => {
+  render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+
+  fireEvent.change(screen.getByLabelText('shoppingList:search.label'), {
+    target: { value: 'not in this list' }
+  })
+
+  expect(screen.getByRole('status')).toHaveTextContent('shoppingList:search.noResults')
+  expect(screen.queryByText('sharing.empty')).not.toBeInTheDocument()
+})
+
+it('clears stale search state when the selected share changes', async () => {
+  const { rerender } = render(<SharedShoppingList shareId="share-a" />)
+  await screen.findByText('Shared milk')
+  fireEvent.change(screen.getByLabelText('shoppingList:search.label'), {
+    target: { value: 'special' }
+  })
+
+  rerender(<SharedShoppingList shareId="share-b" />)
+
+  await waitFor(() => expect(getShoppingShare).toHaveBeenCalledWith('share-b', expect.any(AbortSignal)))
+  expect(await screen.findByLabelText('shoppingList:search.label')).toHaveValue('')
+})
+
 it('scopes the selected theme to the active authorized snapshot and clears it on failure', async () => {
   const { container } = render(<div className="workspace"><SharedShoppingList shareId="share-a" /></div>)
   await screen.findByText('Shared milk')
@@ -72,4 +117,5 @@ it('scopes the selected theme to the active authorized snapshot and clears it on
   jest.mocked(getShoppingShare).mockRejectedValue(new Error('403'))
   await act(async () => { jest.advanceTimersByTime(5000) })
   await waitFor(() => expect(workspace).not.toHaveAttribute('data-shared-theme'))
+  expect(screen.queryByLabelText('shoppingList:search.label')).not.toBeInTheDocument()
 })

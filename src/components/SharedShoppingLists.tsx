@@ -8,7 +8,9 @@ import { useAuth } from '../hooks/AuthContext'
 import { useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 import CategorySection from './CategorySection'
 import { DEFAULT_CATEGORIES } from '../lib/categories'
+import { normalizeName } from '../lib/normalizeName'
 import ShoppingListItemRow from './ShoppingListItemRow'
+import ShoppingListSearch from './ShoppingListSearch'
 import QuickAddBar from './QuickAddBar'
 import { ListMemberAvatars } from './ListSharingBar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
@@ -57,6 +59,7 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLElement>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const themeKey = `shared-list-theme:${user?.email || ''}:${shareId}`
@@ -75,8 +78,12 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
       else workspace.setAttribute('data-shared-theme', previous)
     }
   }, [snapshot, theme])
+  const normalizedSearch = normalizeName(search)
+  const filteredItems = (snapshot?.items || []).filter(entry =>
+    !normalizedSearch || normalizeName(entry.item).includes(normalizedSearch)
+  )
   const groups = new Map<string, GroceryItem[]>()
-  for (const entry of snapshot?.items || []) {
+  for (const entry of filteredItems) {
     const category = entry.category || t('sharing.otherCategory')
     groups.set(category, [...(groups.get(category) || []), entry])
   }
@@ -91,13 +98,19 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
     let timer: ReturnType<typeof setTimeout>
     setSnapshot(null)
     setEditing(null)
+    setSearch('')
     setFailed(false)
     const refresh = async () => {
       try {
         const next = await getShoppingShare(shareId, controller.signal)
         if (!controller.signal.aborted) { setSnapshot(next); setFailed(false) }
       } catch {
-        if (!controller.signal.aborted) { setSnapshot(null); setEditing(null); setFailed(true) }
+        if (!controller.signal.aborted) {
+          setSnapshot(null)
+          setEditing(null)
+          setSearch('')
+          setFailed(true)
+        }
       }
       if (!controller.signal.aborted) timer = setTimeout(refresh, 5000)
     }
@@ -144,13 +157,14 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
             </select>
           </label>
         </header>
+        <ShoppingListSearch value={search} onChange={setSearch} />
         <QuickAddBar aiAvailable={false} onAdd={async name => mutate({ operation: 'add', item: { name } })} />
         <div className="shared-list-categories">
           {orderedGroups.map(([category, items]) => {
             const presentation = categoryPresentation.get(category) || Object.values(DEFAULT_CATEGORIES).find(entry => entry.name === category)
             return <CategorySection key={category} name={category} icon={presentation?.icon || '📌'} color={presentation?.color || '#94a3b8'}
               uncheckedCount={items.filter(entry => !entry.bought).length}
-              collapsed={collapsed.has(category)} onToggle={() => setCollapsed(previous => {
+              collapsed={normalizedSearch ? false : collapsed.has(category)} onToggle={() => setCollapsed(previous => {
                 const next = new Set(previous)
                 if (next.has(category)) next.delete(category)
                 else next.add(category)
@@ -165,6 +179,9 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
           })}
         </div>
         {!snapshot.items.length && <p>{t('sharing.empty')}</p>}
+        {snapshot.items.length > 0 && filteredItems.length === 0 && normalizedSearch && (
+          <p role="status">{t('shoppingList:search.noResults', { query: search.trim() })}</p>
+        )}
       </>}
     </section>
     <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)}><DialogContent>
