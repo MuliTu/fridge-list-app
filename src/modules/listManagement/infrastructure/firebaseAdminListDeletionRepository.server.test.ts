@@ -32,7 +32,23 @@ it.each([
 ])('denies %s without committing', async (_case, actorUid, value, code) => {
   const d = setup(value)
   await expect(d.repository.deleteCustomList({ listId: 'house', listName: 'Camping', actorUid })).rejects.toMatchObject({ code })
-  expect(d.written()).toBeUndefined()
+  expect([undefined, null]).toContain(d.written())
+})
+
+it('retries an uncached initial null with the actual remote household before deleting', async () => {
+  const attempts: unknown[] = []
+  const transaction = jest.fn(async (update: (current: unknown) => unknown) => {
+    attempts.push(update(null))
+    const final = update({ ownerUid: 'owner', groceries: {
+      a: { item: 'Milk', list_name: 'Camping' },
+      b: { item: 'Bread' }
+    } })
+    return { committed: final !== undefined }
+  })
+  const repository = new FirebaseAdminListDeletionRepository({ ref: () => ({ transaction }) } as never)
+  await expect(repository.deleteCustomList({ listId: 'house', listName: 'Camping', actorUid: 'owner' }))
+    .resolves.toEqual({ deletedItems: 1 })
+  expect(attempts).toEqual([null])
 })
 
 it('uses the final transaction callback state when Firebase retries after a concurrent owner change', async () => {

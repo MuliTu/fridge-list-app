@@ -28,7 +28,15 @@ export class FirebaseAdminListDeletionRepository implements ListDeletionReposito
       const result = await household.transaction((current: HouseholdRecord | null) => {
         rejection = undefined
         deletedItems = 0
-        if (!current || current.ownerUid !== input.actorUid) {
+        if (current === null) {
+          // The Admin SDK may invoke the update function with an uncached null
+          // before it reads an existing remote value. Returning null makes a
+          // no-op compare-and-set, so a remote value triggers a retry with the
+          // actual household. Returning undefined here would abort immediately.
+          rejection = new ApplicationError('forbidden', 'Only the household owner can delete a shopping list')
+          return null
+        }
+        if (current.ownerUid !== input.actorUid) {
           rejection = new ApplicationError('forbidden', 'Only the household owner can delete a shopping list')
           return undefined
         }
@@ -52,7 +60,7 @@ export class FirebaseAdminListDeletionRepository implements ListDeletionReposito
         return { ...current, groceries: nextGroceries }
       })
 
-      if (!result.committed) throw rejection ?? new ApplicationError('conflict', 'Shopping list changed concurrently')
+      if (!result.committed || rejection) throw rejection ?? new ApplicationError('conflict', 'Shopping list changed concurrently')
       return { deletedItems }
     } catch (error) {
       if (error instanceof ApplicationError) throw error

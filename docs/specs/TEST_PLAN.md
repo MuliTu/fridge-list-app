@@ -1,6 +1,6 @@
 # Test plan: Settings, sharing and feedback
 
-Last reconciled: 2026-11-07. Status: planned checks, not test results.
+Last reconciled: 2026-11-10. Status: planned checks, not test results.
 Sources: [Spec](spec-settings-sharing-feedback.md), [Decisions](DECISIONS.md),
 [Plan and ticket identities](../plans/plan-settings-sharing-feedback.md).
 
@@ -20,13 +20,16 @@ Sources: [Spec](spec-settings-sharing-feedback.md), [Decisions](DECISIONS.md),
 | FR-10 Integration | Combine all relevant checks on the exact candidate; record commit/deployment identity and remaining limits. |
 | FR-11 Documentation | Current documents and historical notes agree; stable card links and Wiki context resolve; planned work never described as shipped. |
 | FR-12 Preview | Development-only synthetic data; no live Firebase or sharing API calls; desktop multi-column and mobile single-column layouts; category and completed-section interactions; Hebrew/English, RTL/LTR, keyboard and labels; focused tests, TypeScript, production build, isolated preview build, forbidden-string scan and browser-console check. |
+| FR-13 List deletion | On one candidate, owner A can confirm and delete only an eligible custom list; recipient B, outsider C, signed-out and forged callers cannot mutate. Permanent/default and no-fallback deletion fail without writes. Concurrent ownership/eligibility changes are rechecked atomically. Hebrew/English confirmation names the list and item count; cancel writes nothing. Success preserves unrelated data and clears deleted-list selection, owner context, items and picker before the feed refreshes; failures remain recoverable. |
 
 ## Security fixture
 
 Use owner A, recipient B and unrelated user C with list A shared to B and a
 separate list B not shared. Prove B can edit only A and cannot discover/read/edit
 B through UI or direct API. Test revoked and left grants, forged IDs and stale
-views. Use synthetic records and controlled accounts; do not send unsolicited mail.
+views. For FR-13, compare whole household state before and after each denied
+deletion, then verify exact-list removal and unrelated-list preservation after
+owner success. Use synthetic records and controlled accounts; do not send unsolicited mail.
 
 ## Execution gates
 

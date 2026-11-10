@@ -1,6 +1,6 @@
 # Spec: Settings, sharing and feedback
 
-Status: Active specification. Last revised: 2026-11-07.
+Status: Active specification. Last revised: 2026-11-10.
 
 Workflow context: [binding decisions and explicit assumptions](DECISIONS.md),
 [planned verification](TEST_PLAN.md). These consolidate existing requirements;
@@ -70,6 +70,16 @@ Settings → Users with Shared by me and Shared with me; list-to-person mapping,
 - Display empty/loading/error states; list-scoped invitation language is visible/editable by owner and used by FR-03 when available.
 - Direct API misuse, unrelated-owner discovery and forged revoke/leave requests are denied.
 
+### FR-13: Guard owner deletion of a custom shopping list
+
+An authenticated owner may permanently delete one eligible custom shopping list after an explicit confirmation. The destructive operation belongs to the trusted list-management server path; hiding a menu action is only a presentation safeguard. It must preserve the permanent/default list and leave another selectable list available. Deletion removes only the selected list's items and preserves unrelated household data.
+
+- Derive the actor from the authenticated session and verify ownership of the exact household. Shared participants, unrelated users, signed-out callers and forged owner fields cannot delete or discover another list through this command.
+- Revalidate ownership, list identity and remaining-list eligibility in the atomic server operation. A concurrent change or denial leaves data unchanged and returns a safe error. The permanent/default list is never deletable.
+- Show the action only to an eligible owner. Hebrew and English confirmation names the list, warns that its items will be removed, shows the affected item count and allows cancellation without a write; keyboard and screen-reader access remain usable.
+- After verified success, remove the deleted list from client selection, owner context, item view and list picker before the next realtime snapshot; select a valid remaining list. A failed request retains a recoverable view.
+- Verify owner success, recipient/outsider/signed-out denial, forged requests, exact-list isolation, protected and last-list behavior, concurrent changes, bilingual confirmation and safe navigation on the same candidate revision.
+
 ### FR-05: Support comma-separated products in the main Quick Add field
 
 Allow adding several groceries at once from the normal What do we need to buy input.
@@ -138,6 +148,7 @@ Live GET /api/retry-feedback returned HTTP 500 not_configured on 2026-11-03. Cur
 - Language means the current user's UI language and, where configured, per-invitation notification language. It does not permit changing someone else's global preference.
 - Commas separate product names. Quantity parsing, quoted commas and automatic merging of repeated products are outside this increment unless existing product contracts require them.
 - Email notifies an existing list-scoped grant; the link itself grants no additional access. Grant state and delivery state are separate.
+- Custom-list deletion requires the exact household owner and an atomic server recheck. The permanent/default list is protected; a remaining selectable list is required. Confirmation does not grant authority.
 - New feedback targets Kan. Preserve old Trello URLs for historical records. n8n can structure the request; validated server/provider code controls mutations.
 
 ## Verification and delivery
@@ -146,6 +157,7 @@ Live GET /api/retry-feedback returned HTTP 500 not_configured on 2026-11-03. Cur
 - Development invitee preview shows the wide categorized desktop layout, single-column mobile layout and isolated local interactions without production data access.
 - Comma Quick Add handles success/partial failure and upload still imports files.
 - Test recipient edits A but cannot discover/read/edit B; revoke and leave clear stale content.
+- Test guarded custom-list deletion end to end with owner A, recipient B and outsider C; verify denials have no write, successful deletion is exact-list scoped, and client state moves to a remaining list.
 - Controlled email is actually received and opens the correct list after sign-in.
 - One feedback creates one durable submission and one Kan card; timeout/retry still produces at most one card.
 - Record exact commit, Vercel deployment, tests and remaining limits; publish GitHub Release notes only for actually released behavior.

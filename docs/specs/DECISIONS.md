@@ -1,7 +1,7 @@
 # Decisions: Settings, sharing and feedback
 
 Authority: the user's requirements and instruction to prepare workflow documents.
-Last reconciled: 2026-11-07. Scope: FR-01 through FR-12. This consolidates existing decisions; it
+Last reconciled: 2026-11-10. Scope: FR-01 through FR-13. This consolidates existing decisions; it
 does not authorize a deployment or introduce a new product architecture.
 
 ## Sources
@@ -50,6 +50,7 @@ does not authorize a deployment or introduce a new product architecture.
 13. Keep the invitee preview development-only and synthetic. It may reuse production
     presentation components, but it must not bypass production authentication,
     initialize live Firebase data for the preview, or make shopping-sharing API calls.
+14. Only the authenticated exact-household owner may delete an eligible custom shopping list. The trusted server operation rechecks owner, exact list and remaining-list eligibility atomically; the permanent/default list is never deletable. Confirmation and UI eligibility are safeguards, not authorization. Denials and concurrent changes must leave data unchanged; success clears deleted-list client state and selects a remaining list.
 
 ## Assumptions requiring explicit treatment
 
@@ -62,3 +63,4 @@ does not authorize a deployment or introduce a new product architecture.
   not been verified by this document. Missing runtime evidence is not approval.
 - A new architecture conflict or unresolved product choice must be surfaced;
   documenting it does not silently approve a deviation.
+- The permanent/default list counts as a selectable remaining list but cannot be deleted. This is the FR-13 parent-ticket assumption; a contrary storage model requires explicit resolution before changing the deletion contract.

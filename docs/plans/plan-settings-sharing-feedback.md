@@ -1,6 +1,6 @@
 # Plan: Settings, sharing and feedback
 
-Created: 2026-11-03. Last reconciled: 2026-11-07. Status: local implementation in progress; see [current progress](development-progress-2026-11-03.md).
+Created: 2026-11-03. Last reconciled: 2026-11-10. Status: local implementation in progress; see [current progress](development-progress-2026-11-03.md).
 
 Readiness preparation now includes [Decisions](../specs/DECISIONS.md) and
 [Test Plan](../specs/TEST_PLAN.md). Reuse these authoritative files and normalize
@@ -27,6 +27,7 @@ Canonical board: [Fridge List App](https://kanban.muli-tu.com/boards/6txqb667swi
 | [FR-10](https://kanban.muli-tu.com/cards/gpjmn6x5trnm) | Verify the integrated mobile, sharing, email and feedback journeys | Enhancement | P1 | [FR-01](https://kanban.muli-tu.com/cards/yzcmj6k5ryml), [FR-02](https://kanban.muli-tu.com/cards/34xp28wc30nv), [FR-03](https://kanban.muli-tu.com/cards/fpzdxlk4q9f5), [FR-04](https://kanban.muli-tu.com/cards/55j5ijn9s4xu), [FR-05](https://kanban.muli-tu.com/cards/41ijspeppkte), [FR-06](https://kanban.muli-tu.com/cards/65rgquhpyqbh), [FR-09](https://kanban.muli-tu.com/cards/nnclzjhle2mo) |
 | [FR-11](https://kanban.muli-tu.com/cards/qrnmbbxfwkqt) | Reconcile current specifications, plans and release history | Documentation | P1 | None |
 | [FR-12](https://kanban.muli-tu.com/cards/rp8iqj4iqtua) | Maintain a production-parity invitee development preview | Enhancement | P2 | [FR-02](https://kanban.muli-tu.com/cards/34xp28wc30nv) |
+| [FR-13](https://kanban.muli-tu.com/cards/4uvxbtwpelh2) | Guard owner deletion of a custom shopping list | Enhancement | P1 | [FR-13A](https://kanban.muli-tu.com/cards/7r38kuc8ji65), [FR-13B](https://kanban.muli-tu.com/cards/1vau0wxc2qjt) |
 
 All cards start in Backlog. P0/P1/P2 and dependencies are descriptive text because Kan has no native priority or dependency field. No deadlines or assignments were invented. Native labels describe type, native lists describe progress. Acceptance checklists are unfinished until evidence supports them.
 
@@ -39,6 +40,7 @@ All cards start in Backlog. P0/P1/P2 and dependencies are descriptive text becau
 5. Restore n8n-to-Kan delivery after durable persistence (FR-08), then configure and verify retries with stable identity and independent alerts (FR-09). Do not replay historical records in bulk.
 6. Run the integrated owner/recipient/outsider, mobile, email receipt and feedback tests (FR-10). Record deployment and rollback evidence. Reconcile docs/GitHub Release notes (FR-11) as gates close.
 7. Keep the invitee development preview (FR-12) isolated from production data while using it to review the recipient layout at desktop and mobile widths.
+8. For FR-13, integrate the trusted owner-only atomic deletion path from FR-13A with the guarded confirmation and safe list fallback from FR-13B. Close the parent only after both children are Done and the same candidate passes owner/recipient/outsider, protected-list, concurrency, exact-list, bilingual and post-delete state checks.
 
 Recommended first implementation: FR-07, because it closes a known loss-of-recovery gap. FR-01 is the first independent product UI change. FR-02 can be delivered independently with low business coupling. Quick Add and upload changes share a surface and should be coordinated. Max useful independent work lanes: feedback, settings/users, list UI; current execution remains a single coordinated task unless separately requested.
 

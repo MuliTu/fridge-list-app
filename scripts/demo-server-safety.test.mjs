@@ -10,14 +10,14 @@ test('removes only Start env loading in demo and fails closed if its identity ch
   assert.throws(() => isolateStartPlugins([{ name: 'renamed-loader' }]), /must be reviewed/)
 })
 
-test('allows pages, Vite assets and isolated recipe/grocery/sharing APIs', () => {
-  for (const path of ['/', '/recipes', '/src/main.tsx', '/@vite/client', '/api/recipes', '/api/shopping-sharing', '/api/lists/owner@example_test/groceries', '/api/lists/owner@example_test/groceries/item/purchased', '/api/personal-chef/suggest-recipes?x=1']) {
+test('allows pages, Vite assets and isolated recipe/grocery/sharing/list-deletion APIs', () => {
+  for (const path of ['/', '/recipes', '/src/main.tsx', '/@vite/client', '/api/recipes', '/api/shopping-sharing', '/api/lists/owner@example_test/groceries', '/api/lists/owner@example_test/groceries/item/purchased', '/api/lists/owner@example_test/shopping-lists/Weekend%20trip', '/api/personal-chef/suggest-recipes?x=1']) {
     assert.equal(demoRequestPolicy(path), true, path)
   }
 })
 
 test('blocks optional providers and encoded API paths', () => {
-  for (const path of ['/api/scan-receipt', '/api/lists/owner@example_test/receipts', '/api/lists/owner@example_test/groceries/item/upload', '/api/send-invite-email', '/api/ai/analyze', '/api/n8n-write-groceries', '/%61pi/scan-receipt', '/api%2fscan-receipt', '/api//scan-receipt', '/%2561pi/scan-receipt', '/api/%', '/API/scan-receipt', '/foo/%252e%252e/api/scan-receipt']) {
+  for (const path of ['/api/scan-receipt', '/api/lists/owner@example_test/receipts', '/api/lists/owner@example_test/groceries/item/upload', '/api/lists/owner@example_test/shopping-lists/Weekend%2Ftrip', '/api/lists/owner@example_test/shopping-lists/Weekend/extra', '/api/send-invite-email', '/api/ai/analyze', '/api/n8n-write-groceries', '/%61pi/scan-receipt', '/api%2fscan-receipt', '/api//scan-receipt', '/%2561pi/scan-receipt', '/api/%', '/API/scan-receipt', '/foo/%252e%252e/api/scan-receipt']) {
     assert.equal(demoRequestPolicy(path), false, path)
   }
 })
