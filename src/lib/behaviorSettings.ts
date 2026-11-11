@@ -6,13 +6,15 @@ export interface BehaviorSettings {
   listPresentation: ListPresentation
   showUrgent: boolean
   showChef: boolean
+  showQuantityOnAdd: boolean
 }
 export const DEFAULT_BEHAVIOR: BehaviorSettings = {
   showCountdown: true,
   purchaseGesture: 'tap',
   listPresentation: 'categories',
   showUrgent: false,
-  showChef: true
+  showChef: true,
+  showQuantityOnAdd: false
 }
 export function normalizeBehavior(value: unknown): BehaviorSettings {
   const input = value && typeof value === 'object' ? value as Record<string, unknown> : {}
@@ -21,6 +23,9 @@ export function normalizeBehavior(value: unknown): BehaviorSettings {
     purchaseGesture: input.purchaseGesture === 'hold' ? 'hold' : 'tap',
     listPresentation: input.listPresentation === 'flat' ? 'flat' : 'categories',
     showUrgent: input.showUrgent === true,
-    showChef: input.showChef !== false
+    showChef: input.showChef !== false,
+    showQuantityOnAdd: typeof input.showQuantityOnAdd === 'boolean'
+      ? input.showQuantityOnAdd
+      : DEFAULT_BEHAVIOR.showQuantityOnAdd
   }
 }

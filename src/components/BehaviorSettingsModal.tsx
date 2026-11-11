@@ -40,6 +40,14 @@ export function BehaviorSettingsContent() {
         </fieldset>
         <label className="behavior-control"><span>{t('shoppingList:behavior.urgent')}</span><input type="checkbox" checked={settings.showUrgent} onChange={e => update({ showUrgent: e.target.checked })} /></label>
         <label className="behavior-control"><span>{t('shoppingList:behavior.chef')}</span><input type="checkbox" checked={settings.showChef} onChange={e => update({ showChef: e.target.checked })} /></label>
+        <label className="behavior-control">
+          <span>{t('shoppingList:behavior.quantityOnAdd')}</span>
+          <input
+            type="checkbox"
+            checked={settings.showQuantityOnAdd}
+            onChange={(e) => update({ showQuantityOnAdd: e.target.checked })}
+          />
+        </label>
       </fieldset>
       {saveError && <p role="alert">{t('shoppingList:behavior.saveFailed')}</p>}
     </>

@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GroceryItemModal from './GroceryItemModal'
+import { BehaviorSettingsContent } from './BehaviorSettingsModal'
+import { BehaviorSettingsProvider } from '../hooks/BehaviorSettingsContext'
 import { categorizeItem } from '../lib/firebase'
 import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 import type { Category } from '../types'
@@ -26,15 +28,28 @@ const categories: Category[] = [
 
 describe('GroceryItemModal quantity/unit', () => {
   beforeEach(() => {
+    localStorage.clear()
     ;(categorizeItem as jest.Mock).mockReset()
   })
 
-  it('adds the item with no quantity/unit when neither is filled in', async () => {
+  it.each([
+    ['missing storage', null],
+    ['invalid JSON', '{broken'],
+    ['invalid preference', '{"showQuantityOnAdd":"true"}'],
+    ['saved Off', '{"showQuantityOnAdd":false}']
+  ])('hides quantity fields and adds without a quantity with %s', async (_scenario, storedSettings) => {
+    if (storedSettings !== null) localStorage.setItem('fridge-behavior-v1:test', storedSettings)
     ;(categorizeItem as jest.Mock).mockResolvedValue([{ item: 'חלב', category: 'מוצרי חלב' }])
     const user = userEvent.setup()
     const onAdd = jest.fn(() => Promise.resolve())
-    render(<GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />)
+    render(
+      <BehaviorSettingsProvider scope="test">
+        <GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />
+      </BehaviorSettingsProvider>
+    )
 
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     await user.type(screen.getByPlaceholderText('common:groceryItem.namePlaceholder'), 'חלב')
     await user.click(screen.getByRole('button', { name: 'common:actions.add' }))
 
@@ -42,10 +57,15 @@ describe('GroceryItemModal quantity/unit', () => {
   })
 
   it('adds the item with a quantity and no unit', async () => {
+    localStorage.setItem('fridge-behavior-v1:test', '{"showQuantityOnAdd":true}')
     ;(categorizeItem as jest.Mock).mockResolvedValue([{ item: 'תפוחים', category: 'פירות' }])
     const user = userEvent.setup()
     const onAdd = jest.fn(() => Promise.resolve())
-    render(<GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />)
+    render(
+      <BehaviorSettingsProvider scope="test">
+        <GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />
+      </BehaviorSettingsProvider>
+    )
 
     await user.type(screen.getByPlaceholderText('common:groceryItem.namePlaceholder'), 'תפוחים')
     await user.type(screen.getByRole('spinbutton'), '5')
@@ -55,9 +75,14 @@ describe('GroceryItemModal quantity/unit', () => {
   })
 
   it('shows a validation error and does not add when quantity is non-numeric', async () => {
+    localStorage.setItem('fridge-behavior-v1:test', '{"showQuantityOnAdd":true}')
     const user = userEvent.setup()
     const onAdd = jest.fn()
-    render(<GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />)
+    render(
+      <BehaviorSettingsProvider scope="test">
+        <GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />
+      </BehaviorSettingsProvider>
+    )
 
     await user.type(screen.getByPlaceholderText('common:groceryItem.namePlaceholder'), 'לחם')
     await user.type(screen.getByRole('spinbutton'), '-1')
@@ -66,6 +91,37 @@ describe('GroceryItemModal quantity/unit', () => {
     expect(screen.getByText('common:quantityUnit.invalidQuantity')).toBeInTheDocument()
     expect(onAdd).not.toHaveBeenCalled()
     expect(categorizeItem).not.toHaveBeenCalled()
+  })
+
+  it('applies the saved Settings preference when reopening the add dialog', async () => {
+    localStorage.setItem('fridge-behavior-v1:test', '{"purchaseGesture":"hold"}')
+    const user = userEvent.setup()
+    const onAdd = jest.fn()
+    const view = (showDialog: boolean) => (
+      <BehaviorSettingsProvider scope="test">
+        <BehaviorSettingsContent />
+        {showDialog && <GroceryItemModal listName={null} onClose={jest.fn()} onAdd={onAdd} />}
+      </BehaviorSettingsProvider>
+    )
+    const { rerender, unmount } = render(view(false))
+    const toggle = () => screen.getByRole('checkbox', { name: 'shoppingList:behavior.quantityOnAdd' })
+
+    expect(toggle()).not.toBeChecked()
+    await user.click(toggle())
+    rerender(view(true))
+    expect(screen.getByRole('spinbutton')).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+
+    rerender(view(false))
+    await user.click(toggle())
+    rerender(view(true))
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+
+    unmount()
+    render(view(false))
+    expect(toggle()).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: 'shoppingList:behavior.hold' })).toBeChecked()
   })
 })
 
