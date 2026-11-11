@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
 import { ListProvider, useActiveList } from '../hooks/ListContext'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
+import { GroceryFeedRecovery } from './GroceryFeedRecovery'
 import { ListPickerActionsProvider, useListPickerActions } from '../hooks/ListPickerActionsContext'
 import { DialogServiceProvider, useDialogService } from '../hooks/DialogServiceContext'
 import { useSyncHtmlLangDir } from '../hooks/useSyncHtmlLangDir'
@@ -410,6 +411,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
                 </div>
               </div>
               {toast && <div className="toast">🛒 {toast}</div>}
+              <GroceryFeedRecovery />
               {children}
 
               {onboardingOpen && <OnboardingModal onClose={closeOnboarding} />}

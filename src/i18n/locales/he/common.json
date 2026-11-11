@@ -195,6 +195,7 @@
     "feedConnecting": "מתחבר…",
     "feedUpdated": "עודכן ב־{{time}}",
     "feedError": "שגיאת חיבור: {{message}}",
+    "feedRetry": "נסה שוב",
     "feedAdded": "נוסף: {{items}}"
   }
 }
