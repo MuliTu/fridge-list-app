@@ -207,7 +207,7 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
             const presentation = categoryPresentation.get(category) || Object.values(DEFAULT_CATEGORIES).find(entry => entry.name === category)
             return <CategorySection key={category} name={category} icon={presentation?.icon || '📌'} color={presentation?.color || '#94a3b8'}
               uncheckedCount={items.filter(entry => !entry.bought).length}
-              collapsed={normalizedSearch ? false : collapsed.has(category)} onToggle={() => setCollapsed(previous => {
+              collapsed={collapsed.has(category)} searchQuery={normalizedSearch} onToggle={() => setCollapsed(previous => {
                 const next = new Set(previous)
                 if (next.has(category)) next.delete(category)
                 else next.add(category)
