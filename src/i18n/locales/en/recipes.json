@@ -1,6 +1,7 @@
 {
   "empty": "No saved recipes yet.",
-  "loadFailed": "Couldn't load recipes: {{message}}",
+  "loadFailed": "Couldn't load recipes. Check your connection or access, then try again.",
+  "retry": "Try again",
   "servings": "{{count}} people",
   "minutes": "{{count}} min",
   "timeUnknown": "Time unknown",
