@@ -161,3 +161,5 @@ export const createAiAssistantPostHandler = (options: AiAssistantServerOptions) 
       )
     }
   }
+
+export { createBackgroundAiReviewHandler } from './infrastructure/backgroundAiReviewHttp.server'

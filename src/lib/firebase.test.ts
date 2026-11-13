@@ -21,7 +21,7 @@ jest.mock('firebase/database', () => ({
   remove: jest.fn()
 }))
 
-let mockCurrentUser: { getIdToken: jest.Mock } | null = null
+let mockCurrentUser: { uid?: string; getIdToken: jest.Mock } | null = null
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => ({
     get currentUser() {
@@ -44,6 +44,7 @@ jest.mock('./logger', () => ({ logger: { success: jest.fn(), warn: jest.fn(), er
 
 import { get, push, set, update } from 'firebase/database'
 import {
+  getActorIdToken,
   categorizeItem,
   createListApi,
   getKeepBoughtItemsInCategories,
@@ -580,4 +581,22 @@ describe('AI-reviewed grocery writes', () => {
     )
     expect((update as jest.Mock).mock.calls[0][1]).not.toHaveProperty('groceries/changed')
   })
+})
+
+it('binds token acquisition to the confirming actor and rejects account switches or aborts', async () => {
+  let resolve!: (token: string) => void
+  const getIdToken = jest.fn(() => new Promise<string>((done) => { resolve = done }))
+  mockCurrentUser = { uid: 'first', getIdToken }
+  const controller = new AbortController()
+  const pending = getActorIdToken('first', controller.signal)
+  mockCurrentUser = { uid: 'second', getIdToken: jest.fn() }
+  resolve('first-token')
+  await expect(pending).rejects.toThrow('Account changed')
+  expect(mockCurrentUser.getIdToken).not.toHaveBeenCalled()
+  await expect(getActorIdToken('first', controller.signal)).rejects.toThrow('Account changed')
+  mockCurrentUser = { uid: 'first', getIdToken }
+  const cancelled = getActorIdToken('first', controller.signal)
+  controller.abort()
+  resolve('first-token')
+  await expect(cancelled).rejects.toThrow()
 })

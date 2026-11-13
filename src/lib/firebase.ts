@@ -99,6 +99,17 @@ export const getCurrentUserIdToken = async (): Promise<string | undefined> => {
   }
 }
 
+/** Capture and verify the confirming account across asynchronous token refresh. */
+export const getActorIdToken = async (actorUid: string, signal: AbortSignal): Promise<string> => {
+  signal.throwIfAborted()
+  const actor = auth.currentUser
+  if (!actor || actor.uid !== actorUid) throw new Error('Account changed')
+  const token = await actor.getIdToken()
+  signal.throwIfAborted()
+  if (auth.currentUser !== actor) throw new Error('Account changed')
+  return token
+}
+
 const getAuthHeaders = async (): Promise<Record<string, string>> => {
   const token = await getCurrentUserIdToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
