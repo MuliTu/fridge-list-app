@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { onValue } from '../lib/firebase'
 import { useIsPrerendering } from './useIsPrerendering'
@@ -10,6 +10,8 @@ interface GroceriesFeedValue {
   status: string
   toast: string | null
   isLoading: boolean
+  hasError: boolean
+  retry: () => void
   hasCurrentSnapshot?: boolean
 }
 
@@ -26,24 +28,35 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState(t('workspace.feedConnecting'))
   const [toast, setToast] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [retryGeneration, setRetryGeneration] = useState(0)
   const knownKeys = useRef(new Set<string>())
   const firstLoad = useRef(true)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isPrerendering = useIsPrerendering()
   const { listApi } = useActiveList()
+  const retry = useCallback(() => setRetryGeneration((generation) => generation + 1), [])
   const [loadedApi, setLoadedApi] = useState<typeof listApi>(null)
 
   useEffect(() => {
-    if (isPrerendering || !listApi) return
+    if (isPrerendering) return
     knownKeys.current = new Set()
     firstLoad.current = true
     setEntries([])
     setIsLoading(true)
+    setHasError(false)
+    setStatus(t('workspace.feedConnecting'))
+    setToast(null)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     setLoadedApi(null)
+    if (!listApi) return
+
+    let active = true
 
     const unsubscribe = onValue(
       listApi.groceriesRef,
       (snapshot) => {
+        if (!active) return
         const data = snapshot.val() || {}
         const newlyAdded: string[] = []
 
@@ -66,6 +79,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
 
         firstLoad.current = false
         setIsLoading(false)
+        setHasError(false)
         setEntries(nextEntries)
         setLoadedApi(listApi)
         setStatus(
@@ -78,19 +92,27 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
         )
       },
       (error) => {
+        if (!active) return
+        active = false
+        setEntries([])
+        setIsLoading(false)
+        setHasError(true)
+        setToast(null)
+        if (toastTimer.current) clearTimeout(toastTimer.current)
         setLoadedApi(null)
         setStatus(t('workspace.feedError', { message: error.message }))
       }
     )
 
     return () => {
+      active = false
       unsubscribe()
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [isPrerendering, listApi, t, i18n.language])
+  }, [isPrerendering, listApi, t, i18n.language, retryGeneration])
 
   return (
-    <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading, hasCurrentSnapshot: Boolean(listApi && loadedApi === listApi) }}>
+    <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading, hasError, retry, hasCurrentSnapshot: Boolean(listApi && loadedApi === listApi) }}>
       {children}
     </GroceriesFeedContext.Provider>
   )

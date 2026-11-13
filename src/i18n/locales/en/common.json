@@ -204,6 +204,7 @@
     "feedConnecting": "Connecting…",
     "feedUpdated": "Updated {{time}}",
     "feedError": "Connection error: {{message}}",
+    "feedRetry": "Try again",
     "feedAdded": "Added: {{items}}"
   }
 }

@@ -75,7 +75,7 @@ export default function LocalShoppingProviders({ children }: { children: ReactNo
     <ListContext.Provider value={{ myLists: [household], activeList: household, listsResolved: true, listsError: null, canEdit: true, canView: true, isOwner: false, listApi, setActiveListId: () => {}, renameActiveList: async () => {} }}>
       <LocalCategoriesContext.Provider value={categories}>
         <BoughtItemsPreferenceContext.Provider value={{ keepBoughtItemsInCategories: keepBought, isResolved: true, saveError: false, toggleBoughtItemsPlacement: async () => setKeepBought(previous => !previous) }}>
-          <GroceriesFeedContext.Provider value={{ entries, status: 'נתוני דמו · נשמרים בדפדפן בלבד', toast: null, isLoading: false }}>{children}</GroceriesFeedContext.Provider>
+          <GroceriesFeedContext.Provider value={{ entries, status: 'נתוני דמו · נשמרים בדפדפן בלבד', toast: null, isLoading: false, hasError: false, retry: () => {} }}>{children}</GroceriesFeedContext.Provider>
         </BoughtItemsPreferenceContext.Provider>
       </LocalCategoriesContext.Provider>
     </ListContext.Provider>
