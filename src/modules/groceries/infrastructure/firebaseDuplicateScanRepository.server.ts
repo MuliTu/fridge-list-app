@@ -13,20 +13,36 @@ import {
   type DuplicateScanRepository
 } from '../application/duplicateScan.service'
 
-type StoredJob = {
-  itemId?: unknown
-  status?: unknown
-  attempts?: unknown
-  workerId?: unknown
-  leaseUntil?: unknown
-  createdAt?: unknown
-  updatedAt?: unknown
-  algorithmVersion?: unknown
-}
+type RecordNode = Record<string, unknown>
+type ListMutation<T> = (list: RecordNode) => { value: RecordNode; result: T } | undefined
+type MutateList = <T>(listId: string, mutate: ListMutation<T>) => Promise<T | undefined>
+
 type StoredListRegistration = {
   listId?: unknown
 }
-const object = (value: unknown): Record<string, any> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}
+const object = (value: unknown): RecordNode => {
+  // RTDB serializes dense numeric keys as arrays when reading a regular snapshot.
+  if (Array.isArray(value)) return { ...value }
+  return value && typeof value === 'object' ? value as RecordNode : {}
+}
+// Exported scalar nodes with a priority use { '.value': value, '.priority': priority }.
+const scalar = (value: unknown): unknown => {
+  const node = object(value)
+  return Object.hasOwn(node, '.value') ? node['.value'] : value
+}
+
+const updateFields = (node: RecordNode, fields: RecordNode): RecordNode => {
+  const next = { ...node }
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === scalar(node[key])) continue
+    const priority = object(node[key])['.priority']
+    next[key] = value !== null && priority !== undefined
+      ? { '.value': value, '.priority': priority }
+      : value
+  }
+  return next
+}
+
 const safeSegment = (value: string): boolean => Boolean(value) && value.length <= 200 &&
   value.trim() === value && !/[.#$/[\]\u0000-\u001f\u007f]/.test(value)
 const assertReference = (reference: DuplicateScanJobRef): void => {
@@ -35,8 +51,129 @@ const assertReference = (reference: DuplicateScanJobRef): void => {
   }
 }
 
+export type DuplicateBackfillCursor = { listId: string; itemId?: string }
+
+const BACKFILL_PAGE_SIZE = 25
+const MAX_TRANSACTION_ATTEMPTS = 25
+const REQUEST_TIMEOUT_MS = 10_000
+
+const createListMutation = (app: App, databaseUrl: string): MutateList => {
+  const root = new URL(databaseUrl)
+  const emulatorHost = process.env.FIREBASE_DATABASE_EMULATOR_HOST
+  if (emulatorHost) {
+    const namespace = root.searchParams.get('ns') ?? root.hostname.split('.')[0]
+    root.host = emulatorHost
+    root.protocol = 'http:'
+    root.searchParams.set('ns', namespace)
+  } else if (root.protocol !== 'https:') {
+    throw new ApplicationError('not_configured', 'Firebase Realtime Database requires HTTPS')
+  }
+
+  return async <T>(listId: string, mutate: ListMutation<T>): Promise<T | undefined> => {
+    const token = emulatorHost ? 'owner' : (await app.options.credential?.getAccessToken())?.access_token
+    if (!token) throw new ApplicationError('unavailable', 'Firebase Admin credential could not issue an access token')
+    const url = new URL(root)
+    url.pathname = `/users/${encodeURIComponent(listId)}.json`
+    const readUrl = new URL(url)
+    readUrl.searchParams.set('format', 'export')
+    const headers = { Authorization: `Bearer ${token}` }
+    const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+
+    // The JS transaction callback receives plain values and loses nested priorities.
+    // Pair the export representation with an ETag so every retry rechecks the same
+    // list atomically and carries through untouched values and metadata verbatim.
+    for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+      const response = await fetch(readUrl, {
+        headers: { ...headers, 'X-Firebase-ETag': 'true' },
+        redirect: 'error',
+        signal
+      })
+      if (!response.ok) throw new ApplicationError('upstream_failed', `Firebase list read returned HTTP ${response.status}`)
+      const etag = response.headers.get('etag')
+      if (!etag) throw new ApplicationError('upstream_failed', 'Firebase list response omitted an ETag')
+      const current: unknown = await response.json()
+      const change = current === null ? undefined : mutate(object(current))
+      if (!change) return undefined
+      const write = await fetch(url, {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json', 'If-Match': etag },
+        body: JSON.stringify(change.value),
+        redirect: 'error',
+        signal
+      })
+      // The conditional write echoes the list; only its status is needed.
+      await write.body?.cancel().catch(() => undefined)
+      if (write.status === 412) continue
+      if (!write.ok) throw new ApplicationError('upstream_failed', `Firebase list write returned HTTP ${write.status}`)
+      return change.result
+    }
+    throw new ApplicationError('upstream_failed', 'Firebase list transaction did not converge')
+  }
+}
+
+// Keep this above maxDuration (120 seconds) in scripts/vercel-build.mjs.
+const WORKER_LEASE_MS = 3 * 60_000
+
 export class FirebaseDuplicateScanRepository implements DuplicateScanRepository {
-  constructor(private readonly database: Database) {}
+  constructor(private readonly database: Database, private readonly mutateList: MutateList) {}
+
+  async withWorkerLease<T>(workerId: string, now: Date, run: () => Promise<T>): Promise<T | null> {
+    const lock = this.database.ref('duplicate_scan_worker_state/lease')
+    const nowMs = now.getTime()
+    const result = await lock.transaction((current) =>
+      typeof current?.until === 'number' && current.until > nowMs
+        ? undefined
+        : { workerId, until: nowMs + WORKER_LEASE_MS }, undefined, false)
+    if (!result.committed) return null
+    try {
+      return await run()
+    } finally {
+      await lock.transaction((current) => current === null || current.workerId === workerId ? null : undefined, undefined, false)
+    }
+  }
+
+  async backfillBatch(cursor: DuplicateBackfillCursor | null, nowIso: string) {
+    let listId = cursor?.itemId ? cursor.listId : undefined
+    if (!listId) {
+      const lists = this.database.ref('users').orderByKey()
+      const page = await (cursor ? lists.startAfter(cursor.listId) : lists).limitToFirst(1).get()
+      page.forEach((child) => { listId = child.key ?? undefined })
+    }
+    if (!listId) return { nextCursor: null, queued: 0 }
+
+    const nextList = { listId }
+    if (!safeSegment(listId)) return { nextCursor: nextList, queued: 0 }
+    const list = this.database.ref(`users/${listId}`)
+    const groceries = list.child('groceries').orderByKey()
+    const page = await (cursor?.itemId ? groceries.startAfter(cursor.itemId) : groceries).limitToFirst(BACKFILL_PAGE_SIZE + 1).get()
+    const itemIds: string[] = []
+    page.forEach((child) => { if (child.key !== null) itemIds.push(child.key) })
+    const batch = itemIds.slice(0, BACKFILL_PAGE_SIZE)
+    let queued = 0
+    if (batch.length > 0) {
+      // Register before the list transaction so an interrupted invocation cannot strand jobs.
+      await this.database.ref(`duplicate_scan_lists/${listId}`)
+        .transaction((current) => current === null ? { listId } : undefined, undefined, false)
+      queued = await this.mutateList(listId, (household) => {
+        const records = object(household.groceries)
+        const jobs: RecordNode = Object.assign(Object.create(null), object(household.duplicate_scan_jobs))
+        const ready: RecordNode = Object.assign(Object.create(null), object(household.duplicate_scan_ready))
+        let count = 0
+        for (const itemId of batch) {
+          const grocery = object(records[itemId])
+          if (!safeSegment(itemId) || scalar(grocery.bought) !== false || typeof scalar(grocery.item) !== 'string' ||
+            Object.hasOwn(jobs, itemId)) continue
+          const marker = { itemId, algorithmVersion: DUPLICATE_SCAN_ALGORITHM_VERSION, createdAt: nowIso }
+          jobs[itemId] = { ...marker, status: 'pending', attempts: 0, updatedAt: nowIso }
+          ready[itemId] = updateFields(object(ready[itemId]), marker)
+          count += 1
+        }
+        if (!count) return undefined
+        return { value: { ...household, duplicate_scan_jobs: jobs, duplicate_scan_ready: ready }, result: count }
+      }) ?? 0
+    }
+    return { nextCursor: itemIds.length > BACKFILL_PAGE_SIZE ? { listId, itemId: batch[BACKFILL_PAGE_SIZE - 1] } : nextList, queued }
+  }
 
   async findReadyJobs(nowIso: string, limit: number): Promise<DuplicateScanJobRef[]> {
     void nowIso
@@ -47,27 +184,29 @@ export class FirebaseDuplicateScanRepository implements DuplicateScanRepository 
     const registryRef = this.database.ref('duplicate_scan_lists')
     let query: Query = registryRef.orderByKey()
     if (cursor) query = query.startAfter(cursor)
-    let registrations = Object.entries(object((await query.limitToFirst(boundedLimit).get()).val()))
-    if (registrations.length === 0 && cursor) {
-      registrations = Object.entries(object((await registryRef.orderByKey().limitToFirst(boundedLimit).get()).val()))
-    }
+    const page = await query.limitToFirst(boundedLimit).get()
+    const registrations = !page.exists() && cursor ? await registryRef.orderByKey().limitToFirst(boundedLimit).get() : page
+    const orderedRegistrations: Array<[string, StoredListRegistration]> = []
+    // Iterate in the same key order as startAfter, including numeric Firebase keys.
+    registrations.forEach((child) => { if (child.key !== null) orderedRegistrations.push([child.key, object(child.val())]) })
 
     const jobs: DuplicateScanJobRef[] = []
     let processedRegistryKey: string | null = null
-    for (const [registryKey, value] of registrations) {
+    for (const [registryKey, registration] of orderedRegistrations) {
       processedRegistryKey = registryKey
-      const registration = object(value) as StoredListRegistration
       const listId = typeof registration.listId === 'string' ? registration.listId : registryKey
       if (!safeSegment(listId)) continue
       const readySnapshot = await this.database.ref(`users/${listId}/duplicate_scan_ready`)
         .orderByKey()
         .limitToFirst(boundedLimit - jobs.length)
         .get()
-      for (const [itemId, readyValue] of Object.entries(object(readySnapshot.val()))) {
-        const ready = object(readyValue)
-        if (ready.algorithmVersion === DUPLICATE_SCAN_ALGORITHM_VERSION) jobs.push({ listId, itemId })
-        if (jobs.length >= boundedLimit) break
-      }
+      readySnapshot.forEach((child) => {
+        const itemId = child.key
+        if (itemId !== null && safeSegment(itemId) && object(child.val()).algorithmVersion === DUPLICATE_SCAN_ALGORITHM_VERSION) {
+          jobs.push({ listId, itemId })
+        }
+        return jobs.length >= boundedLimit
+      })
       if (jobs.length >= boundedLimit) break
     }
     if (processedRegistryKey) await cursorRef.set(processedRegistryKey)
@@ -76,47 +215,33 @@ export class FirebaseDuplicateScanRepository implements DuplicateScanRepository 
 
   async claim(reference: DuplicateScanJobRef, workerId: string, nowIso: string, leaseUntilIso: string): Promise<ClaimedDuplicateScanJob | null> {
     assertReference(reference)
-    let attempts = 0
-    let terminal = false
-    const result = await this.database.ref(`users/${reference.listId}`).transaction((value: Record<string, any> | null) => {
-      const list = object(value)
+    return await this.mutateList<ClaimedDuplicateScanJob | null>(reference.listId, (list) => {
       const jobs = object(list.duplicate_scan_jobs)
-      const readyJobs = object(list.duplicate_scan_ready)
-      const stored = jobs[reference.itemId]
-      const current = object(stored) as StoredJob
-      if (!stored || current.algorithmVersion !== DUPLICATE_SCAN_ALGORITHM_VERSION) {
+      const readyJobs = { ...object(list.duplicate_scan_ready) }
+      const current = object(jobs[reference.itemId])
+      const clearReady = () => {
+        if (!Object.hasOwn(readyJobs, reference.itemId)) return undefined
         delete readyJobs[reference.itemId]
-        terminal = true
-        return { ...list, duplicate_scan_ready: readyJobs }
+        return { value: { ...list, duplicate_scan_ready: readyJobs }, result: null }
       }
-      const currentAttempts = typeof current.attempts === 'number' ? current.attempts : 0
-      const ready = current.status === 'pending' || current.status === 'failed' ||
-        (current.status === 'running' && typeof current.leaseUntil === 'string' && current.leaseUntil <= nowIso)
-      if (!ready || currentAttempts >= DUPLICATE_SCAN_MAX_ATTEMPTS) {
-        if (current.status === 'completed' || currentAttempts >= DUPLICATE_SCAN_MAX_ATTEMPTS) {
-          delete readyJobs[reference.itemId]
-          terminal = true
-          return { ...list, duplicate_scan_ready: readyJobs }
-        }
-        return undefined
+      if (scalar(current.algorithmVersion) !== DUPLICATE_SCAN_ALGORITHM_VERSION) return clearReady()
+      const storedAttempts = scalar(current.attempts)
+      const currentAttempts = typeof storedAttempts === 'number' ? storedAttempts : 0
+      const status = scalar(current.status)
+      const leaseUntil = scalar(current.leaseUntil)
+      const ready = status === 'pending' || status === 'failed' ||
+        (status === 'running' && typeof leaseUntil === 'string' && leaseUntil <= nowIso)
+      if (status === 'completed' || currentAttempts >= DUPLICATE_SCAN_MAX_ATTEMPTS) return clearReady()
+      if (!ready) return undefined
+      const attempts = currentAttempts + 1
+      const nextJob = updateFields(current, {
+        status: 'running', attempts, workerId, leaseUntil: leaseUntilIso, updatedAt: nowIso, errorCode: null
+      })
+      return {
+        value: { ...list, duplicate_scan_jobs: { ...jobs, [reference.itemId]: nextJob } },
+        result: { ...reference, workerId, attempts }
       }
-      attempts = currentAttempts + 1
-      jobs[reference.itemId] = {
-        ...current,
-        status: 'running',
-        attempts,
-        workerId,
-        leaseUntil: leaseUntilIso,
-        updatedAt: nowIso,
-        errorCode: null
-      }
-      return { ...list, duplicate_scan_jobs: jobs, duplicate_scan_ready: readyJobs }
-    })
-    if (!result.committed) {
-      return null
-    }
-    if (terminal) return null
-    return { ...reference, workerId, attempts }
+    }) ?? null
   }
 
   async loadCandidates(listId: string): Promise<DuplicateCandidate[]> {
@@ -132,54 +257,69 @@ export class FirebaseDuplicateScanRepository implements DuplicateScanRepository 
 
   async complete(job: ClaimedDuplicateScanJob, findings: DuplicateMatch[], nowIso: string): Promise<void> {
     assertReference(job)
-    let lostLease = false
-    const result = await this.database.ref(`users/${job.listId}`).transaction((value: Record<string, any> | null) => {
-      const list = object(value)
+    const committed = await this.mutateList(job.listId, (list) => {
       const jobs = object(list.duplicate_scan_jobs)
       const current = object(jobs[job.itemId])
-      if (current.status !== 'running' || current.workerId !== job.workerId || current.attempts !== job.attempts) {
-        lostLease = true
-        return undefined
-      }
-      const storedFindings = object(list.duplicate_findings)
+      if (scalar(current.status) !== 'running' || scalar(current.workerId) !== job.workerId ||
+        scalar(current.attempts) !== job.attempts) return undefined
+      const groceries = object(list.groceries)
+      const storedFindings = { ...object(list.duplicate_findings) }
       for (const finding of findings) {
+        if (finding.itemIds.some((id) => scalar(object(groceries[id]).bought) !== false)) continue
         const existing = object(storedFindings[finding.findingId])
-        if (existing.state === 'ignored' || existing.state === 'resolved' || existing.state === 'deleting') continue
-        storedFindings[finding.findingId] = {
+        const state = scalar(existing.state)
+        if (state === 'ignored' || state === 'resolved' || state === 'deleting') continue
+        const createdAt = scalar(existing.createdAt)
+        // The finding ID is derived from the item IDs; keep the existing pair node and its metadata.
+        storedFindings[finding.findingId] = updateFields({
           itemIds: finding.itemIds,
+          ...existing
+        }, {
           algorithmVersion: finding.algorithmVersion,
           reason: finding.reason,
           score: finding.score,
-          state: existing.state === 'read' ? 'read' : 'open',
-          createdAt: typeof existing.createdAt === 'string' ? existing.createdAt : nowIso,
+          state: state === 'read' ? 'read' : 'open',
+          createdAt: typeof createdAt === 'string' ? createdAt : nowIso,
           updatedAt: nowIso
-        }
+        })
       }
-      jobs[job.itemId] = { ...current, status: 'completed', workerId: null, leaseUntil: null, updatedAt: nowIso, errorCode: null }
-      const readyJobs = object(list.duplicate_scan_ready)
+      const nextJob = updateFields(current, {
+        status: 'completed', workerId: null, leaseUntil: null, updatedAt: nowIso, errorCode: null
+      })
+      const readyJobs = { ...object(list.duplicate_scan_ready) }
       delete readyJobs[job.itemId]
-      return { ...list, duplicate_scan_jobs: jobs, duplicate_scan_ready: readyJobs, duplicate_findings: storedFindings }
+      return {
+        value: {
+          ...list,
+          duplicate_scan_jobs: { ...jobs, [job.itemId]: nextJob },
+          duplicate_scan_ready: readyJobs,
+          duplicate_findings: storedFindings
+        },
+        result: true
+      }
     })
-    if (!result.committed || lostLease) throw new ApplicationError('conflict', 'Duplicate scan lease was lost')
+    if (!committed) throw new ApplicationError('conflict', 'Duplicate scan lease was lost')
   }
 
   async fail(job: ClaimedDuplicateScanJob, errorCode: string, nowIso: string): Promise<void> {
     assertReference(job)
-    await this.database.ref(`users/${job.listId}`).transaction((value: Record<string, any> | null) => {
-      const list = object(value)
+    await this.mutateList(job.listId, (list) => {
       const jobs = object(list.duplicate_scan_jobs)
-      const readyJobs = object(list.duplicate_scan_ready)
-      const stored = jobs[job.itemId]
-      const current = object(stored) as StoredJob
-      if (!stored || current.status !== 'running' || current.workerId !== job.workerId || current.attempts !== job.attempts) return undefined
-      jobs[job.itemId] = { ...current, status: 'failed', workerId: null, leaseUntil: null, errorCode, updatedAt: nowIso }
+      const readyJobs = { ...object(list.duplicate_scan_ready) }
+      const current = object(jobs[job.itemId])
+      if (scalar(current.status) !== 'running' || scalar(current.workerId) !== job.workerId ||
+        scalar(current.attempts) !== job.attempts) return undefined
+      const nextJob = updateFields(current, { status: 'failed', workerId: null, leaseUntil: null, errorCode, updatedAt: nowIso })
       if (job.attempts >= DUPLICATE_SCAN_MAX_ATTEMPTS) delete readyJobs[job.itemId]
-      return { ...list, duplicate_scan_jobs: jobs, duplicate_scan_ready: readyJobs }
+      return {
+        value: { ...list, duplicate_scan_jobs: { ...jobs, [job.itemId]: nextJob }, duplicate_scan_ready: readyJobs },
+        result: true
+      }
     })
   }
 }
 
-export const createFirebaseDuplicateScanRepository = (app: App, databaseUrl: string): DuplicateScanRepository => {
+export const createFirebaseDuplicateScanRepository = (app: App, databaseUrl: string): FirebaseDuplicateScanRepository => {
   if (!databaseUrl.trim()) throw new ApplicationError('not_configured', 'FIREBASE_DATABASE_URL is required')
-  return new FirebaseDuplicateScanRepository(getDatabaseWithUrl(databaseUrl, app))
+  return new FirebaseDuplicateScanRepository(getDatabaseWithUrl(databaseUrl, app), createListMutation(app, databaseUrl))
 }
