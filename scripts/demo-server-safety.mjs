@@ -6,7 +6,7 @@ export const isolateStartPlugins = (plugins) => {
   return isolated
 }
 
-export const demoRequestPolicy = (requestUrl) => {
+export const demoRequestPolicy = (requestUrl, syntheticReviewListId) => {
   let path
   try {
     path = new URL(requestUrl, 'http://127.0.0.1:5173').pathname
@@ -17,6 +17,8 @@ export const demoRequestPolicy = (requestUrl) => {
     return false
   }
   if (!path.toLowerCase().startsWith('/api')) return true
+  if (syntheticReviewListId && /^[a-zA-Z0-9_@-]+$/.test(syntheticReviewListId) &&
+    path === `/api/lists/${syntheticReviewListId}/background-ai-review`) return true
   // Only commands backed by the isolated emulator fixtures are enabled.
   return path === '/api/recipes' || path === '/api/personal-chef/suggest-recipes' ||
     path === '/api/shopping-sharing' ||
@@ -30,7 +32,9 @@ export const demoSafetyPlugin = () => ({
     server.middlewares.use((request, response, next) => {
       response.setHeader('Content-Security-Policy',
         "connect-src 'self' http://127.0.0.1:9000 ws://127.0.0.1:9000 http://127.0.0.1:9099 http://127.0.0.1:8080 ws://127.0.0.1:5173; img-src 'self' data: blob:; frame-src 'self' http://127.0.0.1:9099")
-      if (!demoRequestPolicy(request.url || '/')) {
+      const syntheticReviewListId = process.env.BACKGROUND_AI_REVIEW_ENABLED === 'true'
+        ? process.env.BACKGROUND_AI_REVIEW_SYNTHETIC_LIST_ID : undefined
+      if (!demoRequestPolicy(request.url || '/', syntheticReviewListId)) {
         response.statusCode = 503
         response.setHeader('Content-Type', 'application/json')
         response.end(JSON.stringify({ success: false, error: 'This integration is disabled in the isolated demo.' }))

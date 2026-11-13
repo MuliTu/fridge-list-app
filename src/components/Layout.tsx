@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 import { Menu, Leaf } from 'lucide-react'
 import { DirectionProvider } from '@radix-ui/react-direction'
@@ -6,6 +6,8 @@ import { version as appVersion } from '../../package.json'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/AuthContext'
 import { ListProvider, useActiveList } from '../hooks/ListContext'
+import { useBackgroundAiReview, type BackgroundReview } from '../hooks/useBackgroundAiReview'
+import { sanitizeEmailKey } from '../lib/firebase'
 import { GroceriesFeedProvider, useGroceriesFeed } from '../hooks/GroceriesFeedContext'
 import { GroceryFeedRecovery } from './GroceryFeedRecovery'
 import { ListPickerActionsProvider, useListPickerActions } from '../hooks/ListPickerActionsContext'
@@ -119,7 +121,19 @@ function LayoutContent({ children }: { children: ReactNode }) {
     canEdit,
     canView
   } = useActiveList()
-  const { status, toast, entries, isLoading } = useGroceriesFeed()
+  const { status, toast, entries, isLoading, hasCurrentSnapshot } = useGroceriesFeed()
+  const backgroundReview = useBackgroundAiReview({
+    actor: user && 'uid' in user && typeof user.uid === 'string' ? user.uid : null,
+    listId: canEdit && activeList ? sanitizeEmailKey(activeList.id) : null,
+    entries,
+    ready: Boolean(hasCurrentSnapshot),
+    language: i18n.language === 'he' ? 'he' : 'en'
+  })
+  const [openedReview, setOpenedReview] = useState<BackgroundReview | null>(null)
+  useEffect(() => {
+    setOpenedReview(null)
+  }, [backgroundReview.scope])
+  const notification = backgroundReview.notification
   const { prompt } = useDialogService()
   const [showSettings, setShowSettings] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -194,7 +208,17 @@ function LayoutContent({ children }: { children: ReactNode }) {
           <div className="user-chip">
             {user ? (
               <>
-                <DuplicateReviewBell />
+                <DuplicateReviewBell
+                  onEnableReview={backgroundReview.offer ? backgroundReview.enable : undefined}
+                  reviewing={backgroundReview.running}
+                  reviewFailed={backgroundReview.failed}
+                  onRetryReview={backgroundReview.retry}
+                  onOpenReview={notification ? () => {
+                    setShowAiAssistant(false)
+                    setOpenedReview(notification)
+                    backgroundReview.markRead()
+                  } : undefined}
+                />
                 {/* modal={false}: a fully modal Radix Dialog locks the rest of the page
                   (document.body gets pointer-events: none, and everything outside the
                   dialog gets aria-hidden) for as long as it's open — correct for a true
@@ -443,6 +467,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
       {showAiAssistant && <AiAssistantModal onClose={() => setShowAiAssistant(false)} />}
+      {openedReview && openedReview.scope === backgroundReview.scope && (
+        <AiAssistantModal
+          initialReview={openedReview}
+          isReviewCurrent={backgroundReview.isCurrent}
+          onClose={() => setOpenedReview(null)}
+        />
+      )}
       {showFeedback && (
         <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={submitFeedbackRequest} />
       )}

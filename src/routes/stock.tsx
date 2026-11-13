@@ -27,6 +27,8 @@ function StockPage() {
   const { confirm, alert } = useDialogService()
   const [entries, setEntries] = useState<StockItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [readError, setReadError] = useState(false)
+  const [readAttempt, setReadAttempt] = useState(0)
   const [showAdd, setShowAdd] = useState(false)
   const [search, setSearch] = useState('')
   const [lowOnly, setLowOnly] = useState(false)
@@ -35,15 +37,42 @@ function StockPage() {
   const { categories, categoryMap } = useCategories()
 
   useEffect(() => {
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
     setIsLoading(true)
-    return onValue(listApi.stockRef, (snapshot) => {
-      const data = snapshot.val() || {}
-      setEntries(
-        Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
-      )
+    setReadError(false)
+    setEntries([])
+    const fail = () => {
+      if (cancelled) return
+      window.clearTimeout(timeout)
+      setEntries([])
+      setReadError(true)
       setIsLoading(false)
-    })
-  }, [listApi])
+    }
+    const timeout = window.setTimeout(() => {
+      fail()
+      unsubscribe?.()
+    }, 10_000)
+    unsubscribe = onValue(
+      listApi.stockRef,
+      (snapshot) => {
+        if (cancelled) return
+        window.clearTimeout(timeout)
+        const data = snapshot.val() || {}
+        setEntries(
+          Object.entries(data as Record<string, any>).map(([key, entry]) => ({ key, ...entry }))
+        )
+        setReadError(false)
+        setIsLoading(false)
+      },
+      fail
+    )
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+      unsubscribe?.()
+    }
+  }, [listApi, readAttempt])
 
   const lowCount = entries.filter((entry) => entry.quantity <= entry.low_threshold).length
   const filteredEntries = entries.filter(
@@ -106,14 +135,14 @@ function StockPage() {
             className={!lowOnly ? 'active' : ''}
             onClick={() => setLowOnly(false)}
           >
-            {t('common:workspace.allStock')} <span>{isLoading ? '—' : entries.length}</span>
+            {t('common:workspace.allStock')} <span>{isLoading || readError ? '—' : entries.length}</span>
           </button>
           <button
             aria-pressed={lowOnly}
             className={lowOnly ? 'active' : ''}
             onClick={() => setLowOnly(true)}
           >
-            {t('common:workspace.runningLow')} <span>{isLoading ? '—' : lowCount}</span>
+            {t('common:workspace.runningLow')} <span>{isLoading || readError ? '—' : lowCount}</span>
           </button>
         </div>
         {canEdit && (
@@ -132,7 +161,14 @@ function StockPage() {
           onChange={(event) => setSearch(event.target.value)}
         />
       </label>
-      {isLoading && isEmpty ? (
+      {readError ? (
+        <div role="alert" className="chef-error">
+          <p>{t('stock:loadFailed')}</p>
+          <Button variant="secondary" onClick={() => setReadAttempt((attempt) => attempt + 1)}>
+            {t('stock:retry')}
+          </Button>
+        </div>
+      ) : isLoading && isEmpty ? (
         <ListSkeleton variant="grid" sections={3} rows={3} />
       ) : isEmpty ? (
         <div className="workspace-empty">

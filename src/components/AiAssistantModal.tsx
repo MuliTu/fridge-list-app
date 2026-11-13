@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AiAssistantApiError, analyzeWithAi } from '../client/api/aiAssistant'
+import { applyBackgroundAiReview } from '../client/api/backgroundAiReview'
+import { sanitizeEmailKey } from '../lib/firebase'
+import type { BackgroundReview } from '../hooks/useBackgroundAiReview'
 import { buildAiAssistantRequest } from '../client/api/buildAiAssistantRequest'
 import { useAuth } from '../hooks/AuthContext'
 import { useDialogService } from '../hooks/DialogServiceContext'
@@ -18,6 +21,12 @@ import {
   DialogHeader,
   DialogTitle
 } from './ui/dialog'
+
+type AiAssistantModalProps = {
+  onClose: () => void
+  initialReview?: BackgroundReview
+  isReviewCurrent?: (review: BackgroundReview) => boolean
+}
 
 type AnalysisMode = AiAssistantRequest['mode']
 type ReviewApplyResult = {
@@ -44,15 +53,15 @@ export const uniqueSuggestedListName = (baseName: string, existingNames: string[
   return `${baseName} (${suffix})`
 }
 
-export default function AiAssistantModal({ onClose }: { onClose: () => void }) {
+export default function AiAssistantModal({ onClose, initialReview, isReviewCurrent }: AiAssistantModalProps) {
   const { t, i18n } = useTranslation(['ai', 'common'])
   const { user } = useAuth()
   const { activeList } = useActiveList()
   const listApi = useListApi()
   const { confirm } = useDialogService()
-  const [mode, setMode] = useState<AnalysisMode | null>(null)
-  const [result, setResult] = useState<AiAssistantResult | null>(null)
-  const [contextItems, setContextItems] = useState<GroceryItem[]>([])
+  const [mode, setMode] = useState<AnalysisMode | null>(initialReview ? 'list_review' : null)
+  const [result, setResult] = useState<AiAssistantResult | null>(initialReview?.result ?? null)
+  const [contextItems, setContextItems] = useState<Pick<GroceryItem, 'key' | 'item' | 'list_name'>[]>(initialReview?.items ?? [])
   const [selectedDuplicateGroups, setSelectedDuplicateGroups] = useState<Set<number>>(new Set())
   const [selectedRenameKeys, setSelectedRenameKeys] = useState<Set<string>>(new Set())
   const [ignoredCorrections, setIgnoredCorrections] = useState(0)
@@ -61,6 +70,18 @@ export default function AiAssistantModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<AiAssistantApiError | Error | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [reviewApplyResult, setReviewApplyResult] = useState<ReviewApplyResult | null>(null)
+
+  const actorUid = user && 'uid' in user && typeof user.uid === 'string' ? user.uid : null
+  const listId = activeList ? sanitizeEmailKey(activeList.id) : null
+  const scope = actorUid && listId ? JSON.stringify([actorUid, listId]) : null
+  const currentScope = useRef(scope)
+  currentScope.current = scope
+  const submission = useRef<AbortController | null>(null)
+  const operation = useRef<{ payload: string; id: string; selection: string } | null>(null)
+  const selection = JSON.stringify([scope, initialReview?.snapshot, [...selectedDuplicateGroups].sort(), [...selectedRenameKeys].sort()])
+  const canReplay = operation.current?.selection === selection
+  const staleBackgroundReview = initialReview && !isReviewCurrent?.(initialReview) && !canReplay
+  useEffect(() => () => { submission.current?.abort() }, [scope])
 
   const runAnalysis = async (nextMode: AnalysisMode) => {
     setMode(nextMode)
@@ -111,7 +132,7 @@ export default function AiAssistantModal({ onClose }: { onClose: () => void }) {
   }
 
   const applyReview = async () => {
-    if (!result || result.mode !== 'list_review') return
+    if (!result || result.mode !== 'list_review' || applying) return
     const removals = result.duplicates
       .filter((_, index) => selectedDuplicateGroups.has(index))
       .flatMap((group) =>
@@ -124,14 +145,36 @@ export default function AiAssistantModal({ onClose }: { onClose: () => void }) {
       .filter((rename) => selectedRenameKeys.has(rename.key))
       .map((rename) => ({ key: rename.key, expectedName: rename.currentName, name: rename.suggestedName }))
     if (removals.length + renames.length === 0) return
-    if (!(await confirm(t('ai:reviewConfirm', { removeCount: removals.length, renameCount: renames.length })))) return
+    const controller = new AbortController()
+    submission.current?.abort()
+    submission.current = controller
+    if (initialReview && (!actorUid || !listId || initialReview.scope !== scope)) return
+    if (staleBackgroundReview || !(await confirm(t('ai:reviewConfirm', {
+      removeCount: removals.length,
+      renameCount: renames.length
+    })))) return
+    if (initialReview && (controller.signal.aborted || currentScope.current !== scope || (!isReviewCurrent?.(initialReview) && !canReplay))) {
+      setStatus(t('common:duplicateReview.background.stale'))
+      return
+    }
 
     setApplying(true)
     setStatus(null)
     try {
-      const applied = await listApi.applyAiListReview({ removals, renames }, user)
+      const payload = JSON.stringify([scope, initialReview?.snapshot, removals, renames])
+      if (operation.current?.payload !== payload) operation.current = { payload, id: crypto.randomUUID(), selection }
+      const applied = initialReview && listId && actorUid
+        ? await applyBackgroundAiReview(listId, initialReview.snapshot, removals.map(({ key }) => key), renames.map(({ key, name }) => ({ key, name })), {
+          actorUid, operationId: operation.current.id, signal: controller.signal
+        })
+        : await listApi.applyAiListReview({ removals, renames }, user)
+      if (controller.signal.aborted || currentScope.current !== scope) return
+      if (!applied) {
+        setStatus(t('common:duplicateReview.background.stale'))
+        return
+      }
       setReviewApplyResult(applied)
-      setStatus(t('ai:reviewSuccess', applied))
+      setStatus(t('ai:reviewSuccess', { removed: applied.removed, renamed: applied.renamed, skipped: applied.skipped }))
     } catch {
       setStatus(t('ai:applyError'))
     } finally {
@@ -240,14 +283,16 @@ export default function AiAssistantModal({ onClose }: { onClose: () => void }) {
                 </label>
               ))}
             </section>
-            <Button onClick={applyReview} disabled={applying || Boolean(reviewApplyResult) || selectedRemovalCount + selectedRenameKeys.size === 0}>
+            {staleBackgroundReview && !reviewApplyResult && !applying &&
+              <p role="status">{t('common:duplicateReview.background.stale')}</p>}
+            <Button onClick={applyReview} disabled={applying || Boolean(staleBackgroundReview) || Boolean(reviewApplyResult) || selectedRemovalCount + selectedRenameKeys.size === 0}>
               {applying ? t('ai:applying') : t('ai:applySelected', { count: selectedRemovalCount + selectedRenameKeys.size })}
             </Button>
           </div>
         )}
 
         {status && <p role="status" className="m-0 rounded-xl border border-border p-3 text-sm">{status}</p>}
-        {mode && !loading && (
+        {mode && !loading && !initialReview && (
           <DialogFooter>
             <Button variant="secondary" onClick={() => { setMode(null); setResult(null); setError(null); setStatus(null); setReviewApplyResult(null) }} disabled={applying}>{t('ai:back')}</Button>
           </DialogFooter>

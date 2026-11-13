@@ -31,6 +31,7 @@ import { Route as ApiAgentEntitlementRouteImport } from './routes/api/agent/enti
 import { Route as ApiAiAnalyzeRouteImport } from './routes/api/ai/analyze'
 import { Route as ApiAiEnrichItemsRouteImport } from './routes/api/ai/enrich-items'
 import { Route as ApiPersonalChefSuggestRecipesRouteImport } from './routes/api/personal-chef/suggest-recipes'
+import { Route as ApiListsListIdBackgroundAiReviewRouteImport } from './routes/api/lists/$listId/background-ai-review'
 import { Route as ApiListsListIdCategoriesRouteImport } from './routes/api/lists/$listId/categories'
 import { Route as ApiListsListIdDuplicateFindingsRouteImport } from './routes/api/lists/$listId/duplicate-findings'
 import { Route as ApiListsListIdGroceriesRouteImport } from './routes/api/lists/$listId/groceries'
@@ -161,6 +162,12 @@ const ApiPersonalChefSuggestRecipesRoute =
     path: '/api/personal-chef/suggest-recipes',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiListsListIdBackgroundAiReviewRoute =
+  ApiListsListIdBackgroundAiReviewRouteImport.update({
+    id: '/api/lists/$listId/background-ai-review',
+    path: '/api/lists/$listId/background-ai-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiListsListIdCategoriesRoute =
   ApiListsListIdCategoriesRouteImport.update({
     id: '/api/lists/$listId/categories',
@@ -282,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/api/ai/analyze': typeof ApiAiAnalyzeRoute
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
+  '/api/lists/$listId/background-ai-review': typeof ApiListsListIdBackgroundAiReviewRoute
   '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
   '/api/lists/$listId/duplicate-findings': typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
@@ -323,6 +331,7 @@ export interface FileRoutesByTo {
   '/api/ai/analyze': typeof ApiAiAnalyzeRoute
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
+  '/api/lists/$listId/background-ai-review': typeof ApiListsListIdBackgroundAiReviewRoute
   '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
   '/api/lists/$listId/duplicate-findings': typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
@@ -365,6 +374,7 @@ export interface FileRoutesById {
   '/api/ai/analyze': typeof ApiAiAnalyzeRoute
   '/api/ai/enrich-items': typeof ApiAiEnrichItemsRoute
   '/api/personal-chef/suggest-recipes': typeof ApiPersonalChefSuggestRecipesRoute
+  '/api/lists/$listId/background-ai-review': typeof ApiListsListIdBackgroundAiReviewRoute
   '/api/lists/$listId/categories': typeof ApiListsListIdCategoriesRouteWithChildren
   '/api/lists/$listId/duplicate-findings': typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   '/api/lists/$listId/groceries': typeof ApiListsListIdGroceriesRouteWithChildren
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/api/ai/analyze'
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
+    | '/api/lists/$listId/background-ai-review'
     | '/api/lists/$listId/categories'
     | '/api/lists/$listId/duplicate-findings'
     | '/api/lists/$listId/groceries'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/api/ai/analyze'
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
+    | '/api/lists/$listId/background-ai-review'
     | '/api/lists/$listId/categories'
     | '/api/lists/$listId/duplicate-findings'
     | '/api/lists/$listId/groceries'
@@ -490,6 +502,7 @@ export interface FileRouteTypes {
     | '/api/ai/analyze'
     | '/api/ai/enrich-items'
     | '/api/personal-chef/suggest-recipes'
+    | '/api/lists/$listId/background-ai-review'
     | '/api/lists/$listId/categories'
     | '/api/lists/$listId/duplicate-findings'
     | '/api/lists/$listId/groceries'
@@ -532,6 +545,7 @@ export interface RootRouteChildren {
   ApiAiAnalyzeRoute: typeof ApiAiAnalyzeRoute
   ApiAiEnrichItemsRoute: typeof ApiAiEnrichItemsRoute
   ApiPersonalChefSuggestRecipesRoute: typeof ApiPersonalChefSuggestRecipesRoute
+  ApiListsListIdBackgroundAiReviewRoute: typeof ApiListsListIdBackgroundAiReviewRoute
   ApiListsListIdCategoriesRoute: typeof ApiListsListIdCategoriesRouteWithChildren
   ApiListsListIdDuplicateFindingsRoute: typeof ApiListsListIdDuplicateFindingsRouteWithChildren
   ApiListsListIdGroceriesRoute: typeof ApiListsListIdGroceriesRouteWithChildren
@@ -696,6 +710,13 @@ declare module '@tanstack/react-router' {
       path: '/api/personal-chef/suggest-recipes'
       fullPath: '/api/personal-chef/suggest-recipes'
       preLoaderRoute: typeof ApiPersonalChefSuggestRecipesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lists/$listId/background-ai-review': {
+      id: '/api/lists/$listId/background-ai-review'
+      path: '/api/lists/$listId/background-ai-review'
+      fullPath: '/api/lists/$listId/background-ai-review'
+      preLoaderRoute: typeof ApiListsListIdBackgroundAiReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/lists/$listId/categories': {
@@ -959,6 +980,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiAnalyzeRoute: ApiAiAnalyzeRoute,
   ApiAiEnrichItemsRoute: ApiAiEnrichItemsRoute,
   ApiPersonalChefSuggestRecipesRoute: ApiPersonalChefSuggestRecipesRoute,
+  ApiListsListIdBackgroundAiReviewRoute: ApiListsListIdBackgroundAiReviewRoute,
   ApiListsListIdCategoriesRoute: ApiListsListIdCategoriesRouteWithChildren,
   ApiListsListIdDuplicateFindingsRoute:
     ApiListsListIdDuplicateFindingsRouteWithChildren,

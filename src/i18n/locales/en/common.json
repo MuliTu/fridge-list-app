@@ -122,6 +122,15 @@
     "featureRecipes": "Find your next favorite"
   },
   "duplicateReview": {
+    "background": {
+      "enable": "Enable list reviews",
+      "notice": "While this tab is open, Groq will receive grocery names, purchase status, and which items are on the same sub-list.",
+      "progress": "Reviewing list…",
+      "open": "Open list review suggestions",
+      "failed": "List review failed",
+      "stale": "The list changed. Open the latest suggestions from the bell."
+    },
+    "retry": "Retry",
     "open": "Review possible duplicates", "unread": "{{count}} unread possible duplicate notifications",
     "title": "Possible duplicates", "description": "Review similar products. Nothing is merged or deleted automatically.",
     "loading": "Checking for possible duplicates…", "error": "Couldn’t update duplicate notifications. Please try again.",

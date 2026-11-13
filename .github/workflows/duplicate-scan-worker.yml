@@ -1,0 +1,34 @@
+name: Duplicate scan worker
+
+on:
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+concurrency:
+  group: duplicate-scan-worker
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: github.ref_name == github.event.repository.default_branch && vars.DUPLICATE_SCAN_WORKER_URL != ''
+    environment: duplicate-scan-worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      WORKER_URL: ${{ vars.DUPLICATE_SCAN_WORKER_URL }}
+      CRON_SECRET: ${{ secrets.DUPLICATE_SCAN_CRON_SECRET }}
+    steps:
+      - name: Run one bounded scan batch
+        shell: bash
+        run: |
+          test -n "$CRON_SECRET"
+          status=$(curl --silent --show-error --max-time 120 --proto '=https' \
+            --output "$RUNNER_TEMP/duplicate-scan-response" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $CRON_SECRET" "${WORKER_URL%/}/api/retry-grocery-duplicate-scans")
+          case "$status" in
+            200) cat "$RUNNER_TEMP/duplicate-scan-response" ;;
+            409) echo 'Worker already running; the next scheduled run will retry.' ;;
+            *) echo "Duplicate scan worker returned HTTP $status" >&2; exit 1 ;;
+          esac

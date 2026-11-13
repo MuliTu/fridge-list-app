@@ -19,12 +19,14 @@ The isolated build uses `npm run demo:build` and writes ignored `dist-demo/` art
 TanStack Start API features require a server runtime; serving a static `dist/` folder
 is insufficient. Production runtime and deployment validation remain open.
 
-## What is verified
+## Historical verification checkpoint — 2026-10-06
+
+The entire table below records evidence and remaining gates as of 2026-10-06; it is not current verification status.
 
 | Capability | Evidence and limits |
 | --- | --- |
 | Grocery commands and household roles | Local API/emulator role and replay checks pass; complete browser journey pending |
-| Recipe grounding and bounded generation | Local guards, deadlines and synthetic evaluations pass; live-model quality unverified |
+| Recipe grounding and bounded generation | At the dated checkpoint, local guards, deadlines and synthetic evaluations passed; live-model quality unverified |
 | Explicit recipe save | Atomic replay/conflict and scoped draft recovery tests pass; full browser reload/sign-out check pending |
 | Nutrition | Unknown stays unknown; enrichment is opt-in with weights and provenance; live accuracy unverified |
 | Siri/n8n, receipts, assistant, feedback | Existing optional code; disabled in isolated demo and not production-validated here |
@@ -33,7 +35,7 @@ is insufficient. Production runtime and deployment validation remain open.
 
 See [dated verification evidence](docs/plans/flagship-progress.md) and
 [remaining tasks](docs/specs/tasks-flagship-readiness.md). Local tests do not establish
-production readiness. The work is available in [draft PR #68](https://github.com/MuliTu/fridge-list-app/pull/68); remaining gates are documented before merge.
+production readiness. That checkpoint refers to [PR #68](https://github.com/MuliTu/fridge-list-app/pull/68); consult the PR for its current state. See [development progress](docs/plans/development-progress-2026-11-03.md) for the later source and provider observations.
 
 ## Architecture and tradeoffs
 

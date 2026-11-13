@@ -29,7 +29,7 @@ Canonical board: [Fridge List App](https://kanban.muli-tu.com/boards/6txqb667swi
 | [FR-12](https://kanban.muli-tu.com/cards/rp8iqj4iqtua) | Maintain a production-parity invitee development preview | Enhancement | P2 | [FR-02](https://kanban.muli-tu.com/cards/34xp28wc30nv) |
 | [FR-13](https://kanban.muli-tu.com/cards/4uvxbtwpelh2) | Guard owner deletion of a custom shopping list | Enhancement | P1 | [FR-13A](https://kanban.muli-tu.com/cards/7r38kuc8ji65), [FR-13B](https://kanban.muli-tu.com/cards/1vau0wxc2qjt) |
 
-All cards start in Backlog. P0/P1/P2 and dependencies are descriptive text because Kan has no native priority or dependency field. No deadlines or assignments were invented. Native labels describe type, native lists describe progress. Acceptance checklists are unfinished until evidence supports them.
+The initial cards started in Backlog; consult Kan for their current state. P0/P1/P2 and dependencies are descriptive text because Kan has no native priority or dependency field. No deadlines or assignments were invented. Native labels describe type, native lists describe progress. Acceptance checklists are unfinished until evidence supports them.
 
 ## Delivery sequence
 
@@ -52,10 +52,12 @@ Recommended first implementation: FR-07, because it closes a known loss-of-recov
 - Existing standalone invitation email route needs authentication and exact-list authorization before SMTP is enabled.
 - Language placement is fixed by the request. Per-invitation language is an explicit planning assumption; no changing another account's global setting.
 - The draft historical LangGraph/Trello checklist does not reflect implemented code and is not the canonical execution plan for this increment.
-- The current branch contains committed FR-12 preview work at `be6bfa6` plus a
+- The local branch snapshot recorded in this plan by 2026-11-10 contained committed FR-12 preview work at `be6bfa6` plus a
   broad uncommitted candidate spanning Settings behavior, shared-list UI/API/rules,
   item interactions and supporting tests. Split verification by ticket and do not
-  infer a single release state from the combined working tree.
+  infer a single release state from the combined working tree. See the dated
+  [progress reconciliation](development-progress-2026-11-03.md) for the later
+  fetched-main and local-checkout observations.
 
 ## Release gates
 

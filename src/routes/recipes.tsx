@@ -10,6 +10,7 @@ import ListSkeleton from '../components/ListSkeleton'
 import { RecipeNutritionSummary } from '../components/RecipeNutritionSummary'
 import { CookingStudio } from '../components/CookingStudio'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
+import { Button } from '../components/ui/button'
 import { Clock3, ArrowUpRight, BookOpen, Search } from 'lucide-react'
 
 function RecipeImage({ recipe }: { recipe: RecipeRecord }) {
@@ -42,30 +43,52 @@ function RecipesPage() {
   const [query, setQuery] = useState('')
   const [recipes, setRecipes] = useState<RecipeRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [readError, setReadError] = useState(false)
+  const [readAttempt, setReadAttempt] = useState(0)
 
   useEffect(() => {
-    setIsLoading(true)
-    setError(null)
     setSelectedRecipe(null)
     setQuery('')
-    const unsubscribe = onValue(
+  }, [listApi])
+
+  useEffect(() => {
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
+    setIsLoading(true)
+    setReadError(false)
+    setRecipes([])
+    const fail = () => {
+      if (cancelled) return
+      window.clearTimeout(timeout)
+      setRecipes([])
+      setReadError(true)
+      setIsLoading(false)
+    }
+    const timeout = window.setTimeout(() => {
+      fail()
+      unsubscribe?.()
+    }, 10_000)
+    unsubscribe = onValue(
       listApi.recipesRef,
       (snapshot) => {
+        if (cancelled) return
+        window.clearTimeout(timeout)
         const data = snapshot.val() || {}
         const nextRecipes = Object.entries(data as Record<string, Omit<RecipeRecord, 'key'>>)
           .map(([key, recipe]) => ({ key, ...recipe }))
           .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
         setRecipes(nextRecipes)
+        setReadError(false)
         setIsLoading(false)
       },
-      (cause) => {
-        setError(cause.message)
-        setIsLoading(false)
-      }
+      fail
     )
-    return unsubscribe
-  }, [listApi])
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+      unsubscribe?.()
+    }
+  }, [listApi, readAttempt])
 
   const filteredRecipes = recipes.filter((recipe) =>
     recipe.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
@@ -78,7 +101,7 @@ function RecipesPage() {
         <div>
           <span className="workspace-kicker">{t('workspace.yourCollection')}</span>
           <h3>
-            {t('workspace.savedRecipes')} <small>{isLoading ? '—' : recipes.length}</small>
+            {t('workspace.savedRecipes')} <small>{isLoading || readError ? '—' : recipes.length}</small>
           </h3>
         </div>
         <label className="collection-search">
@@ -93,10 +116,13 @@ function RecipesPage() {
       </div>
       {isLoading ? (
         <ListSkeleton variant="grid" sections={2} rows={2} />
-      ) : error ? (
-        <p role="alert" className="chef-error">
-          {t('recipes:loadFailed', { message: error })}
-        </p>
+      ) : readError ? (
+        <div role="alert" className="chef-error">
+          <p>{t('recipes:loadFailed')}</p>
+          <Button variant="secondary" onClick={() => setReadAttempt((attempt) => attempt + 1)}>
+            {t('recipes:retry')}
+          </Button>
+        </div>
       ) : filteredRecipes.length === 0 ? (
         <div className="workspace-empty">
           <BookOpen aria-hidden="true" />

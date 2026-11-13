@@ -12,6 +12,7 @@ interface GroceriesFeedValue {
   isLoading: boolean
   hasError: boolean
   retry: () => void
+  hasCurrentSnapshot?: boolean
 }
 
 export const GroceriesFeedContext = createContext<GroceriesFeedValue | null>(null)
@@ -35,6 +36,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   const isPrerendering = useIsPrerendering()
   const { listApi } = useActiveList()
   const retry = useCallback(() => setRetryGeneration((generation) => generation + 1), [])
+  const [loadedApi, setLoadedApi] = useState<typeof listApi>(null)
 
   useEffect(() => {
     if (isPrerendering) return
@@ -46,6 +48,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
     setStatus(t('workspace.feedConnecting'))
     setToast(null)
     if (toastTimer.current) clearTimeout(toastTimer.current)
+    setLoadedApi(null)
     if (!listApi) return
 
     let active = true
@@ -78,6 +81,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
         setHasError(false)
         setEntries(nextEntries)
+        setLoadedApi(listApi)
         setStatus(
           t('workspace.feedUpdated', {
             time: new Date().toLocaleTimeString(i18n.language === 'he' ? 'he-IL' : 'en-GB', {
@@ -95,6 +99,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
         setHasError(true)
         setToast(null)
         if (toastTimer.current) clearTimeout(toastTimer.current)
+        setLoadedApi(null)
         setStatus(t('workspace.feedError', { message: error.message }))
       }
     )
@@ -107,7 +112,7 @@ export function GroceriesFeedProvider({ children }: { children: ReactNode }) {
   }, [isPrerendering, listApi, t, i18n.language, retryGeneration])
 
   return (
-    <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading, hasError, retry }}>
+    <GroceriesFeedContext.Provider value={{ entries, status, toast, isLoading, hasError, retry, hasCurrentSnapshot: Boolean(listApi && loadedApi === listApi) }}>
       {children}
     </GroceriesFeedContext.Provider>
   )
