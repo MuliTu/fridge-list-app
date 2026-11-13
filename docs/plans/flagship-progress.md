@@ -1,7 +1,9 @@
 # Verification status
 
-Evidence through 2026-10-06. This is a review checkpoint, not a claim of production
-readiness. The detailed session journal is retained locally outside version control.
+Evidence through 2026-10-06. This is a historical review checkpoint for the revisions
+below, not current main status or a claim of production readiness. Later status is
+recorded separately in [development progress](development-progress-2026-11-03.md).
+The detailed session journal is retained locally outside version control.
 
 ## Scope and revision
 
