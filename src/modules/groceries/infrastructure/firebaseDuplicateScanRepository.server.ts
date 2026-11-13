@@ -3,6 +3,7 @@ import '@tanstack/react-start/server-only'
 import { getDatabaseWithUrl, type Database, type Query } from 'firebase-admin/database'
 import type { App } from 'firebase-admin/app'
 import { ApplicationError } from '../../shared'
+import { createListMutation, type MutateList } from '../../shared/server'
 import {
   DUPLICATE_SCAN_ALGORITHM_VERSION,
   DUPLICATE_SCAN_MAX_ATTEMPTS,
@@ -14,8 +15,6 @@ import {
 } from '../application/duplicateScan.service'
 
 type RecordNode = Record<string, unknown>
-type ListMutation<T> = (list: RecordNode) => { value: RecordNode; result: T } | undefined
-type MutateList = <T>(listId: string, mutate: ListMutation<T>) => Promise<T | undefined>
 
 type StoredListRegistration = {
   listId?: unknown
@@ -54,63 +53,6 @@ const assertReference = (reference: DuplicateScanJobRef): void => {
 export type DuplicateBackfillCursor = { listId: string; itemId?: string }
 
 const BACKFILL_PAGE_SIZE = 25
-const MAX_TRANSACTION_ATTEMPTS = 25
-const REQUEST_TIMEOUT_MS = 10_000
-
-const createListMutation = (app: App, databaseUrl: string): MutateList => {
-  const root = new URL(databaseUrl)
-  const emulatorHost = process.env.FIREBASE_DATABASE_EMULATOR_HOST
-  if (emulatorHost) {
-    const namespace = root.searchParams.get('ns') ?? root.hostname.split('.')[0]
-    root.host = emulatorHost
-    root.protocol = 'http:'
-    root.searchParams.set('ns', namespace)
-  } else if (root.protocol !== 'https:') {
-    throw new ApplicationError('not_configured', 'Firebase Realtime Database requires HTTPS')
-  }
-
-  return async <T>(listId: string, mutate: ListMutation<T>): Promise<T | undefined> => {
-    const token = emulatorHost ? 'owner' : (await app.options.credential?.getAccessToken())?.access_token
-    if (!token) throw new ApplicationError('unavailable', 'Firebase Admin credential could not issue an access token')
-    const url = new URL(root)
-    url.pathname = `/users/${encodeURIComponent(listId)}.json`
-    const readUrl = new URL(url)
-    readUrl.searchParams.set('format', 'export')
-    const headers = { Authorization: `Bearer ${token}` }
-    const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-
-    // The JS transaction callback receives plain values and loses nested priorities.
-    // Pair the export representation with an ETag so every retry rechecks the same
-    // list atomically and carries through untouched values and metadata verbatim.
-    for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
-      const response = await fetch(readUrl, {
-        headers: { ...headers, 'X-Firebase-ETag': 'true' },
-        redirect: 'error',
-        signal
-      })
-      if (!response.ok) throw new ApplicationError('upstream_failed', `Firebase list read returned HTTP ${response.status}`)
-      const etag = response.headers.get('etag')
-      if (!etag) throw new ApplicationError('upstream_failed', 'Firebase list response omitted an ETag')
-      const current: unknown = await response.json()
-      const change = current === null ? undefined : mutate(object(current))
-      if (!change) return undefined
-      const write = await fetch(url, {
-        method: 'PUT',
-        headers: { ...headers, 'Content-Type': 'application/json', 'If-Match': etag },
-        body: JSON.stringify(change.value),
-        redirect: 'error',
-        signal
-      })
-      // The conditional write echoes the list; only its status is needed.
-      await write.body?.cancel().catch(() => undefined)
-      if (write.status === 412) continue
-      if (!write.ok) throw new ApplicationError('upstream_failed', `Firebase list write returned HTTP ${write.status}`)
-      return change.result
-    }
-    throw new ApplicationError('upstream_failed', 'Firebase list transaction did not converge')
-  }
-}
-
 // Keep this above maxDuration (120 seconds) in scripts/vercel-build.mjs.
 const WORKER_LEASE_MS = 3 * 60_000
 

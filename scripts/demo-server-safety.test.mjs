@@ -35,3 +35,11 @@ test('disabled integrations return a clear failure without reaching route handle
   assert.match(headers['Content-Security-Policy'], /127\.0\.0\.1:9099/)
   assert.match(JSON.parse(body).error, /disabled/)
 })
+
+test('opens only the nominated synthetic review route during an opt-in run', () => {
+  const path = '/api/lists/demo%40example_test/background-ai-review'
+  assert.equal(demoRequestPolicy(path), false)
+  assert.equal(demoRequestPolicy(path, 'other@example_test'), false)
+  assert.equal(demoRequestPolicy(path, 'demo@example_test'), true)
+  assert.equal(demoRequestPolicy('/api/ai/analyze', 'demo@example_test'), false)
+})
