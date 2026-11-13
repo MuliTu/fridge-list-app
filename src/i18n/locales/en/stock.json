@@ -1,6 +1,8 @@
 {
   "emptyAddFirst": "Stock is empty — add your first item 📦",
   "emptyViewOnly": "Stock is empty 📦",
+  "loadFailed": "Couldn't load stock. Check your connection or access, then try again.",
+  "retry": "Try again",
   "addFab": "Add stock item",
   "updatedCaption": "Updated: {{date}}",
   "updatedCaptionWithEmail": "Updated: {{date}} · {{email}}",

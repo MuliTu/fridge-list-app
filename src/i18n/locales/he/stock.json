@@ -1,6 +1,8 @@
 {
   "emptyAddFirst": "המלאי ריק — הוסיפו פריט ראשון 📦",
   "emptyViewOnly": "המלאי ריק 📦",
+  "loadFailed": "לא הצלחנו לטעון את המלאי. בדקו את החיבור או את ההרשאה ונסו שוב.",
+  "retry": "ניסיון נוסף",
   "addFab": "הוספת פריט למלאי",
   "updatedCaption": "עודכן: {{date}}",
   "updatedCaptionWithEmail": "עודכן: {{date}} · {{email}}",
