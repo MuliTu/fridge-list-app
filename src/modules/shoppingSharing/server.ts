@@ -5,7 +5,7 @@ import { getDatabaseWithUrl } from 'firebase-admin/database'
 import { AuthenticateUserService } from '../identity'
 import { AuthenticatedUserHandler, FirebaseAdminTokenVerifier, getFirebaseAdminApp, parseJsonRequest } from '../identity/server'
 import { ApplicationError } from '../shared'
-import { toHttpErrorResponse } from '../shared/server'
+import { createListMutation, toHttpErrorResponse } from '../shared/server'
 import { FirebaseShoppingSharingService } from './infrastructure/firebaseShoppingSharing.server'
 
 const dependencies = () => {
@@ -14,9 +14,10 @@ const dependencies = () => {
     FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'n8n-vocal-2-db',
     FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_KEY
   })
-  const service = new FirebaseShoppingSharingService(getDatabaseWithUrl(
-    process.env.FIREBASE_DATABASE_URL || 'https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app', app
-  ), getAuth(app))
+  const databaseUrl = process.env.FIREBASE_DATABASE_URL || 'https://n8n-vocal-2-db-default-rtdb.europe-west1.firebasedatabase.app'
+  const service = new FirebaseShoppingSharingService(
+    getDatabaseWithUrl(databaseUrl, app), getAuth(app), createListMutation(app, databaseUrl)
+  )
   const handler = new AuthenticatedUserHandler({ authenticationService: new AuthenticateUserService(new FirebaseAdminTokenVerifier(app)) })
   return { service, handler }
 }

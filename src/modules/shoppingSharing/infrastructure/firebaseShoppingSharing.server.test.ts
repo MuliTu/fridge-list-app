@@ -1,58 +1,9 @@
 /** @jest-environment node */
 jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
 
-import { FirebaseShoppingSharingService } from './firebaseShoppingSharing.server'
 import type { ShoppingShareSnapshot } from '..'
 
-const owner = { kind: 'user' as const, uid: 'owner-uid', email: 'owner@example.com', emailVerified: true }
-const guest = { kind: 'user' as const, uid: 'guest-uid', email: 'guest@example.com', emailVerified: true }
-const stranger = { kind: 'user' as const, uid: 'stranger-uid', email: 'stranger@example.com', emailVerified: true }
-const householdId = 'owner@example_com'
-
-// A stateful repository double exercises authorization across successive calls,
-// including revocation and items moved after a guest opened a list.
-function fixture() {
-  const state: any = { users: { [householdId]: { ownerUid: owner.uid, categories: {
-    dairy: { name: 'Dairy', color: '#f0c96b', icon: '🥛', order: 2 },
-    custom: { name: 'Custom shelf', color: '#123456', icon: '✨', order: 1 },
-    private: { name: 'Health', color: '#ff0000', icon: '🔒', order: 0 }
-  }, groceries: {
-    a: { item: 'Milk', category: 'Dairy', bought: false, list_name: 'A', added_at: '2026-11-03' },
-    custom: { item: 'Special', category: 'Custom shelf', bought: false, list_name: 'A', added_at: '2026-11-03' },
-    b: { item: 'Private medicine', category: 'Health', bought: false, list_name: 'B', added_at: '2026-11-03', image_ref: 'private-image' },
-    permanent: { item: 'Bread', category: 'Bakery', bought: false, list_name: null }
-  } } } }
-  const read = (path: string) => path.split('/').filter(Boolean).reduce((node, key) => node?.[key], state) ?? null
-  const write = (path: string, value: unknown) => {
-    const segments = path.split('/').filter(Boolean)
-    let node = state
-    for (const segment of segments.slice(0, -1)) node = node[segment] ??= {}
-    if (value === null) delete node[segments.at(-1)!]
-    else node[segments.at(-1)!] = structuredClone(value)
-  }
-  let pushed = 0
-  const reference = (path = ''): any => ({
-    get: async () => ({ val: () => structuredClone(read(path)), exists: () => read(path) !== null }),
-    child: (key: string) => reference(`${path}/${key}`),
-    update: async (updates: Record<string, unknown>) => { for (const [key, value] of Object.entries(updates)) write(path ? `${path}/${key}` : key, value) },
-    push: async (value: unknown) => { write(`${path}/added-${++pushed}`, value) },
-    transaction: async (update: (value: any) => any) => {
-      const value = update(structuredClone(read(path)))
-      if (value === undefined) return { committed: false }
-      write(path, value)
-      return { committed: true }
-    }
-  })
-  const db = { ref: jest.fn(reference) }
-  const auth: any = { getUserByEmail: jest.fn(async (email: string) => ({ displayName: email.split('@')[0], photoURL: 'https://example.com/avatar.png' })) }
-  const service = new FirebaseShoppingSharingService(db as any, auth)
-  const request = (action: string, fields = {}) => ({ action, householdId, listName: 'A', ...fields })
-  const invite = async () => {
-    await service.execute(owner, request('invite', { email: guest.email }))
-    return (await service.discover(guest))[0].id
-  }
-  return { state, read, write, service, request, invite, db, auth }
-}
+import { fixture, guest, householdId, owner, stranger } from './firebaseShoppingSharing.test-support'
 
 describe('per-shopping-list sharing isolation', () => {
   it('provisions only a verified new user own list and preserves existing content', async () => {
@@ -206,5 +157,50 @@ describe('per-shopping-list sharing isolation', () => {
     expect(await f.service.discover(guest)).toHaveLength(1)
     const result = await f.service.execute(guest, { action: 'snapshot', shareId }) as ShoppingShareSnapshot
     expect(result.members).toEqual([{ email: guest.email, displayName: guest.email, photoURL: null }])
+  })
+})
+
+it.each(['Health', 'Unknown category'])('rejects forged category %s on add and update', async category => {
+  const f = fixture()
+  const shareId = await f.invite()
+  const groceriesPath = `users/${householdId}/groceries`
+  const original = structuredClone(f.read(groceriesPath))
+  for (const mutation of [
+    { operation: 'add', item: { name: 'Extra item', category } },
+    { operation: 'update', itemId: 'a', item: { category } }
+  ]) {
+    await expect(f.service.execute(guest, { action: 'mutate', shareId, mutation })).rejects.toMatchObject({ code: 'invalid_input' })
+  }
+  expect(f.read(groceriesPath)).toEqual(original)
+})
+
+it('rechecks whether a previously selectable category is now exclusive to another list', async () => {
+  const f = fixture()
+  const shareId = await f.invite()
+  f.write(`users/${householdId}/categories/canned`, { name: 'Canned goods' })
+  const initial = await f.service.execute(guest, { action: 'snapshot', shareId }) as ShoppingShareSnapshot
+  expect(initial.categories.map(({ name }) => name)).toContain('Canned goods')
+  f.write(`users/${householdId}/groceries/b/category`, 'Canned goods')
+  await expect(f.service.execute(guest, { action: 'mutate', shareId, mutation: {
+    operation: 'update', itemId: 'a', item: { category: 'Canned goods' }
+  } })).rejects.toMatchObject({ code: 'invalid_input' })
+  expect(f.read(`users/${householdId}/groceries/a/category`)).toBe('Dairy')
+})
+
+it('preserves Firebase priorities and unrelated data on a category move', async () => {
+  const f = fixture()
+  const shareId = await f.invite()
+  const path = `users/${householdId}`
+  f.write(`${path}/groceries/a/category`, { '.value': 'Dairy', '.priority': 2 })
+  f.write(`${path}/groceries/a/list_name`, { '.value': 'A', '.priority': 1 })
+  f.write(`${path}/groceries/a/.priority`, 3)
+  f.write(`${path}/groceries/.priority`, 4)
+  f.write(`${path}/catalogRevision`, { '.value': 7, '.priority': 5 })
+  await f.service.execute(guest, { action: 'mutate', shareId, mutation: {
+    operation: 'update', itemId: 'a', item: { category: 'Custom shelf' }
+  } })
+  expect(f.read(path)).toMatchObject({
+    groceries: { a: { category: { '.value': 'Custom shelf', '.priority': 2 }, list_name: { '.value': 'A', '.priority': 1 }, '.priority': 3 }, '.priority': 4 },
+    catalogRevision: { '.value': 7, '.priority': 5 }
   })
 })
