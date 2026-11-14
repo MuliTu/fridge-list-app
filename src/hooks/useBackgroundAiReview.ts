@@ -103,7 +103,7 @@ export function useBackgroundAiReview({
           if (response.kind === 'completed') {
             const result = response.result
             save({ snapshot, kind: 'completed',
-              ...(result.duplicates.length || result.renames.length ? {
+              ...(result.duplicates.length || result.renames.length || result.categoryChanges?.length ? {
                 review: { scope, snapshot, items: reviewedItems, result }
               } : {}) })
           } else if (response.kind === 'disabled') {

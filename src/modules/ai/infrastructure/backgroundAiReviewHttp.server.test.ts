@@ -30,6 +30,7 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
     ownerUid: 'owner',
     members: { viewer: { status: 'approved', role: 'viewer' }, editor: { status: 'approved', role: 'editor' } },
     groceries: structuredClone(groceries),
+    categories: {} as Record<string, { name: string }>,
     listChangeHistory: {}
   }
   const snapshot = (value: unknown) => ({ val: () => value, exists: () => value != null })
@@ -62,6 +63,15 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
         limitToFirst: (limit: number) => ({ get: name === null ? getGroceries : async () => grocerySnapshot(name, limit) })
       })
     }) }
+    if (path.endsWith('/categories')) return {
+      limitToFirst: (limit: number) => ({
+        get: async () => {
+          const values = Object.values(household.categories).slice(0, limit)
+          return { numChildren: () => values.length, forEach: (callback: (child: { val: () => unknown }) => void) =>
+            values.forEach((value) => callback({ val: () => value })) }
+        }
+      })
+    }
     if (path === '_server/backgroundAiReview/groq') return { transaction: quotaTransaction }
     if (path === 'users/list') return {
       child: () => ({ push: () => ({ key: `event-${++operation}` }) }),
@@ -489,4 +499,87 @@ it('scans only the main list even with hundreds of custom-list items', async () 
     version, actorUid: 'owner', operationId, removals: ['custom-0'], renames: []
   })).status).toBe(409)
   expect(Object.hasOwn(test.household.groceries, 'custom-0')).toBe(true)
+})
+
+it('suggests evidence-backed moves out of Other and requires authorized confirmation', async () => {
+  const test = setup('editor')
+  test.household.categories.fruit = { name: 'פירות' }
+  test.household.categories.produce = { name: 'ירקות' }
+  test.household.categories.bakery = { name: 'מאפים' }
+  Object.assign(test.household.groceries, {
+    one: { item: 'אפרסק', category: 'אחר', list_name: null, bought: false },
+    two: { item: 'לחם', category: 'קטגוריה שנמחקה', list_name: null, bought: false },
+    history: { item: 'לחם', category: 'מאפים', list_name: null, bought: true },
+    uncertain: { item: 'Unknown product', category: 'אחר', list_name: null, bought: false },
+    outside: { item: 'גזר', category: 'אחר', list_name: 'Trip', bought: false }
+  })
+  const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
+  const response = await test.request('POST', { version: reviewVersion, language: 'en' })
+  expect(response.status).toBe(200)
+  expect((await response.json()).result.categoryChanges).toEqual([
+    { key: 'one', category: 'פירות', reason: 'The category matches this product type' },
+    { key: 'two', category: 'מאפים', reason: 'An equivalent item already uses this category' }
+  ])
+  expect(test.household.groceries.one).toMatchObject({ category: 'אחר' })
+
+  const selection = { version: reviewVersion, actorUid: 'editor', operationId, removals: [], renames: [] }
+  const change = { key: 'one', category: 'פירות' }
+  expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'outside', category: 'ירקות' }] })).status).toBe(409)
+  expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'one', category: 'ירקות' }] })).status).toBe(409)
+  expect((await test.request('PUT', { ...selection, actorUid: 'viewer', categoryChanges: [change] })).status).toBe(403)
+  expect((await test.request('PUT', { ...selection, removals: ['one'], categoryChanges: [change] })).status).toBe(400)
+
+  delete test.household.categories.fruit
+  expect((await test.request('PUT', { ...selection, categoryChanges: [change] })).status).toBe(409)
+  test.household.categories.fruit = { name: 'פירות' }
+  Object.assign(test.household.groceries.one, { category: 'ירקות' })
+  expect((await test.request('PUT', { ...selection, categoryChanges: [change] })).status).toBe(409)
+  Object.assign(test.household.groceries.one, { category: 'אחר' })
+  const applied = await test.request('PUT', { ...selection, categoryChanges: [change] })
+  expect(applied.status).toBe(200)
+  const appliedResult = await applied.json()
+  expect(appliedResult).toMatchObject({ recategorized: 1, recategorizedKeys: ['one'] })
+  expect(test.household.groceries.one).toMatchObject({ category: 'פירות' })
+  expect(test.household.groceries.two).toMatchObject({ category: 'קטגוריה שנמחקה' })
+  expect(await (await test.request('PUT', { ...selection, categoryChanges: [change] })).json()).toEqual(appliedResult)
+})
+
+it('leaves a fallback item alone when equally named items disagree on the category', async () => {
+  const test = setup()
+  test.household.categories = { fruit: { name: 'פירות' }, frozen: { name: 'קפואים' } }
+  Object.assign(test.household.groceries, {
+    one: { item: 'אפרסק', category: 'אחר', list_name: null, bought: false },
+    two: { item: 'אפרסקים', category: 'פירות', list_name: null, bought: true },
+    third: { item: 'אפרסק', category: 'קפואים', list_name: null, bought: true }
+  })
+  const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
+  const response = await test.request('POST', { version: reviewVersion, language: 'he' })
+  expect(response.status).toBe(200)
+  expect((await response.json()).result).not.toHaveProperty('categoryChanges')
+})
+
+it('fills the category correction limit after excluding suggested removals', async () => {
+  const test = setup()
+  test.household.categories.fruit = { name: 'פירות' }
+  Object.assign(test.household.groceries, Object.fromEntries(Array.from({ length: 17 }, (_, index) => [
+    `peach-${String(index).padStart(2, '0')}`, { item: 'אפרסק', category: 'אחר', list_name: null, bought: false }
+  ])))
+  test.analyze.mockResolvedValue({ ...result, duplicates: [{
+    keepKey: 'peach-16', removeKeys: ['peach-00', 'peach-01'], reason: 'Equivalent'
+  }] })
+  const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
+  const response = await test.request('POST', { version: reviewVersion, language: 'he' })
+  expect(response.status).toBe(200)
+  const { categoryChanges } = (await response.json()).result
+  expect(categoryChanges).toHaveLength(15)
+  expect(categoryChanges[0]).toMatchObject({ key: 'peach-02' })
+  expect(categoryChanges[14]).toMatchObject({ key: 'peach-16' })
+  const applied = await test.request('PUT', {
+    version: reviewVersion, actorUid: 'owner', operationId, removals: [], renames: [],
+    categoryChanges: [{ key: 'peach-16', category: 'פירות' }]
+  })
+  expect(applied.status).toBe(200)
 })

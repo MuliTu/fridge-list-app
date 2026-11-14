@@ -156,3 +156,35 @@ it('retries the same confirmed operation after an uncertain response and realtim
   await waitFor(() => expect(applyBackgroundAiReview).toHaveBeenCalledTimes(2))
   expect(applyBackgroundAiReview.mock.calls[1][4].operationId).toBe(applyBackgroundAiReview.mock.calls[0][4].operationId)
 })
+
+it('shows category-only findings and submits selected moves after confirmation', async () => {
+  mockUid = 'uid'; mockListId = 'owner@example.test'
+  applyBackgroundAiReview.mockClear()
+  const initialReview = {
+    scope: JSON.stringify(['uid', 'owner@example_test']), snapshot: 'snapshot',
+    items: [{ key: 'peach', item: 'אפרסק', bought: false, list_name: null, category: 'אחר' }],
+    result: {
+      mode: 'list_review' as const, duplicates: [], renames: [],
+      categoryChanges: [{ key: 'peach', category: 'פירות', reason: 'The category matches this product type' }]
+    }
+  }
+  confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+  applyBackgroundAiReview.mockResolvedValue({
+    removed: 0, renamed: 0, skipped: 0, recategorized: 1,
+    renamedKeys: [], removedKeys: [], skippedKeys: [], recategorizedKeys: ['peach']
+  })
+  render(<AiAssistantModal onClose={jest.fn()} initialReview={initialReview} isReviewCurrent={() => true} />)
+  expect(screen.getByText('The category matches this product type')).toBeVisible()
+  const apply = screen.getByRole('button', { name: /ai:applySelected/ })
+  expect(apply).toBeDisabled()
+  fireEvent.click(screen.getByRole('checkbox'))
+  fireEvent.click(apply)
+  await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/^ai:reviewConfirmWithCategories:/)))
+  expect(applyBackgroundAiReview).not.toHaveBeenCalled()
+  fireEvent.click(apply)
+  await waitFor(() => expect(applyBackgroundAiReview).toHaveBeenCalledWith(
+    'owner@example_test', 'snapshot', [], [],
+    expect.objectContaining({ categoryChanges: [{ key: 'peach', category: 'פירות' }] })
+  ))
+  expect(await screen.findByText(/^ai:reviewSuccessWithCategories:/)).toBeVisible()
+})
