@@ -320,3 +320,32 @@ it('keeps a known distinct-name match visible behind twelve ordinary duplicate g
   expect(result.duplicates).toHaveLength(12)
   expect(result.duplicates[0]).toMatchObject({ keepKey: 'purchased', removeKeys: ['open'] })
 })
+
+it('sends every category and grounds model moves and new categories against the supplied list', async () => {
+  const rows = [
+    { key: 'salt', item: 'מלח לימון', category: 'אחר', bought: false, list_name: null },
+    { key: 'tape', item: 'סרט הדבקה', category: 'אחר', bought: true, list_name: null },
+    { key: 'pepper', item: 'פלפל שחור', category: 'מזווה', bought: true, list_name: null }
+  ]
+  const move = (key: string, category: string, createCategory: boolean) =>
+    ({ key, category, createCategory, reason: 'Category fit' })
+  const send = jest.fn(async (_url: string, _request: RequestInit) => providerResponse({
+    mode: 'list_review', duplicates: [], renames: [],
+    categoryChanges: [
+      move('1', 'Missing', false), move('2', 'מזווה', true),
+      move('3', 'ציוד לבית', true), move('999', 'מזווה', false),
+      move('1', 'מזווה', false), move('2', 'ציוד לבית', true)
+    ]
+  }))
+  const categories = ['אחר', 'מזווה', 'ירקות']
+  const result = await reviewWithGroq('test-key', rows, 'he', new AbortController().signal, send, new Map(), categories)
+  const body = JSON.parse(String(send.mock.calls[0][1].body))
+  expect(JSON.parse(body.messages[1].content)).toEqual({
+    language: 'he', categories, items: [
+      ['1', 'מלח לימון', 0, 0, 'אחר'],
+      ['2', 'סרט הדבקה', 0, 1, 'אחר'],
+      ['3', 'פלפל שחור', 0, 1, 'מזווה']
+    ]
+  })
+  expect(result.categoryChanges).toEqual([move('salt', 'מזווה', false), move('tape', 'ציוד לבית', true)])
+})

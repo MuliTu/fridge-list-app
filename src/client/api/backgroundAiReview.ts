@@ -40,7 +40,7 @@ export const applyBackgroundAiReview = async (
   snapshot: string,
   removals: string[],
   renames: { key: string; name: string }[],
-  submission: { actorUid: string; operationId: string; signal: AbortSignal; categoryChanges?: { key: string; category: string }[] }
+  submission: { actorUid: string; operationId: string; signal: AbortSignal; categoryChanges?: { key: string; category: string; createCategory?: boolean }[] }
 ) => withDeadline(async (signal) => {
   const version = await snapshotVersion(snapshot)
   signal.throwIfAborted()

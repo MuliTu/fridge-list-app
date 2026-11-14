@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 
+import { isUncategorizedReviewItem, isReviewCategoryName } from '../domain/backgroundAiReview'
 import { normalizeName } from '../../../lib/normalizeName'
 import { groceryReviewName, type BackgroundReviewItem } from '../domain/backgroundAiReview'
 import { aiListReviewResultSchema, type AiListReviewResult } from '../domain/aiSchemas'
@@ -14,6 +15,7 @@ const object = (properties: Record<string, unknown>) => ({
   additionalProperties: false
 })
 const string = { type: 'string' }
+const categoryChangeSchema = object({ key: string, category: string, reason: string, createCategory: { type: 'boolean' } })
 const outputSchema = object({
   mode: { type: 'string', const: 'list_review' },
   duplicates: { type: 'array', items: object({
@@ -61,13 +63,15 @@ export const reviewWithGroq = async (
   language: 'en' | 'he',
   signal: AbortSignal,
   send: typeof fetch = fetch,
-  addedAtByKey: ReadonlyMap<string, number> = new Map()
+  addedAtByKey: ReadonlyMap<string, number> = new Map(),
+  categories?: readonly string[]
 ): Promise<AiListReviewResult> => {
   const subLists = new Map<string | null, number>()
   const byAlias = new Map(items.map((item, index) => [String(index + 1), item]))
   const providerItems = [...byAlias].map(([alias, item]) => {
     if (!subLists.has(item.list_name)) subLists.set(item.list_name, subLists.size)
-    return [alias, item.item, subLists.get(item.list_name), Number(item.bought)]
+    const row = [alias, item.item, subLists.get(item.list_name), Number(item.bought)]
+    return categories ? [...row, item.category ?? null] : row
   })
 
   const response = await send(endpoint, {
@@ -79,10 +83,10 @@ export const reviewWithGroq = async (
       model,
       temperature: 0,
       reasoning_effort: 'low',
-      max_completion_tokens: 3_200,
+      max_completion_tokens: categories ? 16_000 : 3_200,
       response_format: {
         type: 'json_schema',
-        json_schema: { name: 'list_review', strict: true, schema: outputSchema }
+        json_schema: { name: 'list_review', strict: true, schema: categories ? object({ ...outputSchema.properties, categoryChanges: { type: 'array', items: categoryChangeSchema } }) : outputSchema }
       },
       messages: [
         { role: 'system', content: [
@@ -93,7 +97,7 @@ export const reviewWithGroq = async (
           'Use only input IDs. Return at most 12 duplicate groups, 10 removals per group and 15 renames.',
           'Use empty arrays for no findings and write brief reasons in the requested language.'
         ].join(' ') },
-        { role: 'user', content: JSON.stringify({ language, items: providerItems }) }
+        { role: 'user', content: JSON.stringify({ language, items: providerItems, categories }) }
       ]
     })
   })
@@ -203,5 +207,14 @@ export const reviewWithGroq = async (
     renamed.add(rename.key)
     return [{ ...rename, key: item.key, currentName: item.item }]
   })
-  return { mode: 'list_review', duplicates, renames }
+  const seenCategoryKeys = new Set<string>()
+  const allowed = new Set(categories)
+  const categoryChanges = categories ? (result.categoryChanges ?? []).flatMap((change) => {
+    const item = byAlias.get(change.key)
+    if (!item || !isUncategorizedReviewItem(item) || removed.has(item.key) || seenCategoryKeys.has(item.key)) return []
+    if (!isReviewCategoryName(change.category) || (change.createCategory === true) === allowed.has(change.category)) return []
+    seenCategoryKeys.add(item.key)
+    return [{ ...change, key: item.key }]
+  }) : []
+  return { mode: 'list_review', duplicates, renames, ...(categoryChanges.length ? { categoryChanges } : {}) }
 }

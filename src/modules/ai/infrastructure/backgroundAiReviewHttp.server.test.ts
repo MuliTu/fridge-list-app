@@ -515,18 +515,20 @@ it('suggests evidence-backed moves out of Other and requires authorized confirma
   })
   const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
   const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
+  const suggestions = [{ key: 'one', category: 'פירות', reason: 'Fruit' }, { key: 'uncertain', category: 'ציוד', reason: 'New group', createCategory: true }]
+  test.analyze.mockResolvedValue({ ...result, categoryChanges: suggestions })
   const response = await test.request('POST', { version: reviewVersion, language: 'en' })
   expect(response.status).toBe(200)
-  expect((await response.json()).result.categoryChanges).toEqual([
-    { key: 'one', category: 'פירות', reason: 'The category matches this product type' },
-    { key: 'two', category: 'מאפים', reason: 'An equivalent item already uses this category' }
-  ])
+  expect((await response.json()).result.categoryChanges).toEqual(suggestions)
+  expect(test.analyze).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining([
+    expect.objectContaining({ key: 'history', category: 'מאפים' })
+  ]), 'en', expect.anything(), undefined, expect.any(Map), expect.arrayContaining(['פירות', 'ירקות', 'מאפים']))
   expect(test.household.groceries.one).toMatchObject({ category: 'אחר' })
 
   const selection = { version: reviewVersion, actorUid: 'editor', operationId, removals: [], renames: [] }
   const change = { key: 'one', category: 'פירות' }
   expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'outside', category: 'ירקות' }] })).status).toBe(409)
-  expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'one', category: 'ירקות' }] })).status).toBe(409)
+  expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'one', category: 'Unavailable' }] })).status).toBe(409)
   expect((await test.request('PUT', { ...selection, actorUid: 'viewer', categoryChanges: [change] })).status).toBe(403)
   expect((await test.request('PUT', { ...selection, removals: ['one'], categoryChanges: [change] })).status).toBe(400)
 
@@ -536,13 +538,15 @@ it('suggests evidence-backed moves out of Other and requires authorized confirma
   Object.assign(test.household.groceries.one, { category: 'ירקות' })
   expect((await test.request('PUT', { ...selection, categoryChanges: [change] })).status).toBe(409)
   Object.assign(test.household.groceries.one, { category: 'אחר' })
-  const applied = await test.request('PUT', { ...selection, categoryChanges: [change] })
+  const approved = { ...selection, categoryChanges: [change, { key: 'uncertain', category: 'ציוד', createCategory: true }] }
+  const applied = await test.request('PUT', approved)
   expect(applied.status).toBe(200)
   const appliedResult = await applied.json()
-  expect(appliedResult).toMatchObject({ recategorized: 1, recategorizedKeys: ['one'] })
+  expect(appliedResult).toMatchObject({ recategorized: 2, recategorizedKeys: ['one', 'uncertain'] })
   expect(test.household.groceries.one).toMatchObject({ category: 'פירות' })
   expect(test.household.groceries.two).toMatchObject({ category: 'קטגוריה שנמחקה' })
-  expect(await (await test.request('PUT', { ...selection, categoryChanges: [change] })).json()).toEqual(appliedResult)
+  expect(Object.values(test.household.categories)).toContainEqual(expect.objectContaining({ name: 'ציוד' }))
+  expect(await (await test.request('PUT', approved)).json()).toEqual(appliedResult)
 })
 
 it('leaves a fallback item alone when equally named items disagree on the category', async () => {
@@ -560,23 +564,22 @@ it('leaves a fallback item alone when equally named items disagree on the catego
   expect((await response.json()).result).not.toHaveProperty('categoryChanges')
 })
 
-it('fills the category correction limit after excluding suggested removals', async () => {
+it('returns more than fifteen model category suggestions', async () => {
   const test = setup()
   test.household.categories.fruit = { name: 'פירות' }
   Object.assign(test.household.groceries, Object.fromEntries(Array.from({ length: 17 }, (_, index) => [
     `peach-${String(index).padStart(2, '0')}`, { item: 'אפרסק', category: 'אחר', list_name: null, bought: false }
   ])))
-  test.analyze.mockResolvedValue({ ...result, duplicates: [{
-    keepKey: 'peach-16', removeKeys: ['peach-00', 'peach-01'], reason: 'Equivalent'
-  }] })
+  test.analyze.mockResolvedValue({ ...result, categoryChanges: Object.keys(test.household.groceries)
+    .filter((key) => key.startsWith('peach-')).map((key) => ({ key, category: 'פירות', reason: 'Fruit' })) })
   const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
   const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
   const response = await test.request('POST', { version: reviewVersion, language: 'he' })
   expect(response.status).toBe(200)
   const { categoryChanges } = (await response.json()).result
-  expect(categoryChanges).toHaveLength(15)
-  expect(categoryChanges[0]).toMatchObject({ key: 'peach-02' })
-  expect(categoryChanges[14]).toMatchObject({ key: 'peach-16' })
+  expect(categoryChanges).toHaveLength(17)
+  expect(categoryChanges[0]).toMatchObject({ key: 'peach-00' })
+  expect(categoryChanges[16]).toMatchObject({ key: 'peach-16' })
   const applied = await test.request('PUT', {
     version: reviewVersion, actorUid: 'owner', operationId, removals: [], renames: [],
     categoryChanges: [{ key: 'peach-16', category: 'פירות' }]

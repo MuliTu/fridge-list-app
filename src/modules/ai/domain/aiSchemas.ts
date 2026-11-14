@@ -88,8 +88,9 @@ export const aiListReviewResultSchema = z.object({
   categoryChanges: z.array(z.object({
     key: itemKey,
     category: z.string().trim().min(1).max(100),
-    reason: z.string().trim().min(1).max(300)
-  })).max(15).optional()
+    reason: z.string().trim().min(1).max(300),
+    createCategory: z.boolean().optional()
+  })).max(300).optional()
 })
 
 export const aiAssistantResultSchema = z.discriminatedUnion('mode', [
