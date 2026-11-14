@@ -36,6 +36,8 @@ type ReviewApplyResult = {
   removedKeys: string[]
   renamedKeys: string[]
   skippedKeys: string[]
+  recategorized?: number
+  recategorizedKeys?: string[]
 }
 
 export const aiErrorExplanationKey = (code: string) => {
@@ -64,6 +66,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
   const [contextItems, setContextItems] = useState<Pick<GroceryItem, 'key' | 'item' | 'list_name'>[]>(initialReview?.items ?? [])
   const [selectedDuplicateGroups, setSelectedDuplicateGroups] = useState<Set<number>>(new Set())
   const [selectedRenameKeys, setSelectedRenameKeys] = useState<Set<string>>(new Set())
+  const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<Set<string>>(new Set())
   const [ignoredCorrections, setIgnoredCorrections] = useState(0)
   const [loading, setLoading] = useState(false)
   const [applying, setApplying] = useState(false)
@@ -78,7 +81,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
   currentScope.current = scope
   const submission = useRef<AbortController | null>(null)
   const operation = useRef<{ payload: string; id: string; selection: string } | null>(null)
-  const selection = JSON.stringify([scope, initialReview?.snapshot, [...selectedDuplicateGroups].sort(), [...selectedRenameKeys].sort()])
+  const selection = JSON.stringify([scope, initialReview?.snapshot, [...selectedDuplicateGroups].sort(), [...selectedRenameKeys].sort(), [...selectedCategoryKeys].sort()])
   const canReplay = operation.current?.selection === selection
   const staleBackgroundReview = initialReview && !isReviewCurrent?.(initialReview) && !canReplay
   useEffect(() => () => { submission.current?.abort() }, [scope])
@@ -144,14 +147,19 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
     const renames = result.renames
       .filter((rename) => selectedRenameKeys.has(rename.key))
       .map((rename) => ({ key: rename.key, expectedName: rename.currentName, name: rename.suggestedName }))
-    if (removals.length + renames.length === 0) return
+    const categoryChanges = initialReview
+      ? (result.categoryChanges ?? []).filter(({ key }) => selectedCategoryKeys.has(key))
+        .map(({ key, category }) => ({ key, category }))
+      : []
+    if (removals.length + renames.length + categoryChanges.length === 0) return
     const controller = new AbortController()
     submission.current?.abort()
     submission.current = controller
     if (initialReview && (!actorUid || !listId || initialReview.scope !== scope)) return
-    if (staleBackgroundReview || !(await confirm(t('ai:reviewConfirm', {
+    if (staleBackgroundReview || !(await confirm(t(categoryChanges.length ? 'ai:reviewConfirmWithCategories' : 'ai:reviewConfirm', {
       removeCount: removals.length,
-      renameCount: renames.length
+      renameCount: renames.length,
+      categoryCount: categoryChanges.length
     })))) return
     if (initialReview && (controller.signal.aborted || currentScope.current !== scope || (!isReviewCurrent?.(initialReview) && !canReplay))) {
       setStatus(t('common:duplicateReview.background.stale'))
@@ -161,11 +169,12 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
     setApplying(true)
     setStatus(null)
     try {
-      const payload = JSON.stringify([scope, initialReview?.snapshot, removals, renames])
+      const payload = JSON.stringify([scope, initialReview?.snapshot, removals, renames, categoryChanges])
       if (operation.current?.payload !== payload) operation.current = { payload, id: crypto.randomUUID(), selection }
       const applied = initialReview && listId && actorUid
         ? await applyBackgroundAiReview(listId, initialReview.snapshot, removals.map(({ key }) => key), renames.map(({ key, name }) => ({ key, name })), {
-          actorUid, operationId: operation.current.id, signal: controller.signal
+          actorUid, operationId: operation.current.id, signal: controller.signal,
+          ...(categoryChanges.length ? { categoryChanges } : {})
         })
         : await listApi.applyAiListReview({ removals, renames }, user)
       if (controller.signal.aborted || currentScope.current !== scope) return
@@ -174,7 +183,10 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
         return
       }
       setReviewApplyResult(applied)
-      setStatus(t('ai:reviewSuccess', { removed: applied.removed, renamed: applied.renamed, skipped: applied.skipped }))
+      setStatus(t(applied.recategorized ? 'ai:reviewSuccessWithCategories' : 'ai:reviewSuccess', {
+        removed: applied.removed, renamed: applied.renamed, skipped: applied.skipped,
+        recategorized: applied.recategorized ?? 0
+      }))
     } catch {
       setStatus(t('ai:applyError'))
     } finally {
@@ -190,7 +202,8 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
   const resultForKeys = (keys: string[]) => {
     if (!reviewApplyResult) return null
     const applied = keys.filter((key) =>
-      reviewApplyResult.removedKeys.includes(key) || reviewApplyResult.renamedKeys.includes(key)
+      reviewApplyResult.removedKeys.includes(key) || reviewApplyResult.renamedKeys.includes(key) ||
+      reviewApplyResult.recategorizedKeys?.includes(key)
     ).length
     const skipped = keys.length - applied
     return `${skipped > 0 ? '⚠' : '✓'} ${t('ai:review.itemResult', { applied, skipped })}`
@@ -283,10 +296,35 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
                 </label>
               ))}
             </section>
+            {initialReview && Boolean(review.categoryChanges?.length) && (
+              <section>
+                <h3 className="mb-2 text-sm font-semibold">{t('ai:review.categories')}</h3>
+                {review.categoryChanges?.map(({ key, category, reason }) => (
+                  <label key={key} className="mb-2 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm">
+                    <Checkbox
+                      checked={selectedCategoryKeys.has(key)}
+                      onCheckedChange={(checked) => setSelectedCategoryKeys((current) => {
+                        const next = new Set(current)
+                        if (checked) next.add(key)
+                        else next.delete(key)
+                        return next
+                      })}
+                      disabled={applying || Boolean(reviewApplyResult)}
+                    />
+                    <span>
+                      {t('ai:review.moveCategory', { name: itemName(key), category })}<br />
+                      <span className="text-xs text-muted-foreground">{reason}</span>
+                      {reviewApplyResult && selectedCategoryKeys.has(key) &&
+                        <><br /><span className="text-xs font-medium text-primary">{resultForKeys([key])}</span></>}
+                    </span>
+                  </label>
+                ))}
+              </section>
+            )}
             {staleBackgroundReview && !reviewApplyResult && !applying &&
               <p role="status">{t('common:duplicateReview.background.stale')}</p>}
-            <Button onClick={applyReview} disabled={applying || Boolean(staleBackgroundReview) || Boolean(reviewApplyResult) || selectedRemovalCount + selectedRenameKeys.size === 0}>
-              {applying ? t('ai:applying') : t('ai:applySelected', { count: selectedRemovalCount + selectedRenameKeys.size })}
+            <Button onClick={applyReview} disabled={applying || Boolean(staleBackgroundReview) || Boolean(reviewApplyResult) || selectedRemovalCount + selectedRenameKeys.size + selectedCategoryKeys.size === 0}>
+              {applying ? t('ai:applying') : t('ai:applySelected', { count: selectedRemovalCount + selectedRenameKeys.size + selectedCategoryKeys.size })}
             </Button>
           </div>
         )}

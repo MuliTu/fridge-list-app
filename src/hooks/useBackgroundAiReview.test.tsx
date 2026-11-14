@@ -130,7 +130,7 @@ it('scans only the main list and ignores edits to custom sublists', async () => 
   expect(result.current.running).toBe(true)
   await flush(2500)
   expect(JSON.parse(request.mock.calls[0][1])).toEqual([{
-    key: 'a', item: 'Milk', bought: false, list_name: null
+    key: 'a', item: 'Milk', bought: false, list_name: null, category: 'Other'
   }])
   rerender({ ...initial, entries: [...initial.entries, ...custom.slice(1)] })
   await flush(2500)
@@ -149,4 +149,23 @@ it('shows a blocked status when the main list exceeds the limit', async () => {
   expect(result.current.enabled).toBe(true)
   expect(result.current.blocked).toBe(true)
   expect(request).not.toHaveBeenCalled()
+})
+
+it('notifies about category-only findings and invalidates them when an item changes category', async () => {
+  const categoryFindings = {
+    ...empty,
+    result: { ...empty.result, categoryChanges: [{ key: 'a', category: 'Fruit', reason: 'Equivalent item' }] }
+  }
+  request.mockResolvedValueOnce(categoryFindings).mockResolvedValue(empty)
+  const initial = state('אפרסק')
+  const { result, rerender } = renderHook(useBackgroundAiReview, { initialProps: initial })
+  await flush()
+  await flush(2500)
+  const notification = result.current.notification
+  expect(notification?.result).toEqual(categoryFindings.result)
+  rerender({ ...initial, entries: [{ ...initial.entries[0], category: 'Fruit' }] })
+  expect(result.current.notification).toBeNull()
+  expect(notification && result.current.isCurrent(notification)).toBe(false)
+  await flush(2500)
+  expect(request).toHaveBeenCalledTimes(2)
 })

@@ -10,8 +10,11 @@ import { FirebaseAdminListAuthorizationRepository } from '../../recipes/server'
 import { ApplicationError } from '../../shared'
 import { createListMutation, type MutateList } from '../../shared/server'
 import {
+  BACKGROUND_REVIEW_CATEGORY_CORRECTION_LIMIT,
+  BACKGROUND_REVIEW_CATEGORY_LIMIT,
   BACKGROUND_REVIEW_ITEM_LIMIT,
   applyBackgroundReviewSchema,
+  backgroundReviewCategoryCorrections,
   backgroundReviewItems,
   backgroundReviewRequestSchema,
   type BackgroundReviewItem
@@ -51,7 +54,7 @@ const readGroceries = async (db: Database, listId: string) => {
   for (const snapshot of [primary, legacy]) snapshot.forEach((child) => {
     const entry = child.val()
     const key = child.key!
-    entries.push({ key, item: entry?.item, bought: entry?.bought, list_name: entry?.list_name })
+    entries.push({ key, item: entry?.item, bought: entry?.bought, list_name: entry?.list_name, category: entry?.category })
     const addedAt = addedAtSchema.safeParse(entry?.added_at)
     if (addedAt.success) {
       const time = Date.parse(addedAt.data)
@@ -59,6 +62,19 @@ const readGroceries = async (db: Database, listId: string) => {
     }
   })
   return { exceeded: primary.numChildren() + legacy.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT, items: backgroundReviewItems(entries), addedAtByKey }
+}
+
+const categoryNames = (values: readonly unknown[]) => new Set(values.flatMap((value) => {
+  const name = value && typeof value === 'object' && 'name' in value ? value.name : null
+  return typeof name === 'string' && name.trim() === name && name.length > 0 && name.length <= 100 ? [name] : []
+}))
+
+const readCategories = async (db: Database, listId: string) => {
+  const snapshot = await db.ref(`users/${listId}/categories`).limitToFirst(BACKGROUND_REVIEW_CATEGORY_LIMIT + 1).get()
+  if (snapshot.numChildren() > BACKGROUND_REVIEW_CATEGORY_LIMIT) return new Set<string>()
+  const values: unknown[] = []
+  snapshot.forEach((child) => { values.push(child.val()) })
+  return categoryNames(values)
 }
 
 const digest = (items: BackgroundReviewItem[]) => createHash('sha256').update(JSON.stringify(items)).digest('hex')
@@ -80,6 +96,7 @@ type Household = {
   ownerUid?: string
   members?: Record<string, { status?: string; role?: string }>
   groceries?: Record<string, StoredGrocery>
+  categories?: Record<string, unknown>
   listChangeHistory?: Record<string, unknown>
   backgroundReviewOperations?: Record<string, { fingerprint: string; result: ReviewApplyResult }>
 }
@@ -87,6 +104,7 @@ type Household = {
 type ReviewApplyResult = {
   removed: number; renamed: number; skipped: number
   removedKeys: string[]; renamedKeys: string[]; skippedKeys: string[]
+  recategorized?: number; recategorizedKeys?: string[]
 }
 
 const containsPriority = (value: unknown): boolean => Boolean(value && typeof value === 'object' &&
@@ -100,11 +118,12 @@ const applyReview = async (
 ): Promise<Response> => {
   const parsed = applyBackgroundReviewSchema.safeParse(input)
   if (!parsed.success) return status('invalid', 400)
-  const { version, removals, renames, actorUid, operationId } = parsed.data
+  const { version, removals, renames, categoryChanges, actorUid, operationId } = parsed.data
   if (actorUid !== user.uid) return status('forbidden', 403)
   const operationKey = createHash('sha256').update(JSON.stringify([user.uid, listId, 'background-review', operationId])).digest('hex')
   const fingerprint = createHash('sha256').update(JSON.stringify({
-    version, removals: [...removals].sort(), renames: [...renames].sort((a, b) => a.key.localeCompare(b.key))
+    version, removals: [...removals].sort(), renames: [...renames].sort((a, b) => a.key.localeCompare(b.key)),
+    ...(categoryChanges.length ? { categoryChanges: [...categoryChanges].sort((a, b) => a.key.localeCompare(b.key)) } : {})
   })).digest('hex')
   let outcome: ReviewApplyResult | undefined
   let rejection = 'stale'
@@ -116,6 +135,7 @@ const applyReview = async (
     ...removals.map((key) => ({ key, type: 'removed' as const, name: null, historyId: history.push().key! })),
     ...renames.map(({ key, name }) => ({ key, type: 'renamed' as const, name, historyId: history.push().key! }))
   ]
+  const hasCategoryChanges = categoryChanges.length > 0
   const applied = await mutateList(listId, (exported) => {
     signal.throwIfAborted()
     const household = exported as Household
@@ -123,7 +143,7 @@ const applyReview = async (
     // Fail closed only for values this command decodes; the ETag protects
     // this eligibility check against concurrent metadata changes.
     if (containsPriority({ ownerUid: household.ownerUid, member: household.members?.[user.uid],
-      groceries: household.groceries, replay: household.backgroundReviewOperations?.[operationKey] })) {
+      groceries: household.groceries, categories: hasCategoryChanges ? household.categories : undefined, replay: household.backgroundReviewOperations?.[operationKey] })) {
       rejection = 'ineligible'; return undefined
     }
     const member = household.members?.[user.uid]
@@ -136,7 +156,8 @@ const applyReview = async (
       if (replay.fingerprint !== fingerprint) { rejection = 'conflict'; return undefined }
       // RTDB omits empty arrays. Restore the complete HTTP response shape.
       outcome = { ...replay.result, removedKeys: replayKeys(replay.result.removedKeys),
-        renamedKeys: replayKeys(replay.result.renamedKeys), skippedKeys: replayKeys(replay.result.skippedKeys) }
+        renamedKeys: replayKeys(replay.result.renamedKeys), skippedKeys: replayKeys(replay.result.skippedKeys),
+        ...(hasCategoryChanges ? { recategorizedKeys: replayKeys(replay.result.recategorizedKeys) } : {}) }
       return { value: exported, result: outcome }
     }
     if (Object.keys(household.backgroundReviewOperations ?? {}).filter((key) => key !== '.priority').length >= 500) { rejection = 'ineligible'; return undefined }
@@ -145,6 +166,13 @@ const applyReview = async (
     const mainItems = backgroundReviewItems(entries)
     if (mainItems.length > BACKGROUND_REVIEW_ITEM_LIMIT || digest(mainItems) !== version) return undefined
     const mainKeys = new Set(mainItems.map(({ key }) => key))
+    if (hasCategoryChanges) {
+      const values = Object.values(household.categories ?? {})
+      if (values.length > BACKGROUND_REVIEW_CATEGORY_LIMIT) { rejection = 'ineligible'; return undefined }
+      const allowed = new Map(backgroundReviewCategoryCorrections(mainItems, categoryNames(values), 'en')
+        .map(({ key, category }) => [key, category]))
+      if (categoryChanges.some(({ key, category }) => allowed.get(key) !== category)) return undefined
+    }
     const audit = { ...household.listChangeHistory }
     const removedKeys: string[] = []
     const renamedKeys: string[] = []
@@ -172,9 +200,13 @@ const applyReview = async (
         delete groceries[operation.key]
       }
     }
+    for (const { key, category } of categoryChanges) {
+      groceries[key] = { ...groceries[key], category, modified_at: changedAt, modified_by: user.email }
+    }
     outcome = { removed: removedKeys.length, renamed: renamedKeys.length, skipped: skippedKeys.length,
-      removedKeys, renamedKeys, skippedKeys }
-    const next = { ...household, groceries, listChangeHistory: audit,
+      removedKeys, renamedKeys, skippedKeys,
+      ...(hasCategoryChanges ? { recategorized: categoryChanges.length, recategorizedKeys: categoryChanges.map(({ key }) => key) } : {}) }
+    const next = { ...household, groceries, ...(operations.length ? { listChangeHistory: audit } : {}),
       backgroundReviewOperations: { ...household.backgroundReviewOperations, [operationKey]: { fingerprint, result: outcome } } }
     if (Buffer.byteLength(JSON.stringify(next)) > 1_048_576) { rejection = 'ineligible'; return undefined }
     return { value: next, result: outcome }
@@ -267,9 +299,16 @@ export const createBackgroundAiReviewHandler = ({
           dispatchedAt = Date.now()
           const result = await withDeadline((signal) => analyze(apiKey, source.items, language, signal, undefined, source.addedAtByKey), providerTimeout, attemptSignal)
           await firebase(() => authorization.assertAccessible(principal, listId, 'write'))
-          const latest = await firebase(() => readGroceries(db, listId))
+          const [latest, categories] = await firebase(() => Promise.all([
+            readGroceries(db, listId),
+            readCategories(db, listId)
+          ]))
           if (latest.exceeded || digest(latest.items) !== version) return status('stale', 409)
-          return Response.json({ version, result }, { headers: responseHeaders })
+          const removedBySuggestion = new Set(result.duplicates.flatMap(({ removeKeys }) => removeKeys))
+          const categoryChanges = backgroundReviewCategoryCorrections(latest.items, categories, language)
+            .filter(({ key }) => !removedBySuggestion.has(key))
+            .slice(0, BACKGROUND_REVIEW_CATEGORY_CORRECTION_LIMIT)
+          return Response.json({ version, result: categoryChanges.length ? { ...result, categoryChanges } : result }, { headers: responseHeaders })
         } catch (error) {
           if (error instanceof GroqRateLimitError) {
             retryAt = Date.now() + error.retryAfterSeconds * 1000

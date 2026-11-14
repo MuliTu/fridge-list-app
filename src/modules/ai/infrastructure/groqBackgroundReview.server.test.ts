@@ -61,11 +61,11 @@ it('finds exact matches across purchase states without grouping product variants
 
 it('ranks a purchased equivalent ahead of overlapping exact matches and rejects other sublists', async () => {
   const groceries = [
-    { key: 'first', item: 'מלפפון', bought: false, list_name: null },
-    { key: 'second', item: 'מלפפון', bought: false, list_name: null },
-    { key: 'purchased', item: 'מלפפונים', bought: true, list_name: null },
-    { key: 'other', item: 'מלפפונים', bought: true, list_name: 'Trip' },
-    { key: 'unclaimed', item: 'מלפפונ', bought: false, list_name: null }
+    { key: 'first', item: 'עוגה', bought: false, list_name: null },
+    { key: 'second', item: 'עוגה', bought: false, list_name: null },
+    { key: 'purchased', item: 'עוגות', bought: true, list_name: null },
+    { key: 'other', item: 'עוגות', bought: true, list_name: 'Trip' },
+    { key: 'unclaimed', item: 'עוגהה', bought: false, list_name: null }
   ]
   const send = jest.fn(async (_url: string, _request: RequestInit) => providerResponse({
     mode: 'list_review', duplicates: [
@@ -287,4 +287,36 @@ it('matches the Hebrew tomato forms and keeps the purchased record when Groq mis
   const send = async () => providerResponse({ mode: 'list_review', duplicates: [], renames: [] })
   const result = await reviewWithGroq('test-key', groceries, 'he', new AbortController().signal, send)
   expect(result.duplicates).toEqual([{ keepKey: 'bought', removeKeys: ['open'], reason: 'הפריט שנרכש נשמר' }])
+})
+
+it('matches peach in different categories even at the end of a full review', async () => {
+  const groceries = [
+    { key: 'open', item: 'אפרסק', bought: false, list_name: null, category: 'אחר' },
+    ...Array.from({ length: 297 }, (_, index) => ({
+      key: `fixture-${index}`, item: `Fixture ${index}`, bought: false, list_name: null
+    })),
+    { key: 'qualified', item: 'אפרסק קפוא', bought: false, list_name: null, category: 'קפואים' },
+    { key: 'purchased', item: 'אפרסקים', bought: true, list_name: null, category: 'פירות' }
+  ]
+  const send = jest.fn(async (_url: string, _options: RequestInit) =>
+    providerResponse({ mode: 'list_review', duplicates: [], renames: [] }))
+  const result = await reviewWithGroq('test-key', groceries, 'he', new AbortController().signal, send)
+  expect(result.duplicates).toEqual([{ keepKey: 'purchased', removeKeys: ['open'], reason: 'הפריט שנרכש נשמר' }])
+  expect(send).toHaveBeenCalledTimes(1)
+  const payload = JSON.parse(String(send.mock.calls[0][1].body))
+  expect(JSON.parse(payload.messages[1].content).items).toHaveLength(300)
+})
+
+it('keeps a known distinct-name match visible behind twelve ordinary duplicate groups', async () => {
+  const groceries = [
+    ...Array.from({ length: 24 }, (_, index) => ({
+      key: `fixture-${index}`, item: `Fixture ${Math.floor(index / 2)}`, bought: false, list_name: null
+    })),
+    { key: 'open', item: 'אפרסק', bought: false, list_name: null, category: 'אחר' },
+    { key: 'purchased', item: 'אפרסקים', bought: true, list_name: null, category: 'פירות' }
+  ]
+  const send = async () => providerResponse({ mode: 'list_review', duplicates: [], renames: [] })
+  const result = await reviewWithGroq('test-key', groceries, 'he', new AbortController().signal, send)
+  expect(result.duplicates).toHaveLength(12)
+  expect(result.duplicates[0]).toMatchObject({ keepKey: 'purchased', removeKeys: ['open'] })
 })

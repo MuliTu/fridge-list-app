@@ -84,7 +84,12 @@ export const aiListReviewResultSchema = z.object({
         reason: z.string().trim().min(1).max(300)
       })
     )
-    .max(AI_LIST_REVIEW_RENAME_LIMIT)
+    .max(AI_LIST_REVIEW_RENAME_LIMIT),
+  categoryChanges: z.array(z.object({
+    key: itemKey,
+    category: z.string().trim().min(1).max(100),
+    reason: z.string().trim().min(1).max(300)
+  })).max(15).optional()
 })
 
 export const aiAssistantResultSchema = z.discriminatedUnion('mode', [

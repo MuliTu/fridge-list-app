@@ -40,12 +40,14 @@ export const applyBackgroundAiReview = async (
   snapshot: string,
   removals: string[],
   renames: { key: string; name: string }[],
-  submission: { actorUid: string; operationId: string; signal: AbortSignal }
+  submission: { actorUid: string; operationId: string; signal: AbortSignal; categoryChanges?: { key: string; category: string }[] }
 ) => withDeadline(async (signal) => {
   const version = await snapshotVersion(snapshot)
   signal.throwIfAborted()
   const response = await request(listId, submission.actorUid, signal, 'PUT', {
-    version, removals, renames, actorUid: submission.actorUid, operationId: submission.operationId
+    version, removals, renames,
+    ...(submission.categoryChanges?.length ? { categoryChanges: submission.categoryChanges } : {}),
+    actorUid: submission.actorUid, operationId: submission.operationId
   })
   if (response.status === 409) return null
   if (!response.ok) throw new Error('Could not apply the list review')
