@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 
+import { PRODUCT_INTEGRITY_GUARDIAN_PROMPT } from './productIntegrityGuardianPrompt.server'
 import type { SemanticGroceryMatchProvider } from '../application/semanticGroceryMatch.service'
 
 type StructuredSemanticModel = {
@@ -10,19 +11,22 @@ export class StructuredModelSemanticGroceryMatchProvider implements SemanticGroc
   constructor(private readonly model: StructuredSemanticModel) {}
 
   async evaluate(input: Parameters<SemanticGroceryMatchProvider['evaluate']>[0]): Promise<unknown> {
+    const { query, candidates, guardian } = input
     return this.model.invoke([
-      {
-        role: 'system',
-        content: [
-          'Classify a grocery name against only the supplied selected-list candidates.',
-          'Use exact for the same product, similar for a close substitute or corrected spelling, and related for a meaningfully related grocery.',
-          'Set distinct=true and return no selections only when no candidate is a useful match.',
-          'Never invent IDs. Return at most eight selections.'
-        ].join(' ')
-      },
+      { role: 'system', content: PRODUCT_INTEGRITY_GUARDIAN_PROMPT },
       {
         role: 'user',
-        content: JSON.stringify({ query: input.query, candidates: input.candidates })
+        content: JSON.stringify({
+          operation: guardian?.operation ?? 'add',
+          language: guardian?.language ?? 'he',
+          candidatesComplete: input.candidatesComplete ?? true,
+          allowedCategories: input.allowedCategories ?? [],
+          incomingItem: guardian?.operation === 'update'
+            ? { id: guardian.itemId, name: query, requestedFields: input.requestedFields }
+            : { ...guardian?.details, name: query },
+          existingItems: candidates.map(({ id, name, category, quantity, unit, notes }) =>
+            ({ id, name, category, quantity, unit, notes }))
+        })
       }
     ])
   }

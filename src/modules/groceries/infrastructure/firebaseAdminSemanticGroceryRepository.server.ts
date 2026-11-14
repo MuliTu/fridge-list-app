@@ -28,25 +28,45 @@ const candidateFrom = (id: string, value: unknown): SemanticGroceryCandidate | n
     category: typeof record.category === 'string' ? record.category : '',
     bought: record.bought === true,
     hidden: record.hidden === true,
-    collapsed: record.collapsed === true || record.section_collapsed === true
+    collapsed: record.collapsed === true || record.section_collapsed === true,
+    ...(typeof record.quantity === 'number' && Number.isFinite(record.quantity) && { quantity: record.quantity }),
+    ...(typeof record.unit === 'string' && { unit: record.unit.slice(0, 40) }),
+    ...(typeof record.note === 'string' && { notes: record.note.slice(0, 2_000) })
   }
 }
 
 export class FirebaseAdminSemanticGroceryRepository implements SemanticGroceryCandidateRepository {
   constructor(private readonly database: Database) {}
 
-  async listCandidates(listId: string): Promise<SemanticGroceryCandidate[]> {
+  async listCandidates(listId: string, listName: string | null = null): Promise<SemanticGroceryCandidate[]> {
     try {
       const snapshot = await this.database.ref(`users/${safeKey(listId, 'listId')}/groceries`).get()
       const value = snapshot.val()
       if (!value || typeof value !== 'object') return []
       return Object.entries(value as Record<string, unknown>)
+        .filter(([, record]) => {
+          if (record === null || typeof record !== 'object') return false
+          const storedName = (record as Record<string, unknown>).list_name
+          return (storedName == null || storedName === '' ? null : storedName) === listName
+        })
         .map(([id, record]) => candidateFrom(id, record))
         .filter((candidate): candidate is SemanticGroceryCandidate => candidate !== null)
     } catch (error) {
       if (error instanceof ApplicationError) throw error
       throw new ApplicationError('upstream_failed', 'Firebase grocery candidate read failed', error)
     }
+  }
+  async listAllowedCategories(listId: string): Promise<string[]> {
+    const snapshot = await this.database.ref(`users/${safeKey(listId, 'listId')}/categories`).limitToFirst(101).get()
+    if (snapshot.numChildren() > 100) return []
+    const names = new Set<string>()
+    snapshot.forEach((child) => {
+      const name: unknown = child.val()?.name
+      if (typeof name === 'string' && name.length > 0 && name.length <= 100 && name.trim() === name) {
+        names.add(name)
+      }
+    })
+    return [...names]
   }
 }
 

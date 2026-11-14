@@ -463,6 +463,7 @@ export function ShoppingListPage() {
             <div className="shopping-composer">
               <UnifiedGrocerySearchAdd
                 listId={semanticListId}
+                guardianListName={!localMock && user ? activeList : undefined}
                 entries={visibleEntries}
                 canEdit={canEdit}
                 localOnly={localMock}
@@ -578,6 +579,7 @@ export function ShoppingListPage() {
       {selectedEntry && (
         <ItemDetailModal
           entry={selectedEntry}
+          guardianListId={!localMock && user ? semanticListId : undefined}
           canEdit={canEdit}
           categories={categories}
           onSignIn={onSignIn}
@@ -621,6 +623,7 @@ export function ShoppingListPage() {
         <GroceryItemModal
           listName={activeList}
           initialName={addModalInitialName}
+          guardianListId={!localMock && user ? semanticListId : undefined}
           categories={categories}
           onClose={() => {
             setShowAddGrocery(false)

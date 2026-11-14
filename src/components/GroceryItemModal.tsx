@@ -4,6 +4,7 @@ import { categorizeItem } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import { NO_UNIT, OTHER_UNIT, UNIT_PRESETS, resolveQuantityUnit } from '../lib/units'
+import { useProductIntegrityGuardian } from '../hooks/useProductIntegrityGuardian'
 import { useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 import type { Category } from '../types'
@@ -16,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 interface GroceryItemModalProps {
   listName: string | null
+  guardianListId?: string
   // Pre-fills the name field — used when this modal is opened from the shopping
   // list search's "no results, add it?" prompt (SearchSuggestAdd) instead of the
   // usual empty-start FAB. Absent/undefined leaves the field empty as before.
@@ -38,6 +40,7 @@ interface GroceryItemModalProps {
 
 export default function GroceryItemModal({
   listName,
+  guardianListId,
   initialName,
   categories = [],
   onClose,
@@ -55,17 +58,27 @@ export default function GroceryItemModal({
   const [aiEnabled, setAiEnabled] = useState(false)
 
   const categoryNames = categories.map((entry) => entry.name)
+  const resolved = showQuantityOnAdd
+    ? resolveQuantityUnit({ quantityText, unit, customUnit })
+    : { quantity: null, unit: null, error: null }
+  const trimmed = name.trim()
+  const guardian = useProductIntegrityGuardian(guardianListId && trimmed && !resolved.error && !saving ? {
+    listId: guardianListId,
+    query: trimmed,
+    guardian: {
+      operation: 'add',
+      listName,
+      language: i18n?.language === 'en' ? 'en' : 'he',
+      details: { quantity: resolved.quantity, unit: resolved.unit }
+    }
+  } : null)
 
   const handleAdd = async () => {
-    const trimmed = name.trim()
     if (!trimmed) {
       setError(t('common:groceryItem.nameRequired'))
       return
     }
 
-    const resolved = showQuantityOnAdd
-      ? resolveQuantityUnit({ quantityText, unit, customUnit })
-      : { quantity: null, unit: null, error: null }
     if (resolved.error) {
       setError(t(`common:quantityUnit.${resolved.error}`))
       return
@@ -173,6 +186,7 @@ export default function GroceryItemModal({
           </>
         )}
 
+        {guardian?.clarification.question && <p role="status">{guardian.clarification.question}</p>}
         {error && <div className="text-sm text-destructive">{error}</div>}
 
         <DialogFooter>

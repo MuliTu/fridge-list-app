@@ -4,6 +4,7 @@ import { formatDateTime } from '../lib/formatDateTime'
 import { getImageDataUrl } from '../lib/firebase'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { NO_UNIT, OTHER_UNIT, UNIT_PRESETS, resolveQuantityUnit } from '../lib/units'
+import { useProductIntegrityGuardian } from '../hooks/useProductIntegrityGuardian'
 import { useDialogService } from '../hooks/DialogServiceContext'
 import type { Category, GroceryItem } from '../types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
@@ -17,6 +18,7 @@ const MAX_NAME_LENGTH = 100
 
 interface ItemDetailModalProps {
   entry: GroceryItem
+  guardianListId?: string
   canEdit: boolean
   categories?: Category[]
   onSignIn: () => void
@@ -31,6 +33,7 @@ interface ItemDetailModalProps {
 
 export default function ItemDetailModal({
   entry,
+  guardianListId,
   canEdit,
   categories = [],
   onSignIn,
@@ -39,7 +42,7 @@ export default function ItemDetailModal({
   onDelete,
   onMoveCategory
 }: ItemDetailModalProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { confirm } = useDialogService()
   // Editable product name (FR-1..FR-5). Kept in the same unified edit-and-Save modal
   // as note/photo/category rather than a separate rename flow or dialog — this app has
@@ -86,9 +89,24 @@ export default function ItemDetailModal({
   const trimmedName = name.trim()
   const nameValid = trimmedName.length > 0 && trimmedName.length <= MAX_NAME_LENGTH
 
+  const resolved = resolveQuantityUnit({ quantityText, unit, customUnit })
+  const hasIdentityChange = trimmedName !== entry.item || note !== (entry.note || '') ||
+    resolved.quantity !== (entry.quantity ?? null) || resolved.unit !== (entry.unit ?? null)
+  const guardian = useProductIntegrityGuardian(guardianListId && canEdit && nameValid && !resolved.error &&
+    hasIdentityChange && !saving ? {
+      listId: guardianListId,
+      query: trimmedName,
+      guardian: {
+        operation: 'update',
+        itemId: entry.key,
+        listName: entry.list_name || null,
+        language: i18n?.language === 'en' ? 'en' : 'he',
+        details: { notes: note, quantity: resolved.quantity, unit: resolved.unit }
+      }
+    } : null)
+
   const handleSave = async () => {
     if (!nameValid) return
-    const resolved = resolveQuantityUnit({ quantityText, unit, customUnit })
     if (resolved.error) {
       setError(t(`common:quantityUnit.${resolved.error}`))
       return
@@ -151,6 +169,7 @@ export default function ItemDetailModal({
             </>
           )}
         </DialogHeader>
+        {guardian?.clarification.question && <p role="status">{guardian.clarification.question}</p>}
 
         {previewUrl && <img className="modal-image-preview" src={previewUrl} alt={entry.item} />}
 
