@@ -16,12 +16,12 @@ export type BackgroundReviewItem = {
 
 export const backgroundReviewItems = (entries: readonly (Omit<BackgroundReviewItem, 'list_name'> & { list_name?: string | null })[]): BackgroundReviewItem[] =>
   entries
-    .filter(({ key, item }) => typeof key === 'string' && typeof item === 'string' && Boolean(item.trim()))
-    .map(({ key, item, bought, list_name }) => ({
+    .filter(({ key, item, list_name }) => !list_name && typeof key === 'string' && typeof item === 'string' && Boolean(item.trim()))
+    .map(({ key, item, bought }) => ({
       key,
       item,
       bought: bought === true,
-      list_name: typeof list_name === 'string' && list_name ? list_name : null
+      list_name: null
     }))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
 

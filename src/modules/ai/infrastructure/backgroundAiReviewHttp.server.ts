@@ -40,10 +40,15 @@ const cooldown = (snapshot: DataSnapshot) => {
 const addedAtSchema = z.string().datetime({ offset: true })
 
 const readGroceries = async (db: Database, listId: string) => {
-  const snapshot = await db.ref(`users/${listId}/groceries`).limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1).get()
+  const query = db.ref(`users/${listId}/groceries`).orderByChild('list_name')
+  const primary = await query.equalTo(null).limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1).get()
+  if (primary.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT) {
+    return { exceeded: true, items: [], addedAtByKey: new Map<string, number>() }
+  }
+  const legacy = await query.equalTo('').limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1 - primary.numChildren()).get()
   const entries: BackgroundReviewItem[] = []
   const addedAtByKey = new Map<string, number>()
-  snapshot.forEach((child) => {
+  for (const snapshot of [primary, legacy]) snapshot.forEach((child) => {
     const entry = child.val()
     const key = child.key!
     entries.push({ key, item: entry?.item, bought: entry?.bought, list_name: entry?.list_name })
@@ -53,7 +58,7 @@ const readGroceries = async (db: Database, listId: string) => {
       if (Number.isFinite(time)) addedAtByKey.set(key, time)
     }
   })
-  return { exceeded: snapshot.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT, items: backgroundReviewItems(entries), addedAtByKey }
+  return { exceeded: primary.numChildren() + legacy.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT, items: backgroundReviewItems(entries), addedAtByKey }
 }
 
 const digest = (items: BackgroundReviewItem[]) => createHash('sha256').update(JSON.stringify(items)).digest('hex')
@@ -137,14 +142,16 @@ const applyReview = async (
     if (Object.keys(household.backgroundReviewOperations ?? {}).filter((key) => key !== '.priority').length >= 500) { rejection = 'ineligible'; return undefined }
     const groceries = { ...household.groceries }
     const entries = Object.entries(groceries).map(([key, item]) => ({ ...item, key }))
-    if (entries.length > BACKGROUND_REVIEW_ITEM_LIMIT || digest(backgroundReviewItems(entries)) !== version) return undefined
+    const mainItems = backgroundReviewItems(entries)
+    if (mainItems.length > BACKGROUND_REVIEW_ITEM_LIMIT || digest(mainItems) !== version) return undefined
+    const mainKeys = new Set(mainItems.map(({ key }) => key))
     const audit = { ...household.listChangeHistory }
     const removedKeys: string[] = []
     const renamedKeys: string[] = []
     const skippedKeys: string[] = []
     for (const operation of operations) {
       const item = groceries[operation.key]
-      if (!Object.hasOwn(groceries, operation.key) || !item || typeof item.item !== 'string') return undefined
+      if (!mainKeys.has(operation.key) || !Object.hasOwn(groceries, operation.key) || !item || typeof item.item !== 'string') return undefined
       // Cross-database image deletion cannot join this RTDB transaction.
       // Keep image-backed rows intact and report them explicitly as skipped.
       if (!operation.name && (item.image_ref || item.image_url)) { skippedKeys.push(operation.key); continue }
