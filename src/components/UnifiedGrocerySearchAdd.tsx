@@ -3,6 +3,7 @@ import { Plus, Search, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
 import type { SemanticGroceryMatchResult } from '../client/api/groceries'
+import { useProductIntegrityGuardian } from '../hooks/useProductIntegrityGuardian'
 import { OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import type { Category, GroceryItem } from '../types'
@@ -20,6 +21,7 @@ type AddContext = {
 
 type UnifiedGrocerySearchAddProps = {
   listId: string
+  guardianListName?: string | null
   entries: GroceryItem[]
   canEdit: boolean
   localOnly?: boolean
@@ -80,6 +82,7 @@ const localSemanticResult = (
 
 export function UnifiedGrocerySearchAdd({
   listId,
+  guardianListName,
   entries,
   canEdit,
   localOnly = false,
@@ -105,13 +108,23 @@ export function UnifiedGrocerySearchAdd({
     ? []
     : entries.filter((entry) => normalizeName(entry.item).includes(normalized))
   const exactExisting = localMatches.find((entry) => normalizeName(entry.item) === normalized)
+  const guardian = useProductIntegrityGuardian(!localOnly && canEdit && guardianListName !== undefined &&
+    trimmed && !isBatch && !exactExisting && !saving ? {
+      listId,
+      query: trimmed,
+      guardian: { operation: 'add', listName: guardianListName, language: i18n.language === 'en' ? 'en' : 'he' }
+    } : null)
+  const confirmedId = guardian?.action === 'use_existing' &&
+    entries.some(({ key }) => key === guardian.match.existingItemId)
+    ? guardian.match.existingItemId
+    : null
 
   useEffect(() => {
     onQueryChange(isBatch ? '' : trimmed)
   }, [isBatch, onQueryChange, trimmed])
 
   const semanticReady = semantic.phase === 'ready' && semantic.query === trimmed
-  const semanticMatchIds = semanticReady && semantic.result.status === 'ok' &&
+  const semanticMatchIds = confirmedId ? [confirmedId] : semanticReady && semantic.result.status === 'ok' &&
     semantic.result.classification !== 'distinct'
     ? semantic.result.matches.map((match) => match.id)
     : []
@@ -302,8 +315,8 @@ export function UnifiedGrocerySearchAdd({
         </button>
       </form>
       <div id="unified-grocery-status" className="unified-grocery-status" role="status" aria-live="polite">
-        {semanticReady && semantic.result.status === 'ok' && semantic.result.classification === 'distinct' &&
-          t('shoppingList:unifiedAdd.notFound')}
+        {guardian?.clarification.question ?? (!confirmedId && semanticReady && semantic.result.status === 'ok' &&
+          semantic.result.classification === 'distinct' && t('shoppingList:unifiedAdd.notFound'))}
       </div>
       {error && <div className="quick-add-error" role="alert">{error}</div>}
     </div>

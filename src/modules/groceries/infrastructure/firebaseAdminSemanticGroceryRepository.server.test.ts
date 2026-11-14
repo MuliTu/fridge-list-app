@@ -14,6 +14,9 @@ describe('FirebaseAdminSemanticGroceryRepository', () => {
         purchased: { item: 'Eggs', category: 'Dairy', bought: true },
         hidden: { item: 'Bread', category: 'Bakery', hidden: true },
         collapsed: { item: 'Apples', category: 'Produce', section_collapsed: true },
+        legacy: { item: 'Legacy', list_name: '' },
+        custom: { item: 'Shallots', list_name: 'Dinner', quantity: 2, note: 'Use fresh' },
+        unrelated: { item: 'Garlic', list_name: 'Private' },
         malformed: { category: 'Other' }
       })
     })
@@ -24,7 +27,11 @@ describe('FirebaseAdminSemanticGroceryRepository', () => {
       expect.objectContaining({ id: 'active', bought: false, hidden: false, collapsed: false }),
       expect.objectContaining({ id: 'purchased', bought: true }),
       expect.objectContaining({ id: 'hidden', hidden: true }),
-      expect.objectContaining({ id: 'collapsed', collapsed: true })
+      expect.objectContaining({ id: 'collapsed', collapsed: true }),
+      expect.objectContaining({ id: 'legacy' })
+    ])
+    await expect(repository.listCandidates('selected-list', 'Dinner')).resolves.toEqual([
+      expect.objectContaining({ id: 'custom', quantity: 2, notes: 'Use fresh' })
     ])
     expect(ref).toHaveBeenCalledWith('users/selected-list/groceries')
     expect(ref).not.toHaveBeenCalledWith(expect.stringContaining('other-list'))

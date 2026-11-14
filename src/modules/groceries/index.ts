@@ -36,6 +36,7 @@ export {
   semanticGroceryMatchInputSchema,
   semanticGroceryProviderOutputSchema,
   semanticGrocerySelectionSchema,
+  type GuardianContext,
   type SemanticGroceryCandidate,
   type SemanticGroceryMatch,
   type SemanticGroceryMatchInput,
@@ -48,3 +49,7 @@ export {
   type PersistN8nGroceryCommand,
   type PersistN8nGroceryResult
 } from './application/persistN8nGrocery.service'
+export {
+  productIntegrityGuardianDecisionSchema,
+  type ProductIntegrityGuardianDecision
+} from './domain/productIntegrityGuardian'

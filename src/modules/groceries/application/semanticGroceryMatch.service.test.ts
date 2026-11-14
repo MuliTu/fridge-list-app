@@ -239,3 +239,138 @@ describe('SemanticGroceryMatchService', () => {
     expect(tooMany.provider.evaluate).not.toHaveBeenCalled()
   })
 })
+
+const guardianAdd = { operation: 'add', listName: 'Main', language: 'he' }
+const decisionFor = (name: string, category: string | null = null) => ({
+  action: 'create',
+  normalizedItem: {
+    name, category, quantity: null, unit: null, brand: null, variant: null, notes: null, intendedRecipient: null
+  },
+  match: { existingItemId: null, matchType: 'distinct_product', confidence: 0.99 },
+  issues: [],
+  clarification: { required: false, question: null },
+  proposedChanges: null,
+  reason: 'Synthetic decision'
+})
+
+const guardianSetup = (output: unknown, snapshots: SemanticGroceryCandidate[][]) => {
+  const base = setup({ output, snapshots })
+  const repository = {
+    ...base.repository,
+    listAllowedCategories: jest.fn().mockResolvedValue(['ירקות', 'פירות', 'מזווה', 'מוצרי חלב וביצים', 'קפואים', 'בשר', 'Dairy'])
+  }
+  return {
+    ...base,
+    repository,
+    service: new SemanticGroceryMatchService(repository, base.authorization, base.provider)
+  }
+}
+
+describe('Product Integrity Guardian decision boundary', () => {
+  it.each([
+    ['בצל לבו', 'בצל לבן', 'ירקות', null, null],
+    ['אגס', 'אגסים', 'פירות', null, null],
+    ['קישואים*3', 'קישואים', 'ירקות', 3, 'unit'],
+    ['זיתים טבעות', 'טבעות זיתים', 'מזווה', null, null]
+  ])('returns confirmed identity and distinct explicit attributes for %s', async (query, name, category, quantity, unit) => {
+    const output = decisionFor(name, category)
+    Object.assign(output, { action: 'use_existing', match: { existingItemId: 'item', matchType: 'normalized_duplicate', confidence: 0.97 } })
+    Object.assign(output.normalizedItem, { quantity, unit })
+    const dependencies = guardianSetup(output, [[{ ...candidates[0], id: 'item', name, category }]])
+
+    await expect(dependencies.service.execute(context, 'selected-list', { query, guardian: guardianAdd }))
+      .resolves.toMatchObject({ status: 'ok', decision: output, matches: [{ id: 'item' }] })
+    expect(dependencies.repository.listCandidates).toHaveBeenCalledWith('selected-list', 'Main')
+    expect(dependencies.provider.evaluate).toHaveBeenCalledWith(expect.objectContaining({
+      query, candidatesComplete: true
+    }))
+  })
+
+  it.each([
+    ['עגבניות שרי', 'עגבניות', 'ירקות', null],
+    ['בצל סגול', 'בצל לבן', 'ירקות', null],
+    ['גבינה צהובה עמק', 'גבינה צהובה נעם', 'מוצרי חלב וביצים', 'עמק'],
+    ['מלח לימון', 'לימון', 'מזווה', null],
+    ['שום קפוא', 'שום טרי', 'קפואים', null]
+  ])('accepts a distinct product or variant decision for %s', async (name, existing, category, brand) => {
+    const output = decisionFor(name, category)
+    Object.assign(output.normalizedItem, { brand })
+    const { service } = guardianSetup(output, [[{ ...candidates[0], name: existing }]])
+    await expect(service.execute(context, 'selected-list', { query: name, guardian: guardianAdd }))
+      .resolves.toMatchObject({ status: 'ok', decision: output, matches: [] })
+  })
+
+  it.each([
+    ['סויה', 'האם התכוונת לרוטב סויה או לחלב סויה?', 'he', true],
+    ['cream', 'Which kind of cream?', 'en', true],
+    ['milk 5 L', 'Keep 1 L or change the quantity to 5 L?', 'en', true],
+    ['בשר טחון 2 קילו מחולק לחצאים', 'האם בשר טחון כבר מופיע ברשימה?', 'he', false]
+  ])('passes through one clarification for %s', async (query, question, language, complete) => {
+    const output = {
+      ...decisionFor(query),
+      action: 'needs_clarification',
+      match: { existingItemId: null, matchType: 'uncertain', confidence: 0.2 },
+      clarification: { required: true, question }
+    }
+    const snapshot = complete ? candidates : Array.from({ length: 101 }, (_, index) => ({ ...candidates[0], id: String(index) }))
+    const { service, provider } = guardianSetup(output, [snapshot])
+    await expect(service.execute(context, 'selected-list', { query, guardian: { ...guardianAdd, language } }))
+      .resolves.toMatchObject({ status: 'ok', decision: output, candidatesComplete: complete })
+    expect(provider.evaluate).toHaveBeenCalledWith(expect.objectContaining({ candidatesComplete: complete }))
+  })
+
+  it('rejects create when the context is partial', async () => {
+    const oversized = Array.from({ length: 101 }, (_, index) => ({ ...candidates[0], id: String(index) }))
+    const { service } = guardianSetup(decisionFor('Soap'), [oversized])
+    await expect(service.execute(context, 'selected-list', { query: 'Soap', guardian: guardianAdd }))
+      .resolves.toMatchObject({ status: 'provider_unavailable', matches: [] })
+  })
+
+  it.each([
+    ['outside-scope identity', { action: 'use_existing', match: { existingItemId: 'elsewhere', matchType: 'exact_duplicate', confidence: 1 } }],
+    ['ambiguous identity', { action: 'use_existing', match: { existingItemId: 'active-milk', matchType: 'probable_duplicate', confidence: 1 } }],
+    ['invalid category', { normalizedItem: decisionFor('Milk', 'Other').normalizedItem }],
+    ['invalid shape', { additionalProperty: 'invalid' }]
+  ])('rejects %s without rewriting the answer', async (_description, overrides) => {
+    const output = { ...decisionFor('Milk'), ...overrides }
+    const { service } = guardianSetup(output, [candidates])
+    await expect(service.execute(context, 'selected-list', { query: 'Milk', guardian: guardianAdd }))
+      .resolves.toMatchObject({ status: 'provider_unavailable', matches: [] })
+  })
+
+  it('checks the candidate snapshot again before returning an existing ID', async () => {
+    const output = {
+      ...decisionFor('Milk'),
+      action: 'use_existing',
+      match: { existingItemId: 'active-milk', matchType: 'exact_duplicate', confidence: 1 }
+    }
+    const { service } = guardianSetup(output, [candidates, candidates.slice(1)])
+    await expect(service.execute(context, 'selected-list', { query: 'Milk', guardian: guardianAdd }))
+      .resolves.toMatchObject({ status: 'stale_request', matches: [] })
+  })
+
+  it('accepts only explicitly requested changes to the edit target', async () => {
+    const output = {
+      ...decisionFor('Milk', 'Dairy'),
+      action: 'propose_update',
+      match: { existingItemId: 'active-milk', matchType: 'exact_duplicate', confidence: 1 },
+      proposedChanges: { notes: 'For tomorrow' }
+    }
+    const request = {
+      query: 'Milk',
+      guardian: {
+        operation: 'update', itemId: 'active-milk', listName: 'Main', language: 'en',
+        details: { notes: 'For tomorrow' }
+      }
+    }
+    const allowed = guardianSetup(output, [candidates])
+    await expect(allowed.service.execute(context, 'selected-list', request))
+      .resolves.toMatchObject({ status: 'ok', decision: output })
+    const unsafe = guardianSetup({ ...output, proposedChanges: { quantity: 3 } }, [candidates])
+    await expect(unsafe.service.execute(context, 'selected-list', request))
+      .resolves.toMatchObject({ status: 'provider_unavailable' })
+    await expect(allowed.service.execute(context, 'selected-list', {
+      ...request, guardian: { ...request.guardian, itemId: 'different-list' }
+    })).resolves.toMatchObject({ status: 'stale_request' })
+  })
+})

@@ -27,3 +27,5 @@ export {
   FirebaseDuplicateScanRepository,
   createFirebaseDuplicateScanRepository
 } from './infrastructure/firebaseDuplicateScanRepository.server'
+
+export { createGroqGuardianModel } from './infrastructure/groqGuardianModel.server'

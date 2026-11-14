@@ -14,7 +14,6 @@ import {
   GroceryCommandService,
   PersistN8nGroceryService,
   SemanticGroceryMatchService,
-  semanticGroceryProviderOutputSchema,
   type ListAuthorizationRepository
 } from './groceries'
 import {
@@ -22,6 +21,7 @@ import {
   createFirebaseAdminSemanticGroceryRepository,
   createFirebaseSdkGroceryRepository,
   StructuredModelSemanticGroceryMatchProvider,
+  createGroqGuardianModel,
   UnavailableSemanticGroceryMatchProvider
 } from './groceries/server'
 import { AuthenticateUserService } from './identity'
@@ -34,7 +34,6 @@ import {
   N8nMachineAuthenticator,
   type N8nRequestContext
 } from './integrations/n8n/server'
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { ChatOpenAI } from '@langchain/openai'
 import { RecordClientEventService } from './observability'
 import { StructuredClientEventLogger } from './observability/server'
@@ -298,21 +297,9 @@ export class ServerComposition {
     if (!this.semanticGroceryMatchService) {
       const app = this.getRecipeFirebaseApp()
       const databaseUrl = firebaseDatabaseUrl(this.options.environment)
-      const apiKey =
-        this.options.environment.GOOGLE_API_KEY?.trim() ||
-        this.options.environment.GEMINI_API_KEY?.trim()
+      const apiKey = this.options.environment.GROQ_API_KEY?.trim()
       const provider = apiKey
-        ? new StructuredModelSemanticGroceryMatchProvider(
-            new ChatGoogleGenerativeAI({
-              model: 'gemini-2.5-flash',
-              apiKey,
-              temperature: 0,
-              maxRetries: 1
-            }).withStructuredOutput(semanticGroceryProviderOutputSchema, {
-              name: 'semantic_grocery_match',
-              method: 'jsonSchema'
-            })
-          )
+        ? new StructuredModelSemanticGroceryMatchProvider(createGroqGuardianModel(apiKey))
         : new UnavailableSemanticGroceryMatchProvider()
       this.semanticGroceryMatchService = new SemanticGroceryMatchService(
         createFirebaseAdminSemanticGroceryRepository(app, databaseUrl),
