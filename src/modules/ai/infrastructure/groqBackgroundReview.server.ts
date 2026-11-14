@@ -38,7 +38,11 @@ const retryAfterSeconds = (header: string | null): number => {
   return Number.isFinite(time) ? Math.max(1, Math.ceil((time - Date.now()) / 1000)) : 60
 }
 
-const exactMatchKey = (item: BackgroundReviewItem) => JSON.stringify([item.list_name, normalizeName(item.item)])
+const exactMatchKey = (item: BackgroundReviewItem) => {
+  const name = normalizeName(item.item)
+  // Match the whole name so qualified products like cherry tomatoes stay separate.
+  return JSON.stringify([item.list_name, name === 'עגבנייה' ? 'עגבניות' : name])
+}
 
 type RankedItem = BackgroundReviewItem & { addedAt: number }
 
