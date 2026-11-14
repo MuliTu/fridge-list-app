@@ -167,22 +167,13 @@ export function UnifiedGrocerySearchAdd({
 
   const prepareAndAdd = async (names: string[], assertCurrent: () => void) => {
     const items = names.map((name, index) => ({ id: `unified-add-${index}`, name }))
-    let preparedItems: Array<{ id: string; correctedName: string; category: string }>
-    if (localOnly) {
-      preparedItems = items.map((item) => ({
-        id: item.id,
-        correctedName: item.name,
-        category: OTHER_CATEGORY_NAME
-      }))
-    } else {
-      preparedItems = (await enrichItemsWithAi({
-          language: i18n.language === 'en' ? 'en' : 'he',
-          categories: addContext.categories.length
-            ? addContext.categories.map((category) => category.name)
-            : [OTHER_CATEGORY_NAME],
-          items
-        })).items
-    }
+    const preparedItems = localOnly ? [] : (await enrichItemsWithAi({
+      language: i18n.language === 'en' ? 'en' : 'he',
+      categories: addContext.categories.length
+        ? addContext.categories.map((category) => category.name)
+        : [OTHER_CATEGORY_NAME],
+      items
+    }).catch(() => ({ items: [] }))).items
     assertCurrent()
     const suggestions = new Map(preparedItems.map((item) => [item.id, item] as const))
     const categoryNames = new Map(
@@ -194,12 +185,11 @@ export function UnifiedGrocerySearchAdd({
 
     for (let index = 0; index < items.length; index += 1) {
       const suggestion = suggestions.get(items[index].id)
-      if (!suggestion) throw new Error(t('shoppingList:quickAdd.aiNoResult'))
       try {
-        let category = suggestion.category
+        let category = suggestion?.category ?? OTHER_CATEGORY_NAME
         const known = categoryNames.get(normalizeName(category))
         if (known) category = known
-        else if (addContext.onAddCategory) {
+        else if (suggestion && addContext.onAddCategory) {
           assertCurrent()
           await addContext.onAddCategory({
             name: category,
@@ -212,7 +202,7 @@ export function UnifiedGrocerySearchAdd({
           nextOrder += 1
         }
         assertCurrent()
-        await addContext.onAdd(suggestion.correctedName, category)
+        await addContext.onAdd(suggestion?.correctedName ?? items[index].name, category)
         assertCurrent()
       } catch (cause) {
         if (!(cause instanceof StaleSubmissionError) && mounted.current) {

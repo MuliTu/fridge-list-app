@@ -142,6 +142,20 @@ describe('UnifiedGrocerySearchAdd', () => {
     expect(onMatch).not.toHaveBeenCalled()
   })
 
+  it('adds the original item to Other when AI enrichment is unavailable', async () => {
+    ;(enrichItemsWithAi as jest.Mock).mockRejectedValueOnce(new Error('AI item assistant is temporarily unavailable'))
+    const onAdd = jest.fn().mockResolvedValue(undefined)
+    const onAddCategory = jest.fn()
+    const user = userEvent.setup()
+    renderControl({ addContext: { categories, onAdd, onAddCategory } })
+
+    const input = screen.getByLabelText('shoppingList:unifiedAdd.label')
+    await user.type(input, 'לבבות דקל{enter}')
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('לבבות דקל', 'אחר'))
+    expect(onAddCategory).not.toHaveBeenCalled()
+  })
+
   it('keeps only failed and unconfirmed batch entries after an add failure', async () => {
     ;(enrichItemsWithAi as jest.Mock).mockResolvedValue({
       items: [

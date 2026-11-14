@@ -26,6 +26,7 @@
     "empty": "This list is empty. Add the first item.",
     "editItem": "Edit item",
     "itemName": "Item name",
+    "itemCategory": "Category",
     "itemNote": "Note",
     "save": "Save",
     "delete": "Delete item",

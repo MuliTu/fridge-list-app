@@ -7,7 +7,7 @@ import type { GroceryItem } from '../types'
 import { useAuth } from '../hooks/AuthContext'
 import { useBehaviorSettings } from '../hooks/BehaviorSettingsContext'
 import CategorySection from './CategorySection'
-import { DEFAULT_CATEGORIES } from '../lib/categories'
+import { DEFAULT_CATEGORIES, OTHER_CATEGORY_NAME } from '../lib/categories'
 import { normalizeName } from '../lib/normalizeName'
 import ShoppingListItemRow from './ShoppingListItemRow'
 import { UnifiedGrocerySearchAdd } from './UnifiedGrocerySearchAdd'
@@ -57,6 +57,7 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
   const [editing, setEditing] = useState<GroceryItem | null>(null)
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
+  const [editCategory, setEditCategory] = useState(OTHER_CATEGORY_NAME)
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLElement>(null)
@@ -90,6 +91,11 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
     const category = entry.category || t('sharing.otherCategory')
     groups.set(category, [...(groups.get(category) || []), entry])
   }
+  const editCategories = [...new Set([
+    ...(snapshot?.categories.map(({ name }) => name) ?? []),
+    ...(editing?.category ? [editing.category] : []),
+    OTHER_CATEGORY_NAME
+  ])]
   const categoryPresentation = new Map(snapshot?.categories.map(category => [category.name, category]) || [])
   const orderedGroups = [...groups].sort(([left], [right]) => {
     const leftOrder = categoryPresentation.get(left)?.order ?? Number.MAX_SAFE_INTEGER
@@ -159,7 +165,7 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
     if (!editing || busy) return
     setBusy(true)
     try {
-      await mutate({ operation, itemId: editing.key, ...(operation === 'update' ? { item: { name, note } } : {}) })
+      await mutate({ operation, itemId: editing.key, ...(operation === 'update' ? { item: { name, note, category: editCategory } } : {}) })
       setEditing(null)
     } catch { /* Keep the dialog open for retry. */ }
     finally { setBusy(false) }
@@ -217,7 +223,7 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
                 showCountdown={settings.showCountdown} purchaseGesture={settings.purchaseGesture}
                 onCheckedChange={() => { void mutate({ operation: 'update', itemId: entry.key, item: { bought: !entry.bought } }).catch(() => {}) }}
                 onUrgencyChange={urgency => mutate({ operation: 'update', itemId: entry.key, item: { urgency } })}
-                onEditClick={() => { setEditing(entry); setName(entry.item); setNote(entry.note || '') }} />)}
+                onEditClick={() => { setEditing(entry); setName(entry.item); setNote(entry.note || ''); setEditCategory(entry.category || OTHER_CATEGORY_NAME) }} />)}
             </CategorySection>
           })}
         </div>
@@ -232,6 +238,11 @@ export default function SharedShoppingList({ shareId }: { shareId: string }) {
       <form onSubmit={event => { event.preventDefault(); void save('update') }} className="sharing-edit-form">
         <label>{t('sharing.itemName')}<Input required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label>
         <label>{t('sharing.itemNote')}<Input maxLength={2000} value={note} onChange={event => setNote(event.target.value)} /></label>
+        <label>{t('sharing.itemCategory')}
+          <select value={editCategory} onChange={event => setEditCategory(event.target.value)} disabled={busy}>
+            {editCategories.map(category => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
         <Button type="submit" disabled={busy}>{t('sharing.save')}</Button>
         <Button type="button" variant="destructive" disabled={busy} onClick={() => save('delete')}>{t('sharing.delete')}</Button>
       </form>
