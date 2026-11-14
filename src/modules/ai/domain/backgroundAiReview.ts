@@ -57,8 +57,8 @@ export const groceryReviewName = (name: string) => {
 export const BACKGROUND_REVIEW_CATEGORY_LIMIT = 100
 export const BACKGROUND_REVIEW_CATEGORY_CORRECTION_LIMIT = BACKGROUND_REVIEW_ITEM_LIMIT
 
-export const isUncategorizedReviewItem = ({ category }: BackgroundReviewItem): boolean =>
-  !category?.trim() || category.trim() === OTHER_CATEGORY_NAME || category.trim().toLowerCase() === 'other'
+export const isUncategorizedReviewItem = ({ category }: BackgroundReviewItem, categories: ReadonlySet<string>): boolean =>
+  !category?.trim() || category.trim() === OTHER_CATEGORY_NAME || category.trim().toLowerCase() === 'other' || !categories.has(category)
 
 export const isReviewCategoryName = (name: string): boolean =>
   Boolean(name.trim()) && name !== OTHER_CATEGORY_NAME && name.toLowerCase() !== 'other' && !/[\u0000-\u001f\u007f]/.test(name)

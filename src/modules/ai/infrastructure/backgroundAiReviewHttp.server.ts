@@ -177,7 +177,7 @@ const applyReview = async (
       const byKey = new Map(mainItems.map((item) => [item.key, item]))
       for (const { key, category, createCategory } of categoryChanges) {
         const item = byKey.get(key)
-        if (!item || !isUncategorizedReviewItem(item) || !isReviewCategoryName(category) ||
+        if (!item || !isUncategorizedReviewItem(item, existing) || !isReviewCategoryName(category) ||
             (createCategory ? existing.has(category) : !existing.has(category))) return undefined
       }
       for (const [name, key] of newCategoryKeys) {

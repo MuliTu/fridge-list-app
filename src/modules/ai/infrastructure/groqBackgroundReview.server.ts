@@ -68,10 +68,11 @@ export const reviewWithGroq = async (
 ): Promise<AiListReviewResult> => {
   const subLists = new Map<string | null, number>()
   const byAlias = new Map(items.map((item, index) => [String(index + 1), item]))
+  const allowed = new Set(categories)
   const providerItems = [...byAlias].map(([alias, item]) => {
     if (!subLists.has(item.list_name)) subLists.set(item.list_name, subLists.size)
     const row = [alias, item.item, subLists.get(item.list_name), Number(item.bought)]
-    return categories ? [...row, item.category ?? null] : row
+    return categories ? [...row, isUncategorizedReviewItem(item, allowed) ? null : item.category] : row
   })
 
   const response = await send(endpoint, {
@@ -208,10 +209,9 @@ export const reviewWithGroq = async (
     return [{ ...rename, key: item.key, currentName: item.item }]
   })
   const seenCategoryKeys = new Set<string>()
-  const allowed = new Set(categories)
   const categoryChanges = categories ? (result.categoryChanges ?? []).flatMap((change) => {
     const item = byAlias.get(change.key)
-    if (!item || !isUncategorizedReviewItem(item) || removed.has(item.key) || seenCategoryKeys.has(item.key)) return []
+    if (!item || !isUncategorizedReviewItem(item, allowed) || removed.has(item.key) || seenCategoryKeys.has(item.key)) return []
     if (!isReviewCategoryName(change.category) || (change.createCategory === true) === allowed.has(change.category)) return []
     seenCategoryKeys.add(item.key)
     return [{ ...change, key: item.key }]
