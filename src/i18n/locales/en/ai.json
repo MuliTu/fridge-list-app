@@ -11,6 +11,8 @@
   "review": {
     "title": "Go over list",
     "description": "Find likely duplicates and simplify product names.",
+    "itemWithList": "{{name}} ({{list}})",
+    "suggestionLimits": "Each scan can suggest up to 12 duplicate groups, 10 removals per group, and 15 name corrections. Duplicate and name suggestions involving a named sublist require a recognized match between whole product names.",
     "reviewBeforeApply": "AI suggestions can be wrong. Review every selected change before applying it.",
     "duplicates": "Possible duplicates",
     "categories": "Suggested categories",

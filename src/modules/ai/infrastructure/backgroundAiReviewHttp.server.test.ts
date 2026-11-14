@@ -34,16 +34,15 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
     listChangeHistory: {}
   }
   const snapshot = (value: unknown) => ({ val: () => value, exists: () => value != null })
-  const grocerySnapshot = (name: string | null, limit: number) => {
-    const rows = Object.entries(household.groceries)
-      .filter(([, value]) => (value.list_name ?? null) === name).slice(0, limit)
+  const grocerySnapshot = (limit: number) => {
+    const rows = Object.entries(household.groceries).slice(0, limit)
     return {
       numChildren: () => rows.length,
       forEach: (callback: (child: { key: string; val: () => unknown }) => void) =>
         rows.forEach(([key, value]) => callback({ key, val: () => value }))
     }
   }
-  const getGroceries = jest.fn(async () => grocerySnapshot(null, 301))
+  const getGroceries = jest.fn(async (limit: number) => grocerySnapshot(limit))
   const quotaTransaction = jest.fn(async (update: (value: unknown) => unknown) => {
     // The real SDK may start every transaction from a cold local null.
     const optimistic = update(null)
@@ -58,10 +57,8 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
     return { committed: next !== undefined, snapshot: snapshot(household) }
   })
   const ref = jest.fn((path: string) => {
-    if (path.endsWith('/groceries')) return { orderByChild: () => ({
-      equalTo: (name: string | null) => ({
-        limitToFirst: (limit: number) => ({ get: name === null ? getGroceries : async () => grocerySnapshot(name, limit) })
-      })
+    if (path.endsWith('/groceries')) return { orderByKey: () => ({
+      limitToFirst: (limit: number) => ({ get: () => getGroceries(limit) })
     }) }
     if (path.endsWith('/categories')) return {
       limitToFirst: (limit: number) => ({
@@ -234,9 +231,9 @@ it('spaces dispatches after delayed preflight, including a concurrent claimant',
   try {
     const test = setup()
     const read = test.getGroceries.getMockImplementation()!
-    test.getGroceries.mockImplementationOnce(read).mockImplementationOnce(async () => {
+    test.getGroceries.mockImplementationOnce(read).mockImplementationOnce(async (limit) => {
       await new Promise((resolve) => setTimeout(resolve, 4000))
-      return read()
+      return read(limit)
     })
     const first = test.request()
     await jest.advanceTimersByTimeAsync(1000)
@@ -435,10 +432,10 @@ it.each([
   const test = setup('editor')
   Object.assign(test.household.groceries.one, { added_at: '2026-01-01T00:00:00.000Z' })
   const read = test.getGroceries.getMockImplementation()!
-  test.getGroceries.mockImplementationOnce(read).mockImplementationOnce(async () => {
+  test.getGroceries.mockImplementationOnce(read).mockImplementationOnce(async (limit) => {
     Object.assign(test.household.groceries.one, { added_at: firstTime })
     Object.assign(test.household.groceries.two, { added_at: secondTime })
-    return read()
+    return read(limit)
   })
   const send = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(result) } }] })
   test.analyze.mockImplementationOnce((key, items, language, signal, _send, history) =>
@@ -487,17 +484,17 @@ it('applies a proposed spelling correction only for an authorized editor confirm
   expect(test.household.groceries.one.item).toBe('Tomatoes')
 })
 
-it('scans only the main list even with hundreds of custom-list items', async () => {
+it('rejects over-limit snapshots across all sublists without calling the provider', async () => {
   const test = setup()
   Object.assign(test.household.groceries.one, { list_name: '' })
   Object.assign(test.household.groceries, Object.fromEntries(Array.from({ length: 301 }, (_, index) => [
     `custom-${index}`, { item: 'Milk', bought: true, list_name: 'Pantry' }
   ])))
-  expect((await test.request()).status).toBe(200)
-  expect(test.analyze.mock.calls[0][1]).toEqual(entries)
+  expect((await test.request()).status).toBe(422)
+  expect(test.analyze).not.toHaveBeenCalled()
   expect((await test.request('PUT', {
     version, actorUid: 'owner', operationId, removals: ['custom-0'], renames: []
-  })).status).toBe(409)
+  })).status).toBe(422)
   expect(Object.hasOwn(test.household.groceries, 'custom-0')).toBe(true)
 })
 
@@ -521,13 +518,14 @@ it('suggests evidence-backed moves out of Other and requires authorized confirma
   expect(response.status).toBe(200)
   expect((await response.json()).result.categoryChanges).toEqual(suggestions)
   expect(test.analyze).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining([
-    expect.objectContaining({ key: 'history', category: 'מאפים' })
+    expect.objectContaining({ key: 'history', category: 'מאפים' }),
+    expect.objectContaining({ key: 'outside', list_name: 'Trip' })
   ]), 'en', expect.anything(), undefined, expect.any(Map), expect.arrayContaining(['פירות', 'ירקות', 'מאפים']))
   expect(test.household.groceries.one).toMatchObject({ category: 'אחר' })
 
   const selection = { version: reviewVersion, actorUid: 'editor', operationId, removals: [], renames: [] }
   const change = { key: 'one', category: 'פירות' }
-  expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'outside', category: 'ירקות' }] })).status).toBe(409)
+  expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'missing', category: 'ירקות' }] })).status).toBe(409)
   expect((await test.request('PUT', { ...selection, categoryChanges: [{ key: 'one', category: 'Unavailable' }] })).status).toBe(409)
   expect((await test.request('PUT', { ...selection, actorUid: 'viewer', categoryChanges: [change] })).status).toBe(403)
   expect((await test.request('PUT', { ...selection, removals: ['one'], categoryChanges: [change] })).status).toBe(400)
@@ -538,13 +536,14 @@ it('suggests evidence-backed moves out of Other and requires authorized confirma
   Object.assign(test.household.groceries.one, { category: 'ירקות' })
   expect((await test.request('PUT', { ...selection, categoryChanges: [change] })).status).toBe(409)
   Object.assign(test.household.groceries.one, { category: 'אחר' })
-  const approved = { ...selection, categoryChanges: [change, { key: 'uncertain', category: 'ציוד', createCategory: true }] }
+  const approved = { ...selection, categoryChanges: [change, { key: 'outside', category: 'ירקות' }, { key: 'uncertain', category: 'ציוד', createCategory: true }] }
   const applied = await test.request('PUT', approved)
   expect(applied.status).toBe(200)
   const appliedResult = await applied.json()
-  expect(appliedResult).toMatchObject({ recategorized: 2, recategorizedKeys: ['one', 'uncertain'] })
+  expect(appliedResult).toMatchObject({ recategorized: 3, recategorizedKeys: ['one', 'outside', 'uncertain'] })
   expect(test.household.groceries.one).toMatchObject({ category: 'פירות' })
   expect(test.household.groceries.two).toMatchObject({ category: 'קטגוריה שנמחקה' })
+  expect(test.household.groceries.outside).toMatchObject({ category: 'ירקות', list_name: 'Trip' })
   expect(Object.values(test.household.categories)).toContainEqual(expect.objectContaining({ name: 'ציוד' }))
   expect(await (await test.request('PUT', approved)).json()).toEqual(appliedResult)
 })
@@ -585,4 +584,131 @@ it('returns more than fifteen model category suggestions', async () => {
     categoryChanges: [{ key: 'peach-16', category: 'פירות' }]
   })
   expect(applied.status).toBe(200)
+})
+
+it.each([
+  ['named sublists', 'Pantry', 'Weekend', true],
+  ['main and named sublist', null, 'Weekend', true],
+  ['same list', 'Weekend', 'Weekend', true],
+  ['mixed purchase state', 'Pantry', 'Weekend', false]
+] as const)('proposes one olive duplicate across %s and only removes the confirmed row', async (_case, firstList, secondList, secondBought) => {
+  const test = setup('editor')
+  Object.assign(test.household.groceries, {
+    one: { item: 'טבעות זיתים', bought: true, list_name: firstList },
+    two: { item: 'זיתים טבעות', bought: secondBought, list_name: secondList },
+    brand: { item: 'טבעות זיתים מותג הבית', bought: true, list_name: secondList },
+    variant: { item: 'טבעות זיתים שחורים', bought: true, list_name: secondList }
+  })
+  const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
+  // Aliases come from key order: brand, one, two, variant.
+  const providerResult = {
+    ...result, duplicates: [{ keepKey: '2', removeKeys: ['1', '3', '4'], reason: 'Same product' }]
+  }
+  const send = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(providerResult) } }] })
+  test.analyze.mockImplementationOnce((key, groceries, language, signal, _send, history, categories) =>
+    reviewWithGroq(key, groceries, language, signal, send, history, categories))
+
+  const scanned = await test.request('POST', { version: reviewVersion, language: 'he' })
+  expect(scanned.status).toBe(200)
+  const { result: { duplicates } } = await scanned.json()
+  expect(duplicates).toEqual([{ keepKey: 'one', removeKeys: ['two'], reason: expect.any(String) }])
+  expect(test.listTransaction).not.toHaveBeenCalled()
+  expect(Object.keys(test.household.groceries)).toEqual(['one', 'two', 'brand', 'variant'])
+
+  const selection = { version: reviewVersion, actorUid: 'editor', operationId, removals: duplicates[0].removeKeys, renames: [] }
+  Object.assign(test.household.groceries.two, { list_name: 'Changed' })
+  expect((await test.request('PUT', selection)).status).toBe(409)
+  Object.assign(test.household.groceries.two, { list_name: secondList })
+  expect((await test.request('PUT', selection)).status).toBe(200)
+  expect(Object.keys(test.household.groceries)).toEqual(['one', 'brand', 'variant'])
+  expect(Object.values(test.household.listChangeHistory)).toEqual([
+    expect.objectContaining({ itemKey: 'two', itemName: 'זיתים טבעות', listName: secondList })
+  ])
+})
+
+it('protects distinct brands within a newly reviewed named sublist', async () => {
+  const test = setup('editor')
+  Object.assign(test.household.groceries, {
+    one: { item: 'Acme oat milk', bought: true, list_name: 'Pantry' },
+    two: { item: 'Sunrise oat milk', bought: true, list_name: 'Pantry' }
+  })
+  const items = Object.entries(test.household.groceries).map(([key, item]) => ({ key, ...item }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(items))).digest('hex')
+  const providerResult = {
+    ...result, duplicates: [{ keepKey: '1', removeKeys: ['2'], reason: 'Same product' }]
+  }
+  const send = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(providerResult) } }] })
+  test.analyze.mockImplementationOnce((key, groceries, language, signal, _send, history, categories) =>
+    reviewWithGroq(key, groceries, language, signal, send, history, categories))
+
+  const scanned = await test.request('POST', { version: reviewVersion, language: 'en' })
+  expect(scanned.status).toBe(200)
+  const { result: { duplicates } } = await scanned.json()
+  expect(duplicates).toEqual([])
+})
+
+it('keeps named-sublist brand identity while accepting a recognized name correction', async () => {
+  const test = setup('editor')
+  Object.assign(test.household.groceries, {
+    main: { item: 'Fresh pear', bought: false, list_name: null },
+    one: { item: 'Sunrise oat milk', bought: false, list_name: 'Pantry' },
+    two: { item: 'Acme oat milk', bought: false, list_name: 'Pantry' },
+    tomato: { item: 'עגבניה', bought: false, list_name: 'Pantry' }
+  })
+  const entries = Object.entries(test.household.groceries).map(([key, item]) => ({ ...item, key }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(entries))).digest('hex')
+  const proposed = {
+    ...result, renames: [
+      { key: '1', currentName: 'Fresh pear', suggestedName: 'Acme oat milk', reason: 'Wrong product' },
+      { key: '2', currentName: 'Sunrise oat milk', suggestedName: 'Acme oat milk', reason: 'Correct spelling' },
+      { key: '3', currentName: 'עגבניה', suggestedName: 'עגבניות', reason: 'Equivalent name' }
+    ]
+  }
+  const send = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(proposed) } }] })
+  test.analyze.mockImplementationOnce((key, items, language, signal) => reviewWithGroq(key, items, language, signal, send))
+  const scan = await test.request('POST', { version: reviewVersion, language: 'he' })
+  expect(scan.status).toBe(200)
+  expect((await scan.json()).result.renames).toEqual([{ ...proposed.renames[2], key: 'tomato' }])
+  expect(test.listTransaction).not.toHaveBeenCalled()
+
+  const confirmation = { version: reviewVersion, actorUid: 'editor', operationId, removals: [] }
+  for (const key of ['main', 'one']) {
+    expect((await test.request('PUT', { ...confirmation, renames: [{ key, name: 'Acme oat milk' }] })).status).toBe(409)
+  }
+  expect((await test.request('PUT', { ...confirmation, renames: [{ key: 'tomato', name: 'עגבניות' }] })).status).toBe(200)
+  expect(test.household.groceries.main.item).toBe('Fresh pear')
+  expect(test.household.groceries.one.item).toBe('Sunrise oat milk')
+  expect(test.household.groceries.two.item).toBe('Acme oat milk')
+  expect(test.household.groceries.tomato.item).toBe('עגבניות')
+})
+
+it('rejects named-sublist removals when an equivalent row would no longer survive', async () => {
+  const test = setup('editor')
+  const groceries = {
+    one: { item: 'טבעות זיתים', bought: false, list_name: 'Pantry' },
+    two: { item: 'זיתים טבעות', bought: true, list_name: null },
+    distinct: { item: 'טבעות זיתים שחורים', bought: true, list_name: 'Pantry' }
+  }
+  Object.assign(test.household.groceries, groceries)
+  const entries = Object.entries(groceries).map(([key, item]) => ({ ...item, key }))
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems(entries))).digest('hex')
+  const confirmation = { version: reviewVersion, actorUid: 'editor', operationId }
+  for (const selection of [
+    { removals: ['distinct'], renames: [] },
+    { removals: ['one', 'distinct'], renames: [] },
+    { removals: ['one', 'two'], renames: [] },
+    { removals: ['one'], renames: [{ key: 'two', name: 'טבעות זיתים שחורים' }] }
+  ]) {
+    expect((await test.request('PUT', { ...confirmation, ...selection })).status).toBe(409)
+    expect(test.household.groceries).toEqual(groceries)
+    expect(test.household.listChangeHistory).toEqual({})
+  }
+  expect((await test.request('PUT', {
+    ...confirmation, removals: ['one'], renames: [{ key: 'two', name: 'טבעות זיתים' }]
+  })).status).toBe(200)
+  expect(test.household.groceries).toEqual({
+    two: expect.objectContaining({ item: 'טבעות זיתים', list_name: null }),
+    distinct: groceries.distinct
+  })
 })

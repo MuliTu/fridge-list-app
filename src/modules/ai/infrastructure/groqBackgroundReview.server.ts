@@ -40,7 +40,7 @@ const retryAfterSeconds = (header: string | null): number => {
   return Number.isFinite(time) ? Math.max(1, Math.ceil((time - Date.now()) / 1000)) : 60
 }
 
-const exactMatchKey = (item: BackgroundReviewItem) => JSON.stringify([item.list_name, groceryReviewName(item.item)])
+const exactMatchKey = (item: BackgroundReviewItem) => groceryReviewName(item.item)
 
 type RankedItem = BackgroundReviewItem & { addedAt: number }
 
@@ -75,6 +75,7 @@ export const reviewWithGroq = async (
     return categories ? [...row, isUncategorizedReviewItem(item, allowed) ? null : item.category] : row
   })
 
+  const mainListNumber = subLists.get(null)
   const response = await send(endpoint, {
     method: 'POST',
     redirect: 'error',
@@ -99,9 +100,11 @@ export const reviewWithGroq = async (
             'For each uncategorized grocery, prefer the exact name of an appropriate supplied category and set createCategory to false. Use the categorized items as context and interpret category names in their original language. Prefer a broad existing category that fits over a new narrower or overlapping one.',
             'If no supplied category fits, propose a short reusable shopping category at the same level as the existing categories and set createCategory to true. Use the input ID as key and explain the suggestion in reason. Skip only items you cannot classify confidently.'
           ] : []),
-          'Group equivalent grocery names within the same sublist regardless of purchase status or category, including singular and plural forms or clear language equivalents. Review all IDs, including near the end of the list.',
-          'Keep distinct products separate when brand, flavor, variety or product form differs. Treat keepKey as any anchor ID for the group. The server chooses which record to keep.',
-          'Suggest clear spelling and language corrections only when the suggested name preserves the same product and its qualifiers.',
+          mainListNumber === undefined
+            ? 'No main list is present. Return an empty duplicates array. The server independently checks named sublists for duplicate names.'
+            : `Group equivalent grocery names in the main list only (sublist number ${mainListNumber}), regardless of purchase status or category. Include singular and plural forms, clear language equivalents, and reordered names with identical meaning and qualifiers. Review all main-list IDs, including near the end. The server independently checks named sublists for duplicate names.`,
+          'Keep distinct products separate when brand, flavor, variety or product form differs, including when a qualifier is present in only one name. Treat keepKey as any anchor ID for the group. The server chooses which record to keep.',
+          'Suggest clear spelling and language corrections only when the suggested name preserves the same product and its qualifiers. The server requires a recognized whole-name match for corrections involving any named-sublist product.',
           'Use only input IDs. Return at most 12 duplicate groups, 10 removals per group and 15 renames.',
           'Use empty arrays for no findings and write brief reasons in the requested language.'
         ].join(' ') },
@@ -128,6 +131,12 @@ export const reviewWithGroq = async (
     else exactMatches.set(groupKey, [item])
   }
 
+  // Named sublists require whole-name equivalence. Keep groups with named
+  // members independent of semantic links in the main list.
+  const namedListExactKeys = new Set([...exactMatches]
+    .filter(([, group]) => group.some((item) => item.list_name !== null))
+    .map(([key]) => key))
+
   const used = new Set<string>()
   const removed = new Set<string>()
   const duplicates: AiListReviewResult['duplicates'] = []
@@ -153,11 +162,11 @@ export const reviewWithGroq = async (
   const providerOnlyGroups: { anchor: BackgroundReviewItem; members: BackgroundReviewItem[] }[] = []
   for (const { keepKey, removeKeys } of result.duplicates) {
     const anchor = byAlias.get(keepKey)
-    if (!anchor || claimedProviderKeys.has(anchor.key)) continue
+    if (!anchor || claimedProviderKeys.has(anchor.key) || namedListExactKeys.has(exactMatchKey(anchor))) continue
     const members = new Set([anchor])
     for (const alias of removeKeys) {
       const candidate = byAlias.get(alias)
-      if (candidate && candidate.list_name === anchor.list_name && !claimedProviderKeys.has(candidate.key)) {
+      if (candidate && !claimedProviderKeys.has(candidate.key) && !namedListExactKeys.has(exactMatchKey(candidate))) {
         members.add(candidate)
       }
     }
@@ -212,6 +221,9 @@ export const reviewWithGroq = async (
     const item = byAlias.get(rename.key)
     if (!item || removed.has(item.key) || renamed.has(rename.key) ||
       rename.currentName !== item.item.trim() || normalizeName(item.item) === normalizeName(rename.suggestedName)) return []
+    const originalName = exactMatchKey(item)
+    const suggestedName = groceryReviewName(rename.suggestedName)
+    if (suggestedName !== originalName && (namedListExactKeys.has(originalName) || namedListExactKeys.has(suggestedName))) return []
     renamed.add(rename.key)
     return [{ ...rename, key: item.key, currentName: item.item }]
   })

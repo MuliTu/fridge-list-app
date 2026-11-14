@@ -123,12 +123,13 @@
   },
   "duplicateReview": {
     "background": {
+      "mainList": "Main list",
       "enable": "Enable list reviews",
-      "notice": "While this tab is open, Groq will receive grocery names and purchase status from the main list.",
-      "progress": "Reviewing the main list…",
-      "enabled": "Main list review is on.",
-      "blocked": "The main list cannot be reviewed right now.",
-      "completed": "Main list reviewed. No new suggestions.",
+      "notice": "While this tab is open, Groq receives grocery names, purchase status, and category information from all sublists in this shopping list. Sublists are identified by number.",
+      "progress": "Reviewing all sublists in this shopping list…",
+      "enabled": "Review is on for all sublists.",
+      "blocked": "Review unavailable. Lists can have up to 300 grocery rows and 100 categories, and grocery names can have up to 200 characters.",
+      "completed": "Sublists reviewed. No new suggestions.",
       "open": "Open list review suggestions",
       "failed": "List review failed",
       "stale": "The list changed. Open the latest suggestions from the bell."

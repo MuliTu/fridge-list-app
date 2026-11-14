@@ -34,7 +34,11 @@ jest.mock('../hooks/ListContext', () => ({
 jest.mock('../hooks/DialogServiceContext', () => ({ useDialogService: () => ({ confirm }) }))
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) => options ? `${key}:${JSON.stringify(options)}` : key,
+    t: (key: string, options?: Record<string, unknown>) => {
+      if (key === 'ai:review.itemWithList') return `${options?.name} (${options?.list})`
+      if (key === 'common:duplicateReview.background.mainList') return 'Main list'
+      return options ? `${key}:${JSON.stringify(options)}` : key
+    },
     i18n: { language: 'en' }
   })
 }))
@@ -90,7 +94,7 @@ describe('AiAssistantModal', () => {
       removed: 0, renamed: 1, skipped: 0, renamedKeys: ['milk'], removedKeys: [], skippedKeys: []
     })
     render(<AiAssistantModal onClose={jest.fn()} initialReview={initialReview} isReviewCurrent={isReviewCurrent} />)
-    expect(screen.getByText(/Milkk → Milk/)).toBeVisible()
+    expect(screen.getByText(/Milkk \(Main list\) → Milk/)).toBeVisible()
     expect(analyzeWithAi).not.toHaveBeenCalled()
     const button = screen.getByRole('button', { name: /ai:applySelected/ })
     expect(button).toBeDisabled()

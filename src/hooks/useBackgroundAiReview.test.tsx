@@ -117,32 +117,32 @@ it('releases a stalled call immediately on a scope switch even when the transpor
   expect(result.current.running).toBe(false)
 })
 
-it('scans only the main list and ignores edits to custom sublists', async () => {
+it('rescans after changes to a named sublist', async () => {
   request.mockResolvedValue(empty)
   const initial = state('Milk')
-  const custom = Array.from({ length: 301 }, (_, index) => ({
-    ...initial.entries[0], key: `custom-${index}`, list_name: 'Pantry'
-  }))
+  const pantry = { ...initial.entries[0], key: 'pantry', list_name: 'Pantry' }
   const { result, rerender } = renderHook(useBackgroundAiReview, {
-    initialProps: { ...initial, entries: [...initial.entries, ...custom] }
+    initialProps: { ...initial, entries: [...initial.entries, pantry] }
   })
   await flush()
   expect(result.current.running).toBe(true)
   await flush(2500)
   expect(JSON.parse(request.mock.calls[0][1])).toEqual([{
     key: 'a', item: 'Milk', bought: false, list_name: null, category: 'Other'
+  }, {
+    key: 'pantry', item: 'Milk', bought: false, list_name: 'Pantry', category: 'Other'
   }])
-  rerender({ ...initial, entries: [...initial.entries, ...custom.slice(1)] })
+  rerender({ ...initial, entries: [...initial.entries, { ...pantry, item: 'Oat milk' }] })
   await flush(2500)
   expect(result.current.completed).toBe(true)
-  expect(request).toHaveBeenCalledTimes(1)
+  expect(request).toHaveBeenCalledTimes(2)
 })
 
-it('shows a blocked status when the main list exceeds the limit', async () => {
+it('shows a blocked status when household sublists together exceed the limit', async () => {
   const initial = state('Milk')
   const { result } = renderHook(useBackgroundAiReview, {
     initialProps: { ...initial, entries: Array.from({ length: 301 }, (_, index) => ({
-      ...initial.entries[0], key: String(index)
+      ...initial.entries[0], key: String(index), list_name: index % 2 ? 'Pantry' : null
     })) }
   })
   await flush(3000)
