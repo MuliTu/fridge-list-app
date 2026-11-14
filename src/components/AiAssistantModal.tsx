@@ -149,7 +149,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
       .map((rename) => ({ key: rename.key, expectedName: rename.currentName, name: rename.suggestedName }))
     const categoryChanges = initialReview
       ? (result.categoryChanges ?? []).filter(({ key }) => selectedCategoryKeys.has(key))
-        .map(({ key, category }) => ({ key, category }))
+        .map(({ key, category, createCategory }) => ({ key, category, ...(createCategory ? { createCategory } : {}) }))
       : []
     if (removals.length + renames.length + categoryChanges.length === 0) return
     const controller = new AbortController()
@@ -299,7 +299,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
             {initialReview && Boolean(review.categoryChanges?.length) && (
               <section>
                 <h3 className="mb-2 text-sm font-semibold">{t('ai:review.categories')}</h3>
-                {review.categoryChanges?.map(({ key, category, reason }) => (
+                {review.categoryChanges?.map(({ key, category, reason, createCategory }) => (
                   <label key={key} className="mb-2 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm">
                     <Checkbox
                       checked={selectedCategoryKeys.has(key)}
@@ -312,7 +312,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
                       disabled={applying || Boolean(reviewApplyResult)}
                     />
                     <span>
-                      {t('ai:review.moveCategory', { name: itemName(key), category })}<br />
+                      {t(createCategory ? 'ai:review.createAndMoveCategory' : 'ai:review.moveCategory', { name: itemName(key), category })}<br />
                       <span className="text-xs text-muted-foreground">{reason}</span>
                       {reviewApplyResult && selectedCategoryKeys.has(key) &&
                         <><br /><span className="text-xs font-medium text-primary">{resultForKeys([key])}</span></>}

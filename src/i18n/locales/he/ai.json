@@ -14,6 +14,7 @@
     "reviewBeforeApply": "הצעות AI עלולות לטעות. יש לבדוק כל שינוי מסומן לפני האישור.",
     "duplicates": "כפילויות אפשריות",
     "categories": "קטגוריות מוצעות",
+    "createAndMoveCategory": "ליצור קטגוריה ״{{category}}״ ולהעביר אליה את {{name}}",
     "moveCategory": "להעביר את {{name}} מ״אחר״ לקטגוריה ״{{category}}״",
     "renames": "שמות מוצעים",
     "keep": "להשאיר: {{name}}",

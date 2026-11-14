@@ -14,6 +14,7 @@
     "reviewBeforeApply": "AI suggestions can be wrong. Review every selected change before applying it.",
     "duplicates": "Possible duplicates",
     "categories": "Suggested categories",
+    "createAndMoveCategory": "Create {{category}} and move {{name}} into it",
     "moveCategory": "Move {{name}} from Other to {{category}}",
     "renames": "Suggested names",
     "keep": "Keep: {{name}}",
