@@ -61,11 +61,11 @@ it('finds exact matches across purchase states without grouping product variants
 
 it('ranks a purchased equivalent ahead of overlapping exact matches and rejects other sublists', async () => {
   const groceries = [
-    { key: 'first', item: 'עגבנייה', bought: false, list_name: null },
-    { key: 'second', item: 'עגבנייה', bought: false, list_name: null },
-    { key: 'purchased', item: 'עגבניות', bought: true, list_name: null },
-    { key: 'other', item: 'עגבניות', bought: true, list_name: 'Trip' },
-    { key: 'unclaimed', item: 'עגבנית', bought: false, list_name: null }
+    { key: 'first', item: 'מלפפון', bought: false, list_name: null },
+    { key: 'second', item: 'מלפפון', bought: false, list_name: null },
+    { key: 'purchased', item: 'מלפפונים', bought: true, list_name: null },
+    { key: 'other', item: 'מלפפונים', bought: true, list_name: 'Trip' },
+    { key: 'unclaimed', item: 'מלפפונ', bought: false, list_name: null }
   ]
   const send = jest.fn(async (_url: string, _request: RequestInit) => providerResponse({
     mode: 'list_review', duplicates: [
@@ -276,4 +276,15 @@ it('grounds spelling and language corrections to input keys and original names',
     { key: 'typo', currentName: ' Tomatos ', suggestedName: 'Tomatoes', reason },
     { key: 'translation', currentName: 'חלב שיבולת שועל', suggestedName: 'Oat milk', reason }
   ])
+})
+
+it('matches the Hebrew tomato forms and keeps the purchased record when Groq misses the match', async () => {
+  const groceries = [
+    { key: 'open', item: 'עגבנייה', bought: false, list_name: null },
+    { key: 'bought', item: 'עגבניות', bought: true, list_name: null },
+    { key: 'cherry', item: 'עגבניות שרי', bought: true, list_name: null }
+  ]
+  const send = async () => providerResponse({ mode: 'list_review', duplicates: [], renames: [] })
+  const result = await reviewWithGroq('test-key', groceries, 'he', new AbortController().signal, send)
+  expect(result.duplicates).toEqual([{ keepKey: 'bought', removeKeys: ['open'], reason: 'הפריט שנרכש נשמר' }])
 })
