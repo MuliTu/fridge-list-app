@@ -10,13 +10,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 const api = createDuplicateReviewApiClient({ getIdToken: getCurrentUserIdToken })
 type DuplicateReviewBellProps = {
   reviewing?: boolean
+  reviewEnabled?: boolean
+  reviewBlocked?: boolean
+  reviewCompleted?: boolean
   reviewFailed?: boolean
   onRetryReview?: () => void
   onEnableReview?: () => void
   onOpenReview?: () => void
 }
 
-export function DuplicateReviewBell({ reviewing, reviewFailed, onRetryReview, onOpenReview, onEnableReview }: DuplicateReviewBellProps = {}) {
+export function DuplicateReviewBell({ reviewing, reviewEnabled, reviewBlocked, reviewCompleted, reviewFailed, onRetryReview, onOpenReview, onEnableReview }: DuplicateReviewBellProps = {}) {
   const { t, i18n } = useTranslation('common'); const { myLists } = useActiveList(); const { confirm } = useDialogService(); const [open, setOpen] = useState(false); const [findings, setFindings] = useState<DuplicateReviewFinding[]>([]); const [loading, setLoading] = useState(false); const [loadError, setLoadError] = useState(false); const [actionError, setActionError] = useState(false); const [busyId, setBusyId] = useState<string | null>(null)
   const listIds = Array.from(new Set(myLists.map((list) => sanitizeEmailKey(list.id)))); const listIdentity = listIds.slice().sort().join('\u0000')
   const request = useRef<{ controller: AbortController; outcomes: Array<{ finding: DuplicateReviewFinding; action: DuplicateReviewAction }> } | null>(null)
@@ -71,15 +74,19 @@ export function DuplicateReviewBell({ reviewing, reviewFailed, onRetryReview, on
     const generation = membership.current.generation
     if (await confirm(t('duplicateReview.deleteConfirm', { name: item.name }))) await apply(finding, { action: 'delete_one', itemId: item.id }, generation)
   }
+  const statusKey = reviewBlocked ? 'blocked' : reviewFailed ? 'failed' : reviewing ? 'progress'
+    : reviewCompleted && !onOpenReview ? 'completed' : reviewEnabled ? 'enabled' : null
+  const reviewStatus = statusKey && <span role="status" className="flex items-center gap-1 text-xs text-muted-foreground">
+      {reviewing && <LoaderCircle size={14} className="shrink-0 motion-safe:animate-spin" aria-hidden="true" />}
+      {t(`duplicateReview.background.${statusKey}`)}
+    </span>
   return <>
-    {reviewing && <span role="status" className="flex items-center gap-1 text-xs text-muted-foreground">
-      <LoaderCircle size={14} className="shrink-0 motion-safe:animate-spin" aria-hidden="true" />
-      {t('duplicateReview.background.progress')}
-    </span>}
+    {!open && reviewStatus}
     <Dialog open={open} onOpenChange={handleOpenChange}><DialogTrigger asChild><button className="icon-btn duplicate-review-trigger" aria-label={loadError || actionError || reviewFailed ? `${t('duplicateReview.open')}: ${t('duplicateReview.error')}` : t('duplicateReview.open')}><Bell size={19} aria-hidden="true" />{(loadError || actionError || reviewFailed) && <span className="absolute start-0 top-0 rounded-full bg-destructive px-1 text-xs text-white" aria-label={t('duplicateReview.error')}>!</span>}{unread > 0 && <span className="duplicate-review-badge" aria-label={t('duplicateReview.unread', { count: unread })}>{unread > 99 ? '99+' : unread}</span>}</button></DialogTrigger><DialogContent className="sm:max-w-[560px]" closeLabel={t('actions.close')}><DialogHeader><DialogTitle>{t('duplicateReview.title')}</DialogTitle><DialogDescription>{t('duplicateReview.description')}</DialogDescription></DialogHeader>
+    {reviewStatus}
     {onEnableReview && <div className="space-y-2">
       <p className="text-sm text-muted-foreground">{t('duplicateReview.background.notice')}</p>
-      <Button variant="secondary" onClick={() => { onEnableReview(); setOpen(false) }}>
+      <Button variant="secondary" onClick={onEnableReview}>
         {t('duplicateReview.background.enable')}
       </Button>
     </div>}
@@ -87,9 +94,8 @@ export function DuplicateReviewBell({ reviewing, reviewFailed, onRetryReview, on
       {t('duplicateReview.background.open')}
     </Button>}
     {reviewFailed && <div role="alert" className="space-y-2">
-      <p className="text-destructive">{t('duplicateReview.background.failed')}</p>
       <Button variant="secondary" size="sm" onClick={onRetryReview}>{t('duplicateReview.retry')}</Button>
     </div>}
-    {loading && <p role="status">{t('duplicateReview.loading')}</p>}{loadError && <div role="alert"><p className="text-destructive">{t('duplicateReview.error')}</p><Button size="sm" variant="secondary" onClick={refresh}>{t('duplicateReview.retry')}</Button></div>}{actionError && <p role="alert" className="text-destructive">{t('duplicateReview.error')}</p>}{!loading && !loadError && !actionError && !onOpenReview && !reviewFailed && findings.length === 0 && <p>{t('duplicateReview.empty')}</p>}<div className="flex flex-col gap-3">{findings.map((finding) => <article key={`${finding.listId}:${finding.id}`} className="rounded-xl border border-border bg-input/40 p-4"><div className="flex flex-wrap justify-between gap-2"><div><p className="m-0 text-xs text-muted-foreground">{finding.listName} · {t(`duplicateReview.status.${finding.status}`)}</p><h3 className="m-0 mt-1 text-base">{finding.items[0].name} · {finding.items[1].name}</h3></div><time className="text-xs text-muted-foreground" dateTime={finding.createdAt}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(finding.createdAt))}</time></div><p className="my-2 text-sm text-muted-foreground">{t(`duplicateReview.reasons.${finding.reason}`)} · {Math.round(finding.score * 100)}%</p><p className="my-2 text-xs text-muted-foreground">{t('duplicateReview.notConfirmed')}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={busyId === `${finding.listId}:${finding.id}`} onClick={() => void apply(finding, { action: 'keep_both' })}>{t('duplicateReview.keepBoth')}</Button>{finding.items.map((item) => <Button key={item.id} size="sm" variant="destructive" disabled={busyId === `${finding.listId}:${finding.id}`} onClick={() => void deleteOne(finding, item)}>{t('duplicateReview.deleteOne', { name: item.name })}</Button>)}<Button size="sm" variant="ghost" disabled={busyId === `${finding.listId}:${finding.id}`} onClick={() => void apply(finding, { action: 'dismiss' })}>{t('duplicateReview.dismiss')}</Button></div></article>)}</div></DialogContent></Dialog>
+    {loading && <p role="status">{t('duplicateReview.loading')}</p>}{loadError && <div role="alert"><p className="text-destructive">{t('duplicateReview.error')}</p><Button size="sm" variant="secondary" onClick={refresh}>{t('duplicateReview.retry')}</Button></div>}{actionError && <p role="alert" className="text-destructive">{t('duplicateReview.error')}</p>}{!loading && !loadError && !actionError && !onOpenReview && !reviewEnabled && findings.length === 0 && <p>{t('duplicateReview.empty')}</p>}<div className="flex flex-col gap-3">{findings.map((finding) => <article key={`${finding.listId}:${finding.id}`} className="rounded-xl border border-border bg-input/40 p-4"><div className="flex flex-wrap justify-between gap-2"><div><p className="m-0 text-xs text-muted-foreground">{finding.listName} · {t(`duplicateReview.status.${finding.status}`)}</p><h3 className="m-0 mt-1 text-base">{finding.items[0].name} · {finding.items[1].name}</h3></div><time className="text-xs text-muted-foreground" dateTime={finding.createdAt}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(finding.createdAt))}</time></div><p className="my-2 text-sm text-muted-foreground">{t(`duplicateReview.reasons.${finding.reason}`)} · {Math.round(finding.score * 100)}%</p><p className="my-2 text-xs text-muted-foreground">{t('duplicateReview.notConfirmed')}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={busyId === `${finding.listId}:${finding.id}`} onClick={() => void apply(finding, { action: 'keep_both' })}>{t('duplicateReview.keepBoth')}</Button>{finding.items.map((item) => <Button key={item.id} size="sm" variant="destructive" disabled={busyId === `${finding.listId}:${finding.id}`} onClick={() => void deleteOne(finding, item)}>{t('duplicateReview.deleteOne', { name: item.name })}</Button>)}<Button size="sm" variant="ghost" disabled={busyId === `${finding.listId}:${finding.id}`} onClick={() => void apply(finding, { action: 'dismiss' })}>{t('duplicateReview.dismiss')}</Button></div></article>)}</div></DialogContent></Dialog>
   </>
 }

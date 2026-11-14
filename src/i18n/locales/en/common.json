@@ -124,8 +124,11 @@
   "duplicateReview": {
     "background": {
       "enable": "Enable list reviews",
-      "notice": "While this tab is open, Groq will receive grocery names, purchase status, and which items are on the same sub-list.",
-      "progress": "Reviewing list…",
+      "notice": "While this tab is open, Groq will receive grocery names and purchase status from the main list.",
+      "progress": "Reviewing the main list…",
+      "enabled": "Main list review is on.",
+      "blocked": "The main list cannot be reviewed right now.",
+      "completed": "Main list reviewed. No new suggestions.",
       "open": "Open list review suggestions",
       "failed": "List review failed",
       "stale": "The list changed. Open the latest suggestions from the bell."

@@ -46,7 +46,8 @@ export function useBackgroundAiReview({
   const [outcomes, setOutcomes] = useState<Record<string, SnapshotOutcome>>({})
   const inFlight = useRef<ActiveRun | null>(null)
   const items = useMemo(() => backgroundReviewItems(entries), [entries])
-  const snapshot = ready && items.length && entries.length <= BACKGROUND_REVIEW_ITEM_LIMIT ? JSON.stringify(items) : null
+  const withinLimit = items.length <= BACKGROUND_REVIEW_ITEM_LIMIT
+  const snapshot = ready && items.length && withinLimit ? JSON.stringify(items) : null
   const current = useRef({ scope, snapshot, items, language })
   current.current = { scope, snapshot, items, language }
 
@@ -106,7 +107,7 @@ export function useBackgroundAiReview({
                 review: { scope, snapshot, items: reviewedItems, result }
               } : {}) })
           } else if (response.kind === 'disabled') {
-            if (stillCurrent()) setCapability(null)
+            save({ snapshot, kind: 'ineligible' })
           } else if (response.kind === 'ineligible') {
             save({ snapshot, kind: 'ineligible' })
           } else {
@@ -136,7 +137,10 @@ export function useBackgroundAiReview({
     snapshot,
     offer: eligible && !enabled,
     enable: () => setConsentingActor(actor),
-    running: Boolean(running && running.scope === scope && snapshot),
+    enabled,
+    blocked: enabled && (!withinLimit || (outcome?.snapshot === snapshot && outcome?.kind === 'ineligible')),
+    running: Boolean(enabled && snapshot && outcome?.snapshot !== snapshot),
+    completed: Boolean(snapshot && outcome?.snapshot === snapshot && outcome.kind === 'completed'),
     failed: outcome?.snapshot === snapshot && outcome?.kind === 'failed',
     notification: outcome?.snapshot === snapshot ? outcome?.review ?? null : null,
     isCurrent: (review: BackgroundReview) => current.current.scope === review.scope && current.current.snapshot === review.snapshot,

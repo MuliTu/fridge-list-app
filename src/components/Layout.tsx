@@ -211,6 +211,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
                 <DuplicateReviewBell
                   onEnableReview={backgroundReview.offer ? backgroundReview.enable : undefined}
                   reviewing={backgroundReview.running}
+                  reviewEnabled={backgroundReview.enabled}
+                  reviewBlocked={backgroundReview.blocked}
+                  reviewCompleted={backgroundReview.completed}
                   reviewFailed={backgroundReview.failed}
                   onRetryReview={backgroundReview.retry}
                   onOpenReview={notification ? () => {

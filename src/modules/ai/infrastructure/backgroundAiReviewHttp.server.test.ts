@@ -33,11 +33,16 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
     listChangeHistory: {}
   }
   const snapshot = (value: unknown) => ({ val: () => value, exists: () => value != null })
-  const getGroceries = jest.fn(async () => ({
-    numChildren: () => Object.keys(household.groceries).length,
-    forEach: (callback: (child: { key: string; val: () => unknown }) => void) =>
-      Object.entries(household.groceries).forEach(([key, value]) => callback({ key, val: () => value }))
-  }))
+  const grocerySnapshot = (name: string | null, limit: number) => {
+    const rows = Object.entries(household.groceries)
+      .filter(([, value]) => (value.list_name ?? null) === name).slice(0, limit)
+    return {
+      numChildren: () => rows.length,
+      forEach: (callback: (child: { key: string; val: () => unknown }) => void) =>
+        rows.forEach(([key, value]) => callback({ key, val: () => value }))
+    }
+  }
+  const getGroceries = jest.fn(async () => grocerySnapshot(null, 301))
   const quotaTransaction = jest.fn(async (update: (value: unknown) => unknown) => {
     // The real SDK may start every transaction from a cold local null.
     const optimistic = update(null)
@@ -52,7 +57,11 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
     return { committed: next !== undefined, snapshot: snapshot(household) }
   })
   const ref = jest.fn((path: string) => {
-    if (path.endsWith('/groceries')) return { limitToFirst: () => ({ get: getGroceries }) }
+    if (path.endsWith('/groceries')) return { orderByChild: () => ({
+      equalTo: (name: string | null) => ({
+        limitToFirst: (limit: number) => ({ get: name === null ? getGroceries : async () => grocerySnapshot(name, limit) })
+      })
+    }) }
     if (path === '_server/backgroundAiReview/groq') return { transaction: quotaTransaction }
     if (path === 'users/list') return {
       child: () => ({ push: () => ({ key: `event-${++operation}` }) }),
@@ -466,4 +475,18 @@ it('applies a proposed spelling correction only for an authorized editor confirm
   test.household.groceries.two.item = 'Milk'
   expect((await test.request('PUT', confirmation)).status).toBe(200)
   expect(test.household.groceries.one.item).toBe('Tomatoes')
+})
+
+it('scans only the main list even with hundreds of custom-list items', async () => {
+  const test = setup()
+  Object.assign(test.household.groceries.one, { list_name: '' })
+  Object.assign(test.household.groceries, Object.fromEntries(Array.from({ length: 301 }, (_, index) => [
+    `custom-${index}`, { item: 'Milk', bought: true, list_name: 'Pantry' }
+  ])))
+  expect((await test.request()).status).toBe(200)
+  expect(test.analyze.mock.calls[0][1]).toEqual(entries)
+  expect((await test.request('PUT', {
+    version, actorUid: 'owner', operationId, removals: ['custom-0'], renames: []
+  })).status).toBe(409)
+  expect(Object.hasOwn(test.household.groceries, 'custom-0')).toBe(true)
 })

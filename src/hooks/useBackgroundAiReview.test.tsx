@@ -116,3 +116,37 @@ it('releases a stalled call immediately on a scope switch even when the transpor
   expect(request).toHaveBeenCalledTimes(2)
   expect(result.current.running).toBe(false)
 })
+
+it('scans only the main list and ignores edits to custom sublists', async () => {
+  request.mockResolvedValue(empty)
+  const initial = state('Milk')
+  const custom = Array.from({ length: 301 }, (_, index) => ({
+    ...initial.entries[0], key: `custom-${index}`, list_name: 'Pantry'
+  }))
+  const { result, rerender } = renderHook(useBackgroundAiReview, {
+    initialProps: { ...initial, entries: [...initial.entries, ...custom] }
+  })
+  await flush()
+  expect(result.current.running).toBe(true)
+  await flush(2500)
+  expect(JSON.parse(request.mock.calls[0][1])).toEqual([{
+    key: 'a', item: 'Milk', bought: false, list_name: null
+  }])
+  rerender({ ...initial, entries: [...initial.entries, ...custom.slice(1)] })
+  await flush(2500)
+  expect(result.current.completed).toBe(true)
+  expect(request).toHaveBeenCalledTimes(1)
+})
+
+it('shows a blocked status when the main list exceeds the limit', async () => {
+  const initial = state('Milk')
+  const { result } = renderHook(useBackgroundAiReview, {
+    initialProps: { ...initial, entries: Array.from({ length: 301 }, (_, index) => ({
+      ...initial.entries[0], key: String(index)
+    })) }
+  })
+  await flush(3000)
+  expect(result.current.enabled).toBe(true)
+  expect(result.current.blocked).toBe(true)
+  expect(request).not.toHaveBeenCalled()
+})
