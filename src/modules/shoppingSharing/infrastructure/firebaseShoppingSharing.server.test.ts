@@ -92,8 +92,10 @@ describe('per-shopping-list sharing isolation', () => {
     const f = fixture()
     const shareId = await f.invite()
     const change = (mutation: unknown) => f.service.execute(guest, { action: 'mutate', shareId, mutation })
-    await change({ operation: 'update', itemId: 'a', item: { bought: true, name: 'Milk 2L' } })
-    expect(f.read(`users/${householdId}/groceries/a`)).toMatchObject({ bought: true, item: 'Milk 2L', list_name: 'A' })
+    await change({ operation: 'update', itemId: 'a', item: { bought: true, name: 'Milk 2L', category: 'Custom shelf' } })
+    expect(f.read(`users/${householdId}/groceries/a`)).toMatchObject({ bought: true, item: 'Milk 2L', category: 'Custom shelf', list_name: 'A' })
+    const refreshed = await f.service.execute(guest, { action: 'snapshot', shareId }) as ShoppingShareSnapshot
+    expect(refreshed.items.find(item => item.key === 'a')).toMatchObject({ category: 'Custom shelf' })
     await change({ operation: 'add', item: { name: 'Eggs' } })
     expect(f.read(`users/${householdId}/groceries/added-1`)).toMatchObject({ item: 'Eggs', list_name: 'A', created_by: guest.email })
     await change({ operation: 'delete', itemId: 'a' })

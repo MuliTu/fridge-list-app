@@ -196,13 +196,22 @@ it('keeps search, item edit, and theme actions scoped to the selected share', as
   fireEvent.click(screen.getByRole('button', { name: 'shoppingList:item.info' }))
   fireEvent.click(await screen.findByRole('button', { name: 'shoppingList:item.edit' }))
   fireEvent.change(screen.getByLabelText('sharing.itemName'), { target: { value: 'Shared oat milk' } })
+  fireEvent.change(screen.getByLabelText('sharing.itemCategory'), { target: { value: 'Custom shelf' } })
+  jest.mocked(getShoppingShare).mockResolvedValue({
+    ...snapshot,
+    items: snapshot.items.map(item => item.key === 'a'
+      ? { ...item, item: 'Shared oat milk', category: 'Custom shelf' }
+      : item)
+  })
   await act(async () => { fireEvent.submit(screen.getByLabelText('sharing.itemName').closest('form')!) })
 
   await waitFor(() => expect(shoppingSharingRequest).toHaveBeenCalledWith({
     action: 'mutate', shareId: 'share-a',
-    mutation: { operation: 'update', itemId: 'a', item: { name: 'Shared oat milk', note: '' } }
+    mutation: { operation: 'update', itemId: 'a', item: { name: 'Shared oat milk', note: '', category: 'Custom shelf' } }
   }))
-  expect(getShoppingShare).toHaveBeenCalledWith('share-a', expect.any(AbortSignal))
+  expect(await screen.findByText('Shared oat milk')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /Custom shelf/ })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: /Dairy/ })).not.toBeInTheDocument()
   expect(enrichItemsWithAi).not.toHaveBeenCalled()
 })
 
