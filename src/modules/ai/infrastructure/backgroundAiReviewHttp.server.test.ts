@@ -11,7 +11,7 @@ import { withDeadline } from '../../../lib/withDeadline'
 import type { App } from 'firebase-admin/app'
 import { backgroundReviewItems } from '../domain/backgroundAiReview'
 import { createBackgroundAiReviewHandler } from './backgroundAiReviewHttp.server'
-import { GroqRateLimitError } from './groqBackgroundReview.server'
+import { GroqRateLimitError, reviewWithGroq } from './groqBackgroundReview.server'
 
 const entries = [
   { key: 'one', item: 'Milk', bought: false, list_name: null },
@@ -71,7 +71,7 @@ function setup(uid: string | null = 'owner', env: NodeJS.ProcessEnv = environmen
       }
     }
   })
-  const analyze = jest.fn(async () => result)
+  const analyze = jest.fn<ReturnType<typeof reviewWithGroq>, Parameters<typeof reviewWithGroq>>(async () => result)
   const mutateList: MutateList = async (_listId, mutate, options) => withDeadline(async (signal) => {
     let change: ReturnType<typeof mutate>
     const applied = await listTransaction((value) => {
@@ -406,4 +406,64 @@ it('preserves unrelated export metadata verbatim during a guarded write', async 
     for (const [key, value] of Object.entries(metadata)) expect(written[key]).toEqual(value)
     expect(written.groceries.one).toBeUndefined()
   } finally { global.fetch = originalFetch }
+})
+
+it.each([
+  ['2026-11-14T08:00:00+02:00', '2026-11-14T04:00:00Z', 'Kept the item with the earlier recorded addition date'],
+  ['2026-02-30T00:00:00Z', '2026-11-14T04:00:00Z', 'Kept the item with a valid recorded addition date'],
+  [undefined, '2026-11-14T04:00:00Z', 'Kept the item with a valid recorded addition date']
+])('ranks equal-status duplicates using valid history from the rechecked source (%s, %s)', async (firstTime, secondTime, reason) => {
+  const test = setup('editor')
+  Object.assign(test.household.groceries.one, { added_at: '2026-01-01T00:00:00.000Z' })
+  const read = test.getGroceries.getMockImplementation()!
+  test.getGroceries.mockImplementationOnce(read).mockImplementationOnce(async () => {
+    Object.assign(test.household.groceries.one, { added_at: firstTime })
+    Object.assign(test.household.groceries.two, { added_at: secondTime })
+    return read()
+  })
+  const send = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(result) } }] })
+  test.analyze.mockImplementationOnce((key, items, language, signal, _send, history) =>
+    reviewWithGroq(key, items, language, signal, send, history))
+
+  const response = await test.request()
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ version, result: {
+    ...result, duplicates: [{ keepKey: 'two', removeKeys: ['one'], reason }]
+  } })
+})
+
+it('applies a proposed spelling correction only for an authorized editor confirming the current list', async () => {
+  const test = setup('editor')
+  test.household.groceries.one.item = 'Tomatos'
+  const reviewVersion = createHash('sha256').update(JSON.stringify(backgroundReviewItems([
+    { ...test.household.groceries.one, key: 'one' }, { ...test.household.groceries.two, key: 'two' }
+  ]))).digest('hex')
+  const proposed = {
+    ...result, renames: [{ key: '1', currentName: 'Tomatos', suggestedName: 'Tomatoes', reason: 'Correct spelling' }]
+  }
+  const send = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(proposed) } }] })
+  test.analyze.mockImplementationOnce((key, items, language, signal) => reviewWithGroq(key, items, language, signal, send))
+
+  const response = await test.request('POST', { version: reviewVersion, language: 'en' })
+  expect(response.status).toBe(200)
+  const review = await response.json()
+  expect(review).toEqual({ version: reviewVersion, result: { ...proposed, renames: [{ ...proposed.renames[0], key: 'one' }] } })
+  expect(test.household.groceries.one.item).toBe('Tomatos')
+  expect(test.listTransaction).not.toHaveBeenCalled()
+
+  const confirmation = {
+    version: review.version, actorUid: 'editor', operationId, removals: [],
+    renames: review.result.renames.map(({ key, suggestedName }: { key: string; suggestedName: string }) => ({ key, name: suggestedName }))
+  }
+  test.household.members.editor.status = 'revoked'
+  expect((await test.request('PUT', confirmation)).status).toBe(403)
+  test.household.members.editor.status = 'approved'
+  test.household.groceries.two.item = 'Whole milk'
+  expect((await test.request('PUT', confirmation)).status).toBe(409)
+  expect(test.household.groceries.one.item).toBe('Tomatos')
+  expect(test.household.listChangeHistory).toEqual({})
+
+  test.household.groceries.two.item = 'Milk'
+  expect((await test.request('PUT', confirmation)).status).toBe(200)
+  expect(test.household.groceries.one.item).toBe('Tomatoes')
 })

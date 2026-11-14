@@ -3,6 +3,7 @@ import '@tanstack/react-start/server-only'
 import { withDeadline } from '../../../lib/withDeadline'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
+import { z } from 'zod'
 import { getDatabaseWithUrl, type Database, type DataSnapshot } from 'firebase-admin/database'
 import { getFirebaseAdminApp, parseJsonRequest, type AuthenticatedUserHandler } from '../../identity/server'
 import { FirebaseAdminListAuthorizationRepository } from '../../recipes/server'
@@ -36,14 +37,23 @@ const cooldown = (snapshot: DataSnapshot) => {
   return Math.max(1, Math.ceil((Math.max(value.nextCallAt ?? 0, value.expiresAt ?? 0) - Date.now()) / 1000))
 }
 
+const addedAtSchema = z.string().datetime({ offset: true })
+
 const readGroceries = async (db: Database, listId: string) => {
   const snapshot = await db.ref(`users/${listId}/groceries`).limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1).get()
   const entries: BackgroundReviewItem[] = []
+  const addedAtByKey = new Map<string, number>()
   snapshot.forEach((child) => {
     const entry = child.val()
-    entries.push({ key: child.key!, item: entry?.item, bought: entry?.bought, list_name: entry?.list_name })
+    const key = child.key!
+    entries.push({ key, item: entry?.item, bought: entry?.bought, list_name: entry?.list_name })
+    const addedAt = addedAtSchema.safeParse(entry?.added_at)
+    if (addedAt.success) {
+      const time = Date.parse(addedAt.data)
+      if (Number.isFinite(time)) addedAtByKey.set(key, time)
+    }
   })
-  return { exceeded: snapshot.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT, items: backgroundReviewItems(entries) }
+  return { exceeded: snapshot.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT, items: backgroundReviewItems(entries), addedAtByKey }
 }
 
 const digest = (items: BackgroundReviewItem[]) => createHash('sha256').update(JSON.stringify(items)).digest('hex')
@@ -248,7 +258,7 @@ export const createBackgroundAiReviewHandler = ({
           if (Date.now() + providerTimeout >= now + leaseDuration) return status('unavailable', 503)
           attemptSignal.throwIfAborted()
           dispatchedAt = Date.now()
-          const result = await withDeadline((signal) => analyze(apiKey, initial.items, language, signal), providerTimeout, attemptSignal)
+          const result = await withDeadline((signal) => analyze(apiKey, source.items, language, signal, undefined, source.addedAtByKey), providerTimeout, attemptSignal)
           await firebase(() => authorization.assertAccessible(principal, listId, 'write'))
           const latest = await firebase(() => readGroceries(db, listId))
           if (latest.exceeded || digest(latest.items) !== version) return status('stale', 409)
