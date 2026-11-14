@@ -1,7 +1,8 @@
 # Background grocery review
 
 The web app offers background review to the active list’s owner and approved
-editors when the server flag is enabled. The bell explains the Groq transfer
+editors when the server flag is enabled. It scans the main list and named sublists
+in that household. The bell explains the Groq transfer
 before enabling reviews for the signed-in user in the current tab.
 
 ## Production configuration
@@ -12,8 +13,8 @@ before enabling reviews for the signed-in user in the current tab.
   project is optional and helps isolate quota. Check organization-level
   request and token limits before setting the flag to `true`.
 - Verify the account’s data retention settings before enabling. Groq receives
-  grocery names, purchase state, sub-list grouping as numbers, temporary row
-  numbers, and the requested language. Review the account controls for customer
+  grocery names, purchase state, sublist grouping as numbers, temporary row
+  numbers, current and configured categories, and the requested language. Review the account controls for customer
   data retention and tracing. [Groq data controls](https://console.groq.com/docs/your-data)
 - Require Firebase Admin credentials and the application’s production RTDB
   root URL. The shared quota state lives under
@@ -23,8 +24,12 @@ before enabling reviews for the signed-in user in the current tab.
   that database. Other features using the same Groq key are outside this lease. Provider HTTP 429
   responses extend the cooldown. The browser retries once when the server’s
   wait fits within 75 seconds. [Groq rate limits](https://console.groq.com/docs/rate-limits)
-- The app offers review for lists of up to 300 groceries with names of up to
-  200 characters. Observe the capability, review, and confirmation request
+- The app offers review for up to 300 groceries across all sublists, up to
+  100 configured categories, and grocery names of up to 200 characters. A scan
+  can propose up to 12 duplicate groups, 10 removals per group, and 15 name
+  corrections. Duplicate and name suggestions involving a named sublist
+  require a normalized whole-name match or an explicit equivalent name. Groq
+  can still suggest additional matches and corrections within the main list. Observe the capability, review, and confirmation request
   statuses during rollout and use the Groq dashboard for organization-wide
   consumption.
 
@@ -38,7 +43,8 @@ to work. Review results and unread state live in the open tab.
 Use a fresh synthetic demo database and reserve a fixture list for this test.
 Give the fixture a signed-in owner and grocery names that match
 `Synthetic grocery <1–4 decimal digits>`. Seed 300 rows, including duplicates
-within the same sub-list and purchase status. Point
+across the main list and a named sublist, between two named sublists, and across
+purchase states. Point
 `BACKGROUND_AI_REVIEW_SYNTHETIC_CREDENTIAL_FILE` at a private temporary file
 containing a dedicated test key. Export `BACKGROUND_AI_REVIEW_ENABLED=true`
 and `BACKGROUND_AI_REVIEW_SYNTHETIC_LIST_ID=<fixture-list-key>`, then start
@@ -56,7 +62,8 @@ exported variables and delete the temporary key file when finished.
 ## Confirmation, replay, and bounded work
 
 Confirmation captures the actor UID and exact list, with cancellation on modal
-unmount or scope change. The server compares that actor to the verified token
+unmount or scope change. The review shows the source sublist beside each item.
+The server compares that actor to the verified token
 and atomically rechecks owner/editor access and the reviewed content digest.
 Image-backed removals are ineligible: they appear as skipped, leaving both row
 and image intact. Rename and ordinary removal retain the established history

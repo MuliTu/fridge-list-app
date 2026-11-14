@@ -19,18 +19,20 @@ export type BackgroundReviewItem = {
 
 export const backgroundReviewItems = (entries: readonly (Omit<BackgroundReviewItem, 'list_name'> & { list_name?: string | null })[]): BackgroundReviewItem[] =>
   entries
-    .filter(({ key, item, list_name }) => !list_name && typeof key === 'string' && typeof item === 'string' && Boolean(item.trim()))
-    .map(({ key, item, bought, category }) => ({
+    .filter(({ key, item }) => typeof key === 'string' && typeof item === 'string' && Boolean(item.trim()))
+    .map(({ key, item, bought, list_name, category }) => ({
       key,
       item,
       bought: bought === true,
-      list_name: null,
+      list_name: typeof list_name === 'string' && list_name ? list_name : null,
       ...(typeof category === 'string' && category ? { category } : {})
     }))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
 
 // Whole-name equivalence keeps qualifiers such as שרי, קפוא, and רוטב intact.
 const productNames: Record<string, readonly string[]> = {
+  'טבעות זיתים': ['זיתים טבעות'],
+  'עוגות': ['עוגה'],
   'עגבניות': ['עגבנייה', 'עגבניה'],
   'אפרסקים': ['אפרסק'],
   'מלפפונים': ['מלפפון'],

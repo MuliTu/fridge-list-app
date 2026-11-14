@@ -15,7 +15,7 @@ const providerResponse = (result: object) => Response.json({
   choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(result) } }]
 })
 
-it('minimizes the outbound payload and grounds results within sublist scope', async () => {
+it('minimizes the outbound payload and grounds results across sublists', async () => {
   const send = jest.fn(async (_url: string, _request: RequestInit) => providerResponse({
     mode: 'list_review',
     duplicates: [{ keepKey: '1', removeKeys: ['3', '4', '999'], reason: 'Provider suggestion' }],
@@ -36,7 +36,7 @@ it('minimizes the outbound payload and grounds results within sublist scope', as
       ['3', items[2].item, 0, 1], ['4', items[3].item, 1, 0]]
   })
   expect(JSON.stringify(body)).not.toMatch(/secret-id|private sublist|test-key|2026-09-01|1788220800000/)
-  expect(result.duplicates).toEqual([{ keepKey: items[2].key, removeKeys: [items[0].key, items[1].key], reason: 'Kept the purchased item' }])
+  expect(result.duplicates).toEqual([{ keepKey: items[2].key, removeKeys: [items[0].key, items[3].key, items[1].key], reason: 'Kept the purchased item' }])
   expect(result.renames).toEqual([])
 })
 
@@ -56,10 +56,10 @@ it('finds exact matches across purchase states without grouping product variants
   ]
   const send = async () => providerResponse({ mode: 'list_review', duplicates: [], renames: [] })
   const result = await reviewWithGroq('test-key', groceries, 'en', new AbortController().signal, send)
-  expect(result.duplicates).toEqual([{ keepKey: 'purchased', removeKeys: ['open'], reason: 'Kept the purchased item' }])
+  expect(result.duplicates).toEqual([{ keepKey: 'other', removeKeys: ['purchased', 'open'], reason: 'Broke the tie by grocery ID order' }])
 })
 
-it('ranks a purchased equivalent ahead of overlapping exact matches and rejects other sublists', async () => {
+it('ranks a purchased equivalent ahead of overlapping exact matches across sublists', async () => {
   const groceries = [
     { key: 'first', item: 'עוגה', bought: false, list_name: null },
     { key: 'second', item: 'עוגה', bought: false, list_name: null },
@@ -75,7 +75,7 @@ it('ranks a purchased equivalent ahead of overlapping exact matches and rejects 
   }))
   const result = await reviewWithGroq('test-key', groceries, 'he', new AbortController().signal, send)
   const prompt = JSON.parse(String(send.mock.calls[0][1].body)).messages[0].content
-  expect(result.duplicates).toEqual([{ keepKey: 'purchased', removeKeys: ['first', 'second'], reason: 'הפריט שנרכש נשמר' }])
+  expect(result.duplicates).toEqual([{ keepKey: 'other', removeKeys: ['purchased', 'first', 'second'], reason: 'במקרה של שוויון, הפריט נשמר לפי סדר המזהים' }])
   expect(prompt).toMatch(/regardless of purchase status/)
   expect(prompt).toMatch(/brand, flavor, variety or product form/)
 })
@@ -348,4 +348,37 @@ it('sends every category and grounds model moves and new categories against the 
     ]
   })
   expect(result.categoryChanges).toEqual([move('salt', 'מזווה', false), move('tape', 'ציוד לבית', true)])
+})
+
+it.each(['Pantry', 'Weekend'])('keeps qualified olives distinct when a valid Groq group claims that they match (%s)', async (qualifierList) => {
+  const groceries = [
+    { key: 'base-main', item: 'טבעות זיתים', list_name: null, bought: true },
+    { key: 'base-pantry', item: 'זיתים טבעות', list_name: 'Pantry', bought: true },
+    { key: 'black', item: 'טבעות זיתים שחורים', list_name: qualifierList, bought: true },
+    { key: 'brand', item: 'זיתים טבעות מותג הבית', list_name: qualifierList, bought: true }
+  ]
+  const send = async () => providerResponse({
+    mode: 'list_review',
+    duplicates: [
+      { keepKey: '2', removeKeys: ['1', '3', '4'], reason: 'Same product' },
+      { keepKey: '3', removeKeys: ['2'], reason: 'Same product' }
+    ],
+    renames: []
+  })
+  const result = await reviewWithGroq('test-key', groceries, 'he', new AbortController().signal, send)
+  expect(result.duplicates).toEqual([{
+    keepKey: 'base-main', removeKeys: ['base-pantry'], reason: expect.any(String)
+  }])
+})
+
+it('drops a provider-only cross-sublist claim between two distinct brands', async () => {
+  const groceries = [
+    { key: 'first', item: 'Acme oat milk', list_name: 'Pantry', bought: false },
+    { key: 'second', item: 'Sunrise oat milk', list_name: 'Weekend', bought: true }
+  ]
+  const send = async () => providerResponse({
+    mode: 'list_review', duplicates: [{ keepKey: '1', removeKeys: ['2'], reason: 'Oat milk' }], renames: []
+  })
+  const result = await reviewWithGroq('test-key', groceries, 'en', new AbortController().signal, send)
+  expect(result.duplicates).toEqual([])
 })

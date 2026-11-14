@@ -194,7 +194,15 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
     }
   }
 
-  const itemName = (key: string) => contextItems.find((item) => item.key === key)?.item || key
+  const itemLabel = (key: string) => {
+    const item = contextItems.find((candidate) => candidate.key === key)
+    if (!item) return key
+    if (!initialReview) return item.item
+    return t('ai:review.itemWithList', {
+      name: item.item,
+      list: item.list_name || t('common:duplicateReview.background.mainList')
+    })
+  }
   const review = result?.mode === 'list_review' ? result as AiListReviewResult : null
   const selectedRemovalCount = review?.duplicates
     .filter((_, index) => selectedDuplicateGroups.has(index))
@@ -278,12 +286,13 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
         {review && (
           <div className="grid gap-4">
             <p className="m-0 text-xs text-muted-foreground">{t('ai:review.reviewBeforeApply')}</p>
+            {initialReview && <p className="m-0 text-xs text-muted-foreground">{t('ai:review.suggestionLimits')}</p>}
             <section>
               <h3 className="mb-2 text-sm font-semibold">{t('ai:review.duplicates')}</h3>
               {review.duplicates.length === 0 ? <p className="m-0 text-sm text-muted-foreground">{t('ai:noSuggestions')}</p> : review.duplicates.map((group, index) => (
                 <label key={`${group.keepKey}-${index}`} className="mb-2 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm">
                   <Checkbox checked={selectedDuplicateGroups.has(index)} onCheckedChange={() => setSelectedDuplicateGroups((current) => { const next = new Set(current); next.has(index) ? next.delete(index) : next.add(index); return next })} disabled={applying || Boolean(reviewApplyResult)} />
-                  <span><span className="font-medium">{t('ai:review.keep', { name: itemName(group.keepKey) })}</span><br />{t('ai:review.remove', { names: group.removeKeys.map(itemName).join(', ') })}<br /><span className="text-xs text-muted-foreground">{group.reason}</span>{reviewApplyResult && selectedDuplicateGroups.has(index) && <><br /><span className="text-xs font-medium text-primary">{resultForKeys(group.removeKeys)}</span></>}</span>
+                  <span><span className="font-medium">{t('ai:review.keep', { name: itemLabel(group.keepKey) })}</span><br />{t('ai:review.remove', { names: group.removeKeys.map(itemLabel).join(', ') })}<br /><span className="text-xs text-muted-foreground">{group.reason}</span>{reviewApplyResult && selectedDuplicateGroups.has(index) && <><br /><span className="text-xs font-medium text-primary">{resultForKeys(group.removeKeys)}</span></>}</span>
                 </label>
               ))}
             </section>
@@ -292,7 +301,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
               {review.renames.length === 0 ? <p className="m-0 text-sm text-muted-foreground">{t('ai:noSuggestions')}</p> : review.renames.map((rename) => (
                 <label key={rename.key} className="mb-2 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm">
                   <Checkbox checked={selectedRenameKeys.has(rename.key)} onCheckedChange={() => setSelectedRenameKeys((current) => { const next = new Set(current); next.has(rename.key) ? next.delete(rename.key) : next.add(rename.key); return next })} disabled={applying || Boolean(reviewApplyResult)} />
-                  <span><span className="font-medium">{rename.currentName} → {rename.suggestedName}</span><br /><span className="text-xs text-muted-foreground">{rename.reason}</span>{reviewApplyResult && selectedRenameKeys.has(rename.key) && <><br /><span className="text-xs font-medium text-primary">{resultForKeys([rename.key])}</span></>}</span>
+                  <span><span className="font-medium">{initialReview ? itemLabel(rename.key) : rename.currentName} → {rename.suggestedName}</span><br /><span className="text-xs text-muted-foreground">{rename.reason}</span>{reviewApplyResult && selectedRenameKeys.has(rename.key) && <><br /><span className="text-xs font-medium text-primary">{resultForKeys([rename.key])}</span></>}</span>
                 </label>
               ))}
             </section>
@@ -312,7 +321,7 @@ export default function AiAssistantModal({ onClose, initialReview, isReviewCurre
                       disabled={applying || Boolean(reviewApplyResult)}
                     />
                     <span>
-                      {t(createCategory ? 'ai:review.createAndMoveCategory' : 'ai:review.moveCategory', { name: itemName(key), category })}<br />
+                      {t(createCategory ? 'ai:review.createAndMoveCategory' : 'ai:review.moveCategory', { name: itemLabel(key), category })}<br />
                       <span className="text-xs text-muted-foreground">{reason}</span>
                       {reviewApplyResult && selectedCategoryKeys.has(key) &&
                         <><br /><span className="text-xs font-medium text-primary">{resultForKeys([key])}</span></>}

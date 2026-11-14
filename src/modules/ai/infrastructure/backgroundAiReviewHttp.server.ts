@@ -17,6 +17,7 @@ import {
   isReviewCategoryName,
   backgroundReviewItems,
   backgroundReviewRequestSchema,
+  groceryReviewName,
   type BackgroundReviewItem
 } from '../domain/backgroundAiReview'
 import { GroqRateLimitError, reviewWithGroq } from './groqBackgroundReview.server'
@@ -43,15 +44,13 @@ const cooldown = (snapshot: DataSnapshot) => {
 const addedAtSchema = z.string().datetime({ offset: true })
 
 const readGroceries = async (db: Database, listId: string) => {
-  const query = db.ref(`users/${listId}/groceries`).orderByChild('list_name')
-  const primary = await query.equalTo(null).limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1).get()
-  if (primary.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT) {
+  const snapshot = await db.ref(`users/${listId}/groceries`).orderByKey().limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1).get()
+  if (snapshot.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT) {
     return { exceeded: true, items: [], addedAtByKey: new Map<string, number>() }
   }
-  const legacy = await query.equalTo('').limitToFirst(BACKGROUND_REVIEW_ITEM_LIMIT + 1 - primary.numChildren()).get()
   const entries: BackgroundReviewItem[] = []
   const addedAtByKey = new Map<string, number>()
-  for (const snapshot of [primary, legacy]) snapshot.forEach((child) => {
+  snapshot.forEach((child) => {
     const entry = child.val()
     const key = child.key!
     entries.push({ key, item: entry?.item, bought: entry?.bought, list_name: entry?.list_name, category: entry?.category })
@@ -61,7 +60,7 @@ const readGroceries = async (db: Database, listId: string) => {
       if (Number.isFinite(time)) addedAtByKey.set(key, time)
     }
   })
-  return { exceeded: primary.numChildren() + legacy.numChildren() > BACKGROUND_REVIEW_ITEM_LIMIT, items: backgroundReviewItems(entries), addedAtByKey }
+  return { exceeded: false, items: backgroundReviewItems(entries), addedAtByKey }
 }
 
 const categoryNames = (values: readonly unknown[]) => new Set(values.flatMap((value) => {
@@ -165,18 +164,29 @@ const applyReview = async (
     if (Object.keys(household.backgroundReviewOperations ?? {}).filter((key) => key !== '.priority').length >= 500) { rejection = 'ineligible'; return undefined }
     const groceries = { ...household.groceries }
     const entries = Object.entries(groceries).map(([key, item]) => ({ ...item, key }))
-    const mainItems = backgroundReviewItems(entries)
-    if (mainItems.length > BACKGROUND_REVIEW_ITEM_LIMIT || digest(mainItems) !== version) return undefined
-    const mainKeys = new Set(mainItems.map(({ key }) => key))
+    if (entries.length > BACKGROUND_REVIEW_ITEM_LIMIT) { rejection = 'ineligible'; return undefined }
+    const reviewItems = backgroundReviewItems(entries)
+    if (reviewItems.some(({ item }) => item.length > 200)) { rejection = 'ineligible'; return undefined }
+    if (digest(reviewItems) !== version) return undefined
+    const reviewByKey = new Map(reviewItems.map((item) => [item.key, item]))
+    const namedListNames = new Set(reviewItems.filter(({ list_name }) => list_name !== null)
+      .map(({ item }) => groceryReviewName(item)))
+    const selectedRemovals = new Set(removals)
+    const selectedRenames = new Map(renames.map(({ key, name }) => [key, name]))
+    const survivingNames = new Set(reviewItems.flatMap(({ key, item }) => {
+      const originalName = groceryReviewName(item)
+      const suggestedName = selectedRenames.get(key)
+      return selectedRemovals.has(key) || (suggestedName && groceryReviewName(suggestedName) !== originalName)
+        ? [] : [originalName]
+    }))
     const categories = { ...household.categories }
     if (hasCategoryChanges) {
       const values = Object.values(categories)
       if (values.length + newCategoryKeys.size > BACKGROUND_REVIEW_CATEGORY_LIMIT) { rejection = 'ineligible'; return undefined }
       const existing = categoryNames(values)
       const normalizedNames = new Set([...existing].map((name) => name.normalize('NFC').toLowerCase()))
-      const byKey = new Map(mainItems.map((item) => [item.key, item]))
       for (const { key, category, createCategory } of categoryChanges) {
-        const item = byKey.get(key)
+        const item = reviewByKey.get(key)
         if (!item || !isUncategorizedReviewItem(item, existing) || !isReviewCategoryName(category) ||
             (createCategory ? existing.has(category) : !existing.has(category))) return undefined
       }
@@ -193,10 +203,18 @@ const applyReview = async (
     const skippedKeys: string[] = []
     for (const operation of operations) {
       const item = groceries[operation.key]
-      if (!mainKeys.has(operation.key) || !Object.hasOwn(groceries, operation.key) || !item || typeof item.item !== 'string') return undefined
+      if (!reviewByKey.has(operation.key) || !Object.hasOwn(groceries, operation.key) || !item || typeof item.item !== 'string') return undefined
       // Cross-database image deletion cannot join this RTDB transaction.
       // Keep image-backed rows intact and report them explicitly as skipped.
       if (!operation.name && (item.image_ref || item.image_url)) { skippedKeys.push(operation.key); continue }
+      const originalName = groceryReviewName(item.item)
+      if (operation.name) {
+        const suggestedName = groceryReviewName(operation.name)
+        if (suggestedName !== originalName && (namedListNames.has(originalName) || namedListNames.has(suggestedName))) return undefined
+      } else if (namedListNames.has(originalName) && !survivingNames.has(originalName)) {
+        // A named-sublist review must leave an equivalent row after all selected changes.
+        return undefined
+      }
       audit[operation.historyId] = {
         type: operation.type,
         itemKey: operation.key,
