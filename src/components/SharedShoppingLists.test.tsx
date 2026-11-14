@@ -1,7 +1,12 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import SharedShoppingList from './SharedShoppingLists'
 import { discoverShoppingShares, getShoppingShare, shoppingSharingRequest } from '../client/api/shoppingSharing'
 import { enrichItemsWithAi } from '../client/api/aiItemEnrichment'
+import { OTHER_CATEGORY_NAME } from '../lib/categories'
+import type { ShoppingShareSnapshot } from '../modules/shoppingSharing'
+import { fixture, guest, householdId } from '../modules/shoppingSharing/infrastructure/firebaseShoppingSharing.test-support'
+
+jest.mock('@tanstack/react-start/server-only', () => ({}), { virtual: true })
 
 jest.mock('../client/api/shoppingSharing', () => ({ discoverShoppingShares: jest.fn(), getShoppingShare: jest.fn(), shoppingSharingRequest: jest.fn() }))
 jest.mock('../client/api/aiItemEnrichment', () => ({ enrichItemsWithAi: jest.fn() }))
@@ -26,6 +31,7 @@ const snapshot = {
 
 beforeEach(() => {
   jest.useFakeTimers()
+  jest.mocked(enrichItemsWithAi).mockClear()
   localStorage.clear()
   mockAuth.email = 'guest@example.com'
   jest.mocked(discoverShoppingShares).mockResolvedValue([{ id: snapshot.id, name: snapshot.name, owner: snapshot.owner }])
@@ -359,4 +365,44 @@ it('keeps multiple participant avatars and theme controls in the responsive meta
   expect(avatars).toHaveTextContent('+4')
   expect(controls).toContainElement(screen.getByLabelText('sharing.theme'))
   expect(controls?.querySelector('.shared-theme-label')).toHaveTextContent('sharing.theme')
+})
+
+it.each([
+  { name: 'Hearts of palm', previousCategory: 'Dairy' },
+  { name: 'canned corn', previousCategory: OTHER_CATEGORY_NAME }
+])('moves $name into a new empty catalog category and reloads the grouping', async ({ name, previousCategory }) => {
+  const { service, invite, write } = fixture()
+  const shareId = await invite()
+  const household = `users/${householdId}`
+  write(`${household}/groceries/a/item`, name)
+  write(`${household}/groceries/a/category`, previousCategory)
+  const readShare = (id: string) => service.execute(guest, { action: 'snapshot', shareId: id }) as Promise<ShoppingShareSnapshot>
+  jest.mocked(getShoppingShare).mockImplementation(readShare)
+  jest.mocked(shoppingSharingRequest).mockImplementation(input => service.execute(guest, input))
+
+  const page = render(<SharedShoppingList shareId={shareId} />)
+  await screen.findByText(name)
+  write(`${household}/categories/canned`, { name: 'Canned goods', color: '#123456', icon: '🥫', order: 3 })
+  await act(async () => { jest.advanceTimersByTime(5000) })
+  expect(screen.queryByRole('heading', { name: /Canned goods/ })).not.toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('shoppingList:unifiedAdd.label'), { target: { value: name } })
+  fireEvent.click(screen.getByRole('button', { name: 'shoppingList:item.info' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'shoppingList:item.edit' }))
+  const picker = screen.getByLabelText('sharing.itemCategory')
+  expect(picker).toHaveValue(previousCategory)
+  expect(within(picker).getByRole('option', { name: 'Canned goods' })).toBeInTheDocument()
+  expect(within(picker).queryByRole('option', { name: 'Health' })).not.toBeInTheDocument()
+  fireEvent.change(picker, { target: { value: 'Canned goods' } })
+  fireEvent.click(screen.getByRole('button', { name: 'sharing.save' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(screen.getByRole('heading', { name: /Canned goods/ })).toBeInTheDocument()
+  expect(enrichItemsWithAi).not.toHaveBeenCalled()
+  const refreshed = await readShare(shareId)
+  expect(refreshed.items.find(item => item.key === 'a')).toMatchObject({ item: name, category: 'Canned goods' })
+
+  page.unmount()
+  render(<SharedShoppingList shareId={shareId} />)
+  const heading = await screen.findByRole('heading', { name: /Canned goods/ })
+  expect(within(heading.closest('.flat-section')!).getByText(name)).toBeInTheDocument()
 })

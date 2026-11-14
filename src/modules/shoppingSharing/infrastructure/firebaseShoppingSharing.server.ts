@@ -6,6 +6,8 @@ import type { Database } from 'firebase-admin/database'
 import { z } from 'zod'
 import { ApplicationError, type UserPrincipal } from '../../shared'
 import type { GroceryItem } from '../../../types'
+import { OTHER_CATEGORY_NAME } from '../../../lib/categories'
+import type { MutateList } from '../../shared/server'
 import type { ShoppingShareCategory, ShoppingShareMember, ShoppingShareSnapshot, ShoppingShareSummary } from '..'
 
 const emailSchema = z.string().trim().toLowerCase().email().max(254)
@@ -47,10 +49,69 @@ const emailKey = (email: string) => digest(email.trim().toLowerCase())
 const shareKey = (householdId: string, listName: string | null) => digest(JSON.stringify([householdId, listName]))
 const summary = (id: string, share: Share): ShoppingShareSummary => ({ id, name: share.listName ?? '', owner: share.owner })
 
+type GroceryRows = Record<string, GroceryItem>
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+const groceryRows = (value: unknown): GroceryRows =>
+  Object.fromEntries(Object.entries(value ?? {}).filter(([, row]) => isRecord(row)))
+
+// Firebase's export format wraps scalar fields that carry a priority.
+function scalar(value: unknown): unknown {
+  return isRecord(value) && Object.hasOwn(value, '.value') ? value['.value'] : value
+}
+
+const belongsToShare = (row: GroceryItem, share: Share) =>
+  (scalar(row.list_name) || null) === (share.listName ?? null)
+
+function eligibleCategories(catalog: unknown, rows: GroceryRows, share: Share): ShoppingShareCategory[] {
+  const used = new Set<string>()
+  const inShare = new Set<string>()
+  for (const row of Object.values(rows)) {
+    const category = scalar(row.category)
+    if (typeof category !== 'string') continue
+    used.add(category)
+    if (belongsToShare(row, share)) inShare.add(category)
+  }
+  // The catalog belongs to the household. An unused entry is available to any
+  // share, but use exclusively in other lists keeps the entry private.
+  return Object.values(catalog ?? {})
+    .filter(isRecord)
+    .flatMap(value => {
+      const name = scalar(value.name)
+      if (typeof name !== 'string' || (used.has(name) && !inShare.has(name))) return []
+      return [{
+        name,
+        color: typeof value.color === 'string' ? value.color : '#94a3b8',
+        icon: typeof value.icon === 'string' ? value.icon : '📌',
+        order: typeof value.order === 'number' ? value.order : Number.MAX_SAFE_INTEGER
+      }]
+    })
+}
+
+function updateGrocery(row: GroceryItem, fields: z.infer<typeof itemFields>, now: string, principal: UserPrincipal) {
+  const { name, ...updates } = fields
+  const next = { ...row }
+  const changedFields = { ...updates, ...(name !== undefined ? { item: name } : {}), modified_at: now, modified_by: principal.email }
+  for (const [key, value] of Object.entries(changedFields)) {
+    const current = row[key as keyof GroceryItem]
+    if (value === undefined || scalar(current) === value) continue
+    Object.assign(next, { [key]: value !== null && isRecord(current) && Object.hasOwn(current, '.priority')
+      ? { '.value': value, '.priority': current['.priority'] }
+      : value })
+  }
+  return next
+}
+
 // These grants NEVER write household members/invites/memberOf. All reads and
 // writes for a guest pass through this service; RTDB denies direct client access.
 export class FirebaseShoppingSharingService {
-  constructor(private readonly database: Database, private readonly auth: Pick<Auth, 'getUserByEmail'>) {}
+  constructor(
+    private readonly database: Database,
+    private readonly auth: Pick<Auth, 'getUserByEmail'>,
+    private readonly mutateHousehold: MutateList
+  ) {}
 
   private identity(principal: UserPrincipal): string {
     if (!principal.emailVerified || !principal.email) {
@@ -139,28 +200,19 @@ export class FirebaseShoppingSharingService {
         await this.mutate(principal, share, input.mutation)
         return { ok: true }
       }
-      const rows = (await this.database.ref(`users/${share.householdId}/groceries`).get()).val() || {}
+      const household = (await this.database.ref(`users/${share.householdId}`).get()).val()
+      if (household?.ownerUid !== share.ownerUid) throw new ApplicationError('forbidden', 'List ownership changed')
+      const rows = groceryRows(household.groceries)
       const items: GroceryItem[] = Object.entries(rows)
-        .filter(([, value]) => ((value as GroceryItem).list_name || null) === (share.listName ?? null))
-        .map(([key, value]) => {
-          const row = value as GroceryItem
+        .filter(([, row]) => belongsToShare(row, share))
+        .map(([key, row]) => {
           // Whitelist fields; no household metadata, other list names, or image
           // document references are returned to scoped guests.
           return { key, item: row.item, category: row.category, bought: row.bought,
             added_at: row.added_at, note: row.note ?? null, quantity: row.quantity ?? null,
             unit: row.unit ?? null, urgency: row.urgency ?? 'normal' }
         })
-      const itemCategories = new Set(items.map(item => item.category).filter((name): name is string => !!name))
-      const categoryRows = (await this.database.ref(`users/${share.householdId}/categories`).get()).val() || {}
-      const categories: ShoppingShareCategory[] = Object.values(categoryRows)
-        .filter((value): value is Record<string, unknown> => !!value && typeof value === 'object')
-        .filter(value => typeof value.name === 'string' && itemCategories.has(value.name))
-        .map(value => ({
-          name: value.name as string,
-          color: typeof value.color === 'string' ? value.color : '#94a3b8',
-          icon: typeof value.icon === 'string' ? value.icon : '📌',
-          order: typeof value.order === 'number' ? value.order : Number.MAX_SAFE_INTEGER
-        }))
+      const categories = eligibleCategories(household.categories, rows, share)
         .sort((left, right) => left.order - right.order || left.name.localeCompare(right.name, 'he'))
       return { ...summary(input.shareId, share), isOwner: share.ownerUid === principal.uid,
         members: Object.values(share.members || {}), items, categories } satisfies ShoppingShareSnapshot
@@ -182,10 +234,40 @@ export class FirebaseShoppingSharingService {
   private async mutate(principal: UserPrincipal, share: Share, mutation: z.infer<typeof mutationSchema>): Promise<void> {
     const groceries = this.database.ref(`users/${share.householdId}/groceries`)
     const now = new Date().toISOString()
+    const makeGrocery = (item: z.infer<typeof itemFields> & { name: string }) => {
+      const { name, ...fields } = item
+      return { ...fields, item: name, category: fields.category ?? OTHER_CATEGORY_NAME, bought: false,
+        added_at: now, modified_at: now, modified_by: principal.email, created_by: principal.email, list_name: share.listName ?? null }
+    }
+    if (mutation.operation !== 'delete' && mutation.item.category && mutation.item.category !== OTHER_CATEGORY_NAME) {
+      const category = mutation.item.category
+      const itemId = mutation.operation === 'update' ? mutation.itemId : groceries.push().key
+      if (!itemId) throw new ApplicationError('upstream_failed', 'Firebase did not assign a grocery key')
+      const addedGrocery = mutation.operation === 'add' ? makeGrocery(mutation.item) : undefined
+      // Categories and all list scopes share this parent. The conditional write
+      // rechecks both on conflicts and preserves unrelated Firebase metadata.
+      const result = await this.mutateHousehold(share.householdId, household => {
+        if (scalar(household.ownerUid) !== share.ownerUid) throw new ApplicationError('forbidden', 'List ownership changed')
+        const rows = groceryRows(household.groceries)
+        const current = Object.hasOwn(rows, itemId) ? rows[itemId] : undefined
+        if (mutation.operation === 'update' && !(current && belongsToShare(current, share))) {
+          throw new ApplicationError('forbidden', 'Item does not belong to this shared list')
+        }
+        if (mutation.operation === 'add' && current) throw new ApplicationError('conflict', 'Grocery key already exists')
+        if (scalar(current?.category) !== category && !eligibleCategories(household.categories, rows, share).some(entry => entry.name === category)) {
+          throw new ApplicationError('invalid_input', 'Category is unavailable for this shared list')
+        }
+        const next = current ? updateGrocery(current, mutation.item, now, principal) : addedGrocery
+        return {
+          value: { ...household, groceries: { ...household.groceries as Record<string, unknown>, [itemId]: next } },
+          result: true
+        }
+      })
+      if (!result) throw new ApplicationError('forbidden', 'List ownership changed')
+      return
+    }
     if (mutation.operation === 'add') {
-      const { name, ...fields } = mutation.item
-      await groceries.push({ ...fields, item: name, category: fields.category || 'אחר', bought: false,
-        added_at: now, modified_at: now, modified_by: principal.email, created_by: principal.email, list_name: share.listName ?? null })
+      await groceries.push(makeGrocery(mutation.item))
       return
     }
     // Check list_name INSIDE the transaction, so moving an item to another list
@@ -196,11 +278,10 @@ export class FirebaseShoppingSharingService {
       // The first callback may see an empty local cache. A null no-op forces a
       // server compare/retry; aborting here would reject valid uncached items.
       if (!row) return null
-      if ((row.list_name || null) !== (share.listName ?? null)) return
+      if (!belongsToShare(row, share)) return
       authorizedItem = true
       if (mutation.operation === 'delete') return null
-      const { name, ...fields } = mutation.item
-      return { ...row, ...fields, ...(name !== undefined ? { item: name } : {}), modified_at: now, modified_by: principal.email }
+      return updateGrocery(row, mutation.item, now, principal)
     })
     if (!result.committed || !authorizedItem) throw new ApplicationError('forbidden', 'Item does not belong to this shared list')
   }
